@@ -1,4 +1,3 @@
-//go:build cosmos
 
 // Package types provides core constants and helpers for the registry module.
 //

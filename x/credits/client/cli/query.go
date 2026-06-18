@@ -1,4 +1,3 @@
-//go:build cosmos
 
 // Package cli provides CLI query commands for the credits module.
 package cli

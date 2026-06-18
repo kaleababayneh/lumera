@@ -1,4 +1,3 @@
-//go:build cosmos && cosmos_full
 
 // Package keeper_test provides comprehensive tests for the credits module
 // using real Cosmos SDK keepers instead of mocks. These tests verify

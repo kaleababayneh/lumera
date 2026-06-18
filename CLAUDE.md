@@ -179,3 +179,39 @@ EVM integration tests live in `tests/integration/evm/` with subpackages: ante, c
 - EVM chain ID: `76857769`, key type: `eth_secp256k1`
 - CosmWasm: wasmd v0.61.6 with wasmvm v3.0.3 (requires `libwasmvm.x86_64.so` at runtime)
 - Ignite scaffolding comments (`# stargate/app/...`) mark extension points - preserve these when editing
+
+---
+
+# Lumera AI Module Port — Progress Log
+
+Porting lumera_ai's core modules onto this chain (target: **SDK v0.53.6 / IBC v10.5.0 /
+CometBFT v0.38.21 / Go 1.26.2**). Approach: land each module with its not-yet-ported
+dependency keepers **stubbed** (every stub marked `// TEMPORARY: replace with real <module>
+keeper before mainnet`), then replace each stub with the real module **one-by-one** until it's
+real end-to-end. **Production target — no stubs may ship to mainnet.**
+
+## Module 1: `x/credits`
+
+- [x] Copy `x/credits` + dependency-cluster type pkgs (`reserve`, `nft`, `registry`, `cac`,
+      `passport` types) + `internal/{logging,moneyguard}`; import paths rewritten
+      `lumera-ai` → `lumera`.
+- [x] v0.54→v0.53 changes so far: **`cosmossdk.io/log/v2` → `cosmossdk.io/log`** (only one yet);
+      added deps `gowebpki/jcs`, `shopspring/decimal`, `lib/pq`.
+- [x] De-tagged for the real tagless build (removed `//go:build cosmos*`; deleted `!cosmos`
+      lite variants). `x/credits/ibc/` left gated → **deferred to Phase 2 (IBC v11→v10)**.
+- [x] **Tagless `go build` of credits (non-ibc) + type pkgs: GREEN** — compiles in lumera's
+      real config.
+- [ ] depinject wiring: `proto/lumera/credits/module/module.proto`,
+      `x/credits/module/depinject.go`, 4 **stub** keepers (Insurance/Registry/Reserve/NFT),
+      register in `app/app_config.go`, extract `&app.CreditsKeeper` in `app/app.go`. Mirror
+      `x/lumeraid/module/depinject.go`.
+- [ ] `make build` (full `lumerad` with credits wired).
+- [ ] Smoke test on a localnet: submit a credits tx, query state.
+- [ ] Port unit tests → `go test ./x/credits/...` green.
+
+### Stubs in place (TEMPORARY — remove before testnet)
+- _(none yet — added during depinject wiring)_
+
+## Later modules (same loop, dependency order)
+`registry` → `reserve`/`nft` → `payment_rails` → `passport`. As each lands, replace its stub
+in the dependents' `ProvideModule` with the real keeper.

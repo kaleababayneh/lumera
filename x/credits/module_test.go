@@ -1,4 +1,3 @@
-//go:build cosmos
 
 package credits
 

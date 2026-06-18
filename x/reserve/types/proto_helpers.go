@@ -1,4 +1,3 @@
-//go:build cosmos
 
 // Package types defines data structures for the reserve module.
 package types

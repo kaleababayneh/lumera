@@ -1,4 +1,3 @@
-//go:build cosmos
 
 // Package types centralizes shared protobuf-backed types and helpers for the registry module.
 //

@@ -1,4 +1,3 @@
-//go:build cosmos
 
 // Package types provides codec registration utilities for the reserve module.
 package types

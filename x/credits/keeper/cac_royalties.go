@@ -1,4 +1,3 @@
-//go:build cosmos && cosmos_full
 
 // Package keeper hosts the core credits keeper implementation.
 package keeper

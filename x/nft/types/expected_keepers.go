@@ -1,4 +1,3 @@
-//go:build cosmos
 
 // Package types defines the keeper interfaces consumed by the toolpack NFT module.
 package types

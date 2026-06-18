@@ -1,4 +1,3 @@
-//go:build cosmos
 
 // Package types defines public constants used for credits module settlement events.
 //

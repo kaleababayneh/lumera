@@ -1,4 +1,3 @@
-//go:build cosmos
 
 // Package types defines bond-related helper types for the registry module.
 package types

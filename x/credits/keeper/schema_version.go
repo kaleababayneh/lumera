@@ -1,4 +1,3 @@
-//go:build cosmos && cosmos_full
 
 // Package keeper provides schema versioning utilities for the credits module.
 package keeper

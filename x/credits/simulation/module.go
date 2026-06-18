@@ -1,4 +1,3 @@
-//go:build cosmos
 
 // Package simulation implements simulation operations for the credits module.
 package simulation

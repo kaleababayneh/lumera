@@ -1,4 +1,3 @@
-//go:build cosmos && cosmos_full
 
 package cli_test
 

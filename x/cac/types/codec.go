@@ -1,4 +1,3 @@
-//go:build cosmos
 
 // Package types holds shared types and helpers for the CAC (Content-Addressed Cache) module.
 //
