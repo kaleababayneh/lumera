@@ -1,0 +1,1 @@
+{"type":"adaptive_burn_rate_reason","attributes":[{"key":"direction","value":"increase"},{"key":"reason","value":"below_target_deflation"},{"key":"clamp_reason","value":"none"},{"key":"death_spiral_triggered","value":"false"}]}

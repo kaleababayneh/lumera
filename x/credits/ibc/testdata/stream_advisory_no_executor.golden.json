@@ -1,0 +1,249 @@
+{
+  "scenario": "advisory_no_executor",
+  "packet_id": "stream-advisory",
+  "event_count": 7,
+  "ordered_stream": [
+    {
+      "index": 0,
+      "type": "fee_collected",
+      "attributes": [
+        {
+          "key": "settlement_id",
+          "value": "stream-advisory"
+        },
+        {
+          "key": "total_amount",
+          "value": "1000000"
+        },
+        {
+          "key": "denom",
+          "value": "ulac"
+        },
+        {
+          "key": "source_channel",
+          "value": "channel-0"
+        },
+        {
+          "key": "destination_channel",
+          "value": "channel-1"
+        },
+        {
+          "key": "executed",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "type": "fee_split_applied",
+      "attributes": [
+        {
+          "key": "settlement_id",
+          "value": "stream-advisory"
+        },
+        {
+          "key": "burn_amount",
+          "value": "30000"
+        },
+        {
+          "key": "insurance_amount",
+          "value": "19400"
+        },
+        {
+          "key": "net_amount",
+          "value": "950600"
+        },
+        {
+          "key": "publisher_amount",
+          "value": "665420"
+        },
+        {
+          "key": "router_amount",
+          "value": "190120"
+        },
+        {
+          "key": "referrer_amount",
+          "value": "95060"
+        },
+        {
+          "key": "denom",
+          "value": "ulac"
+        },
+        {
+          "key": "burn_bps",
+          "value": "300"
+        },
+        {
+          "key": "insurance_bps",
+          "value": "200"
+        },
+        {
+          "key": "publisher_bps",
+          "value": "7000"
+        },
+        {
+          "key": "router_bps",
+          "value": "2000"
+        },
+        {
+          "key": "referrer_bps",
+          "value": "1000"
+        },
+        {
+          "key": "executed",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "type": "transfer_routed",
+      "attributes": [
+        {
+          "key": "settlement_id",
+          "value": "stream-advisory"
+        },
+        {
+          "key": "recipient_role",
+          "value": "publisher"
+        },
+        {
+          "key": "recipient",
+          "value": "lumera1pub-advisory"
+        },
+        {
+          "key": "amount",
+          "value": "665420"
+        },
+        {
+          "key": "denom",
+          "value": "ulac"
+        },
+        {
+          "key": "executed",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "type": "transfer_routed",
+      "attributes": [
+        {
+          "key": "settlement_id",
+          "value": "stream-advisory"
+        },
+        {
+          "key": "recipient_role",
+          "value": "router"
+        },
+        {
+          "key": "recipient",
+          "value": "lumera1router-advisory"
+        },
+        {
+          "key": "amount",
+          "value": "190120"
+        },
+        {
+          "key": "denom",
+          "value": "ulac"
+        },
+        {
+          "key": "executed",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "type": "transfer_routed",
+      "attributes": [
+        {
+          "key": "settlement_id",
+          "value": "stream-advisory"
+        },
+        {
+          "key": "recipient_role",
+          "value": "referrer"
+        },
+        {
+          "key": "recipient",
+          "value": "referrer"
+        },
+        {
+          "key": "amount",
+          "value": "95060"
+        },
+        {
+          "key": "denom",
+          "value": "ulac"
+        },
+        {
+          "key": "executed",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "index": 5,
+      "type": "transfer_routed",
+      "attributes": [
+        {
+          "key": "settlement_id",
+          "value": "stream-advisory"
+        },
+        {
+          "key": "recipient_role",
+          "value": "burn"
+        },
+        {
+          "key": "recipient",
+          "value": "burn"
+        },
+        {
+          "key": "amount",
+          "value": "30000"
+        },
+        {
+          "key": "denom",
+          "value": "ulac"
+        },
+        {
+          "key": "executed",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "index": 6,
+      "type": "transfer_routed",
+      "attributes": [
+        {
+          "key": "settlement_id",
+          "value": "stream-advisory"
+        },
+        {
+          "key": "recipient_role",
+          "value": "insurance"
+        },
+        {
+          "key": "recipient",
+          "value": "insurance_pool"
+        },
+        {
+          "key": "amount",
+          "value": "19400"
+        },
+        {
+          "key": "denom",
+          "value": "ulac"
+        },
+        {
+          "key": "executed",
+          "value": "false"
+        }
+      ]
+    }
+  ]
+}

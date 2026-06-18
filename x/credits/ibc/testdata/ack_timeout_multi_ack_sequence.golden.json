@@ -1,0 +1,8 @@
+{
+  "scenario": "multi_ack_sequence",
+  "handler_called": "OnAck",
+  "underlying_app_called": true,
+  "middleware_event_count": 0,
+  "num_iterations": 5,
+  "trail": null
+}

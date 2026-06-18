@@ -1,0 +1,1 @@
+{"type":"adaptive_burn_rate_evaluated","attributes":[{"key":"old_rate_bps","value":"300"},{"key":"requested_rate_bps","value":"350"},{"key":"new_rate_bps","value":"325"},{"key":"annualized_deflation_bps","value":"200"},{"key":"target_annual_deflation_bps","value":"250"},{"key":"period_contraction_bps","value":"50"},{"key":"sample_count","value":"100"}]}

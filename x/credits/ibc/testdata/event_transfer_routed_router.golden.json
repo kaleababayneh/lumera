@@ -1,0 +1,1 @@
+{"type":"transfer_routed","attributes":[{"key":"settlement_id","value":"settle-001"},{"key":"recipient_role","value":"router"},{"key":"recipient","value":"cosmos1routeraddress"},{"key":"amount","value":"194000utoken"},{"key":"denom","value":"utoken"},{"key":"executed","value":"true"}]}

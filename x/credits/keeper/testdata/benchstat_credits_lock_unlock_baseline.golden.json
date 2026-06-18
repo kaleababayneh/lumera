@@ -1,0 +1,50 @@
+{
+  "suite": "credits_lock_unlock_benchstat",
+  "runs_per_bench": 10,
+  "baselines": [
+    {
+      "bench_name": "GetLock_existingLock",
+      "num_runs": 10,
+      "allocs_p25": 19,
+      "allocs_median": 19,
+      "allocs_p75": 19,
+      "bytes_p25": 1680,
+      "bytes_median": 1680,
+      "bytes_p75": 1680,
+      "ns_median": 1850
+    },
+    {
+      "bench_name": "LockCredits_freshLock",
+      "num_runs": 10,
+      "allocs_p25": 228,
+      "allocs_median": 228,
+      "allocs_p75": 228,
+      "bytes_p25": 24274,
+      "bytes_median": 24282,
+      "bytes_p75": 24286,
+      "ns_median": 69276
+    },
+    {
+      "bench_name": "UnlockCredits_existingLock",
+      "num_runs": 10,
+      "allocs_p25": 230,
+      "allocs_median": 230,
+      "allocs_p75": 230,
+      "bytes_p25": 20963,
+      "bytes_median": 20967,
+      "bytes_p75": 20973,
+      "ns_median": 63802
+    },
+    {
+      "bench_name": "derivePolicyID_pure_helper",
+      "num_runs": 10,
+      "allocs_p25": 2,
+      "allocs_median": 2,
+      "allocs_p75": 2,
+      "bytes_p25": 56,
+      "bytes_median": 56,
+      "bytes_p75": 56,
+      "ns_median": 130
+    }
+  ]
+}

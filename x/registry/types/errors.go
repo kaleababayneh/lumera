@@ -1,0 +1,48 @@
+//go:build cosmos
+
+package types
+
+import (
+	"cosmossdk.io/errors"
+)
+
+// Registry module error codes
+var (
+	ErrInvalidAmount           = errors.Register(ModuleName, 2, "invalid amount")
+	ErrInvalidBPS              = errors.Register(ModuleName, 3, "invalid basis points value")
+	ErrInvalidSplits           = errors.Register(ModuleName, 4, "revenue splits must sum to 1.0")
+	ErrInvalidDuration         = errors.Register(ModuleName, 5, "invalid duration")
+	ErrToolNotFound            = errors.Register(ModuleName, 6, "tool not found")
+	ErrToolExists              = errors.Register(ModuleName, 7, "tool already exists")
+	ErrInsufficientBond        = errors.Register(ModuleName, 8, "insufficient bond amount")
+	ErrPendingReceipts         = errors.Register(ModuleName, 9, "tool has pending receipts")
+	ErrActiveChallenges        = errors.Register(ModuleName, 10, "tool has active challenges")
+	ErrInvalidSignature        = errors.Register(ModuleName, 11, "invalid receipt signature")
+	ErrQuoteExceeded           = errors.Register(ModuleName, 12, "quote deviation exceeded")
+	ErrDisputeExpired          = errors.Register(ModuleName, 13, "dispute window expired")
+	ErrInsufficientStake       = errors.Register(ModuleName, 14, "insufficient dispute stake")
+	ErrReceiptNotFound         = errors.Register(ModuleName, 15, "receipt not found")
+	ErrDisputeActive           = errors.Register(ModuleName, 16, "dispute window still active")
+	ErrChallengeActive         = errors.Register(ModuleName, 17, "challenge still active")
+	ErrBondNotFound            = errors.Register(ModuleName, 18, "bond record not found")
+	ErrUnauthorized            = errors.Register(ModuleName, 19, "unauthorized")
+	ErrReceiptExists           = errors.Register(ModuleName, 20, "receipt already exists")
+	ErrDuplicateReceipt        = errors.Register(ModuleName, 21, "duplicate receipt")
+	ErrChallengeNotFound       = errors.Register(ModuleName, 22, "challenge not found")
+	ErrInvalidState            = errors.Register(ModuleName, 23, "invalid state transition")
+	ErrSBOMMissing             = errors.Register(ModuleName, 24, "tool SBOM missing")
+	ErrSBOMStale               = errors.Register(ModuleName, 25, "tool SBOM is stale")
+	ErrAttestationExpired      = errors.Register(ModuleName, 26, "attestation proof expired")
+	ErrAttestationMissing      = errors.Register(ModuleName, 27, "attestation proof missing")
+	ErrSchemaMissing           = errors.Register(ModuleName, 28, "tool schema hash missing")
+	ErrAttestationRootMissing  = errors.Register(ModuleName, 29, "attestation root missing")
+	ErrMaxToolsReached         = errors.Register(ModuleName, 30, "max active tools reached")
+	ErrCategoryLimit           = errors.Register(ModuleName, 31, "category capacity exceeded")
+	ErrWithdrawCooldown        = errors.Register(ModuleName, 32, "bond withdrawal cooldown active")
+	ErrUnauthorizedFieldUpdate = errors.Register(ModuleName, 33, "field update not permitted")
+	ErrAttestationMismatch     = errors.Register(ModuleName, 34, "attestation proof does not match tool root")
+	ErrSchemaHashMismatch      = errors.Register(ModuleName, 35, "tool schema hash does not match canonical schema")
+	ErrWatcherExists           = errors.Register(ModuleName, 36, "watcher already exists")
+	ErrWatcherNotFound         = errors.Register(ModuleName, 37, "watcher not found")
+	ErrWatcherInactive         = errors.Register(ModuleName, 38, "watcher not active")
+)

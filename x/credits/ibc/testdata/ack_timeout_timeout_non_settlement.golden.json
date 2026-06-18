@@ -1,0 +1,8 @@
+{
+  "scenario": "timeout_non_settlement",
+  "handler_called": "OnTimeout",
+  "underlying_app_called": true,
+  "middleware_event_count": 0,
+  "num_iterations": 1,
+  "trail": null
+}

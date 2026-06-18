@@ -1,0 +1,40 @@
+{
+  "suite": "credits_lock_unlock_hot_paths",
+  "anchors": [
+    {
+      "bench_name": "GetLock_existingLock",
+      "allocs_per_op": 19,
+      "bytes_per_op": 1680,
+      "baseline_ns_per_op": 1821,
+      "bytes_tolerance_pct": 10
+    },
+    {
+      "bench_name": "LockCredits_freshLock",
+      "allocs_per_op": 228,
+      "bytes_per_op": 24297,
+      "baseline_ns_per_op": 69000,
+      "bytes_tolerance_pct": 10
+    },
+    {
+      "bench_name": "SaveLock_overwriteSameLockID",
+      "allocs_per_op": 16,
+      "bytes_per_op": 2056,
+      "baseline_ns_per_op": 2015,
+      "bytes_tolerance_pct": 10
+    },
+    {
+      "bench_name": "UnlockCredits_existingLock",
+      "allocs_per_op": 230,
+      "bytes_per_op": 21073,
+      "baseline_ns_per_op": 68822,
+      "bytes_tolerance_pct": 10
+    },
+    {
+      "bench_name": "derivePolicyID_pure_helper",
+      "allocs_per_op": 2,
+      "bytes_per_op": 56,
+      "baseline_ns_per_op": 124,
+      "bytes_tolerance_pct": 10
+    }
+  ]
+}

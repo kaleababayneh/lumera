@@ -1,0 +1,1 @@
+{"egress_allowlist":["api.example.com","cdn.example.com"],"max_cpu_millicores":1000,"max_execution_sec":30,"max_memory_mb":512,"pii_handling":"encrypt_at_rest","profile":"strict","requires_enclave":true}
