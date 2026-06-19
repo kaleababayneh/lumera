@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package lumera.reserve.v1;
+
+import "cosmos/base/v1beta1/coin.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "x/reserve/types";
+
+// ReserveCommitmentStatus is the public lifecycle state exposed by reserve
+// queries. It intentionally avoids private routing metadata and raw claim IDs.
+enum ReserveCommitmentStatus {
+  RESERVE_COMMITMENT_STATUS_UNSPECIFIED = 0;
+  RESERVE_COMMITMENT_STATUS_ACTIVE = 1;
+  RESERVE_COMMITMENT_STATUS_EXPIRED = 2;
+  RESERVE_COMMITMENT_STATUS_EXHAUSTED = 3;
+  RESERVE_COMMITMENT_STATUS_REVOKED = 4;
+}
+
+// ReserveTierConfig describes one governance-controlled reserve SKU.
+message ReserveTierConfig {
+  string name = 1;
+  string min_commitment_amount = 2;
+  uint32 discount_bps = 3;
+  uint64 default_duration_seconds = 4;
+  uint32 max_active_per_policy = 5;
+  bool rollover_allowed = 6;
+}
+
+// ReserveParams is the public wire shape for reserve module parameters.
+message ReserveParams {
+  string credit_denom = 1;
+  repeated ReserveTierConfig tiers = 2;
+}
+
+// ReserveCommitmentSummary is a redacted commitment view for enterprise and
+// operator queries. It excludes private routing state, claim internals, and
+// non-public allocation metadata.
+message ReserveCommitmentSummary {
+  string commitment_id = 1;
+  string owner = 2;
+  string policy_id = 3;
+  string tool_id = 4;
+  string tier = 5;
+  cosmos.base.v1beta1.Coin total_amount = 6;
+  cosmos.base.v1beta1.Coin remaining_amount = 7;
+  uint32 discount_bps = 8;
+  google.protobuf.Timestamp starts_at = 9;
+  google.protobuf.Timestamp expires_at = 10;
+  bool rollover_allowed = 11;
+  ReserveCommitmentStatus status = 12;
+  uint32 remaining_bps = 13;
+}

@@ -1,0 +1,357 @@
+syntax = "proto3";
+package lumera.credits.v1;
+
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "x/credits/types";
+
+message Params {
+  string credit_denom = 1;
+  uint32 default_lock_ttl_seconds = 2;
+  uint32 max_lock_ttl_seconds = 3;
+  uint32 settlement_grace_period_seconds = 4;
+  string treasury_address = 5;
+  uint32 max_settlements_per_block = 6;
+  uint32 max_expired_locks_per_block = 7;
+  uint32 max_pruned_settlements_per_block = 8;
+  // Economic parameters per whitepaper section 8.2
+  uint32 burn_rate_spend_bps = 9; // β_spend: burn rate for tool spending (basis
+                                  // points, default 300 = 3%)
+  uint32 burn_rate_acq_bps = 10;  // β_acq: burn rate for LAC acquisition (basis
+                                  // points, default 100 = 1%)
+  uint32 insurance_bps =
+      11; // Insurance contribution rate (basis points, default 200 = 2%)
+  uint32 dispute_window_hours =
+      12; // Hours before pending settlements auto-finalize (default 24)
+  uint32 target_annual_deflation_bps =
+      13; // Target annualized supply contraction from settlement burns.
+  uint32 min_burn_rate_spend_bps =
+      14; // Lower bound for adaptive settlement burn-rate adjustments.
+  uint32 max_burn_rate_spend_bps =
+      15; // Upper bound for adaptive settlement burn-rate adjustments.
+  uint32 burn_rate_adjustment_epoch =
+      16; // Evaluate adaptive burn rate every N blocks (0 disables).
+  uint32 death_spiral_supply_contraction_bps =
+      17; // Safety threshold for trailing window contraction before capping
+          // burn.
+  uint32 death_spiral_burn_rate_cap_bps =
+      18; // Maximum burn rate allowed while death-spiral protection is active.
+  uint32 overdraft_max_credit_line_to_bond_bps =
+      19; // Maximum overdraft credit line as a share of bonded value. 0
+          // disables overdraft facility admission.
+  uint32 overdraft_liquidation_threshold_bps =
+      20; // Utilization threshold that requires liquidation handling when
+          // overdraft is enabled.
+}
+
+enum LockStatus {
+  LOCK_STATUS_UNSPECIFIED = 0;
+  LOCK_STATUS_ACTIVE = 1;
+  LOCK_STATUS_RELEASED = 2;
+  LOCK_STATUS_BURNED = 3;
+  LOCK_STATUS_EXPIRED = 4;
+}
+
+message Lock {
+  string lock_id = 1;
+  string router = 2;
+  string session_id = 3;
+  string tool_id = 4;
+  string quote_id = 5;
+  string policy_version = 6;
+  string intent_hash = 7;
+  cosmos.base.v1beta1.Coin amount = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp expires_at = 10;
+  LockStatus status = 11;
+  string last_error = 12;
+  string toolpack_id = 13;
+}
+
+message Settlement {
+  string lock_id = 1;
+  string receipt_id = 2;
+  string policy_version = 3;
+  cosmos.base.v1beta1.Coin amount_burned = 4;
+  cosmos.base.v1beta1.Coin refund_amount = 5;
+  google.protobuf.Timestamp settled_at = 6;
+  string toolpack_id = 7;
+}
+
+// SettlementStatus enum for settlement states
+enum SettlementStatus {
+  SETTLEMENT_STATUS_UNSPECIFIED = 0;
+  SETTLEMENT_STATUS_PENDING = 1;
+  SETTLEMENT_STATUS_COMPLETED = 2;
+  SETTLEMENT_STATUS_FAILED = 3;
+  SETTLEMENT_STATUS_DISPUTED = 4;
+  SETTLEMENT_STATUS_REFUNDED = 5;
+}
+
+// SettlementRecord tracks a pending or completed settlement
+message SettlementRecord {
+  string id = 1;
+  string tool_id = 2;
+  string publisher_id = 3;
+  string user_id = 4;
+  string router_id = 5;
+  string referrer_id = 6;
+  repeated cosmos.base.v1beta1.Coin total_cost = 7;
+  repeated cosmos.base.v1beta1.Coin burn_amount = 8;
+  repeated cosmos.base.v1beta1.Coin net_amount = 9;
+  bool cache_hit = 10;
+  string origin_tool_id = 11;
+  SettlementStatus status = 12;
+  google.protobuf.Timestamp timestamp = 13;
+  google.protobuf.Timestamp completed_at = 14;
+  string failure_reason = 15;
+  string dispute_id = 16;
+  string receipt_hash = 17;
+  string toolpack_id = 18;
+  string action_id = 19;
+  uint64 fill_count = 20;
+  cosmos.base.v1beta1.Coin cumulative_filled = 21;
+  string stage = 22;
+  // Optional origin-surface identifier for attribution (e.g.
+  // "injective:iagent").
+  string origin_id = 23;
+  // The computed origin-surface share (in coins) that was distributed during
+  // settlement.
+  repeated cosmos.base.v1beta1.Coin origin_share = 24;
+  string lock_id = 25;
+}
+
+// DisputeRecord tracks settlement disputes
+message DisputeRecord {
+  string id = 1;
+  string settlement_id = 2;
+  string disputed_by = 3;
+  string reason = 4;
+  repeated string evidence = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp resolved_at = 7;
+  string resolution = 8;
+  string status = 9; // "pending", "approved", "rejected"
+}
+
+// SettlementMetrics tracks settlement processing statistics
+message SettlementMetrics {
+  uint64 total_processed = 1;
+  uint64 total_errors = 2;
+  string last_processed_at = 3;
+  string total_burned = 4;
+  string total_distributed = 5;
+}
+
+// CACRoyaltyRecord tracks royalty distributions for cache hits.
+message CACRoyaltyRecord {
+  string record_id = 1;
+  string origin_tool_id = 2;
+  string serving_tool_id = 3;
+  string origin_publisher = 4;
+  string serving_publisher = 5;
+  repeated cosmos.base.v1beta1.Coin total_amount = 6;
+  repeated cosmos.base.v1beta1.Coin origin_share = 7;
+  repeated cosmos.base.v1beta1.Coin serving_share = 8;
+  string settlement_id = 9;
+  google.protobuf.Timestamp timestamp = 10;
+}
+
+// CACRoyaltyStats tracks cumulative royalty statistics for a tool.
+message CACRoyaltyStats {
+  string tool_id = 1;
+  uint64 total_cache_hits = 2;
+  repeated cosmos.base.v1beta1.Coin total_royalties_earned = 3;
+  repeated cosmos.base.v1beta1.Coin total_royalties_paid = 4;
+  google.protobuf.Timestamp last_updated = 5;
+}
+
+message GenesisState {
+  Params params = 1;
+  repeated Lock locks = 2;
+  repeated SettlementRecord settlements = 3;
+  repeated DisputeRecord disputes = 4;
+  SettlementMetrics metrics = 5;
+  repeated CACRoyaltyRecord cac_royalties = 6;
+  repeated CACRoyaltyStats cac_stats = 7;
+  uint64 cac_seq = 8;
+  uint64 lock_seq = 9;
+}
+
+message MsgLock {
+  string router = 1;
+  string session_id = 2;
+  string tool_id = 3;
+  string quote_id = 4;
+  string policy_version = 5;
+  string intent_hash = 6;
+  cosmos.base.v1beta1.Coin amount = 7;
+  google.protobuf.Timestamp expires_at = 8;
+}
+
+message MsgLockResponse {
+  string lock_id = 1;
+  google.protobuf.Timestamp expires_at = 2;
+}
+
+message MsgBurn {
+  string router = 1;
+  string lock_id = 2;
+  string receipt_id = 3;
+  cosmos.base.v1beta1.Coin amount = 4;
+}
+
+message MsgBurnResponse {}
+
+message MsgRelease {
+  string router = 1;
+  string lock_id = 2;
+  string reason = 3;
+}
+
+message MsgReleaseResponse {}
+
+message QueryLockRequest { string lock_id = 1; }
+
+message QueryLockResponse { Lock lock = 1; }
+
+message QueryLocksRequest {
+  string router = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+
+message QueryLocksResponse {
+  repeated Lock locks = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+enum HoldStatus {
+  HOLD_STATUS_UNSPECIFIED = 0;
+  HOLD_STATUS_HELD = 1;
+  HOLD_STATUS_CAPTURED = 2;
+  HOLD_STATUS_RELEASED = 3;
+  HOLD_STATUS_EXPIRED = 4;
+}
+
+enum HoldSettlementStatus {
+  HOLD_SETTLEMENT_STATUS_UNSPECIFIED = 0;
+  HOLD_SETTLEMENT_STATUS_UNKNOWN = 1;
+  HOLD_SETTLEMENT_STATUS_PENDING = 2;
+  HOLD_SETTLEMENT_STATUS_COMPLETED = 3;
+  HOLD_SETTLEMENT_STATUS_FAILED = 4;
+  HOLD_SETTLEMENT_STATUS_DISPUTED = 5;
+  HOLD_SETTLEMENT_STATUS_REFUNDED = 6;
+}
+
+enum HoldLifecycleEventType {
+  HOLD_LIFECYCLE_EVENT_TYPE_UNSPECIFIED = 0;
+  HOLD_LIFECYCLE_EVENT_TYPE_CREATED = 1;
+  HOLD_LIFECYCLE_EVENT_TYPE_SETTLEMENT_PENDING = 2;
+  HOLD_LIFECYCLE_EVENT_TYPE_SETTLEMENT_COMPLETED = 3;
+  HOLD_LIFECYCLE_EVENT_TYPE_RELEASED = 4;
+  HOLD_LIFECYCLE_EVENT_TYPE_EXPIRED = 5;
+  HOLD_LIFECYCLE_EVENT_TYPE_REFUND_RELEASED = 6;
+  HOLD_LIFECYCLE_EVENT_TYPE_BURNED = 7;
+  HOLD_LIFECYCLE_EVENT_TYPE_REVENUE_DISTRIBUTED = 8;
+  HOLD_LIFECYCLE_EVENT_TYPE_DISPUTED = 9;
+}
+
+enum HoldLifecycleEventSource {
+  HOLD_LIFECYCLE_EVENT_SOURCE_UNSPECIFIED = 0;
+  HOLD_LIFECYCLE_EVENT_SOURCE_LOCK = 1;
+  HOLD_LIFECYCLE_EVENT_SOURCE_UNLOCK = 2;
+  HOLD_LIFECYCLE_EVENT_SOURCE_SETTLEMENT = 3;
+  HOLD_LIFECYCLE_EVENT_SOURCE_BURN = 4;
+  HOLD_LIFECYCLE_EVENT_SOURCE_DISTRIBUTION = 5;
+  HOLD_LIFECYCLE_EVENT_SOURCE_DISPUTE = 6;
+}
+
+message HoldCost {
+  string amount = 1;
+  string currency = 2;
+}
+
+message HoldEconomicsContext {
+  HoldCost reserved_amount = 1;
+  HoldCost charged_amount = 2;
+  HoldCost remaining_reserved_amount = 3;
+  HoldCost burned_amount = 4;
+  HoldCost net_amount = 5;
+  HoldCost refund_amount = 6;
+}
+
+message HoldSettlementContext {
+  string receipt_id = 1;
+  string settlement_id = 2;
+  HoldSettlementStatus status = 3;
+  string stage = 4;
+  bool cache_hit = 5;
+  string action_id = 6;
+  string dispute_id = 7;
+  string failure_reason = 8;
+  uint64 fill_count = 9;
+  string completed_at_rfc3339 = 10;
+}
+
+message HoldLifecycleEvent {
+  HoldLifecycleEventType type = 1;
+  HoldLifecycleEventSource source_event = 2;
+  string observed_at_rfc3339 = 3;
+  string status = 4;
+  string reason = 5;
+  string receipt_id = 6;
+  string settlement_id = 7;
+  HoldCost amount = 8;
+}
+
+message HoldView {
+  string hold_id = 1;
+  string router_id = 2;
+  string session_id = 3;
+  string tool_id = 4;
+  string quote_id = 5;
+  string policy_version = 6;
+  string intent_hash = 7;
+  string toolpack_id = 8;
+  string created_at_rfc3339 = 9;
+  string expires_at_rfc3339 = 10;
+  HoldStatus status = 11;
+  string last_error = 12;
+  HoldEconomicsContext economics = 13;
+  HoldSettlementContext settlement = 14;
+  repeated HoldLifecycleEvent lifecycle = 15;
+}
+
+message QueryHoldRequest {
+  string hold_id = 1;
+  bool include_lifecycle_events = 2;
+}
+
+message QueryHoldResponse { HoldView hold = 1; }
+
+message QueryHoldsRequest {
+  string router = 1;
+  string session_id = 2;
+  bool active_only = 3;
+  bool include_lifecycle_events = 4;
+  cosmos.base.query.v1beta1.PageRequest pagination = 5;
+}
+
+message QueryHoldsResponse {
+  repeated HoldView holds = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+message QueryParamsRequest {}
+
+message QueryParamsResponse { Params params = 1; }
+
+service Query {
+  rpc Lock(QueryLockRequest) returns (QueryLockResponse);
+  rpc Locks(QueryLocksRequest) returns (QueryLocksResponse);
+  rpc Hold(QueryHoldRequest) returns (QueryHoldResponse);
+  rpc Holds(QueryHoldsRequest) returns (QueryHoldsResponse);
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse);
+}

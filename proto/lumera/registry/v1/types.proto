@@ -1,0 +1,747 @@
+syntax = "proto3";
+package lumera.registry.v1;
+
+import "cosmos/base/v1beta1/coin.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "x/registry/types";
+
+enum ToolVerifiedBadge {
+  TOOL_VERIFIED_BADGE_UNSPECIFIED = 0;
+  TOOL_VERIFIED_BADGE_BRONZE = 1;
+  TOOL_VERIFIED_BADGE_SILVER = 2;
+  TOOL_VERIFIED_BADGE_GOLD = 3;
+}
+
+// ToolCard represents a registered tool in the registry
+message ToolCard {
+  string tool_id = 1;
+  string owner = 2;
+  string version = 3;
+
+  repeated string categories = 4;
+  repeated string tags = 5;
+
+  string license_lane = 6;
+  repeated string jurisdictions = 7;
+
+  Pricing pricing = 8;
+  SLO slo = 9;
+  SandboxProfile sandbox = 10;
+  CachePolicy cache = 11;
+
+  bytes schema_hash = 12;
+  bytes sbom_hash = 13;
+  bytes attestation_root = 14;
+
+  string policy_tag = 15;
+  google.protobuf.Timestamp registered_at = 16;
+  google.protobuf.Timestamp updated_at = 17;
+
+  repeated Endpoint endpoints = 18;
+  repeated string mcp_protocols = 19;
+
+  string description = 20;
+  map<string, string> metadata = 21;
+  GasProfile gas_profile = 22;
+  string owner_pubkey = 23;
+  string input_schema = 24;
+  string output_schema = 25;
+  string error_schema = 26;
+  ToolVerifiedBadge verified_badge = 27;
+  string trust_class = 28;
+}
+
+// LaneRegistryEntry stores metadata for confidential/public execution lanes.
+message LaneRegistryEntry {
+  string lane_id = 1;
+  string lane_type = 2; // public|confidential_tee|confidential_publisher_tee
+  string operator_id = 3;
+
+  LaneAttestationPolicy attestation = 4;
+  LaneMeteringConfig metering = 5;
+  LaneComplianceConfig compliance = 6;
+  repeated bytes allowed_capsule_hashes = 7;
+}
+
+// LaneAttestationPolicy captures attestation requirements for a lane.
+message LaneAttestationPolicy {
+  string tee_type = 1; // sgx|sev_snp|nitro|sapphire|trustedzone
+  bytes policy_hash = 2;
+  repeated bytes allowed_measurements = 3;
+  uint32 min_svn = 4;
+  repeated bytes signer_keys = 5;
+}
+
+// LaneMeteringConfig defines how metering is computed for a lane.
+message LaneMeteringConfig {
+  string meter_type = 1; // tee_signed|watcher_verified
+  string pricing_model_id = 2;
+}
+
+// LaneComplianceConfig captures compliance controls enforced by the lane.
+message LaneComplianceConfig {
+  repeated string egress_allowlist = 1;
+  string log_policy = 2; // none|hash_only|encrypted
+  string pii_policy = 3; // deny|allow_with_redaction
+}
+
+// ToolCapsule stores the attested packaging metadata for a tool binary.
+message ToolCapsule {
+  string tool_id = 1;
+  string capsule_type = 2; // wasm|oci
+  bytes capsule_hash = 3;
+  string entrypoint = 4;
+  string runtime = 5; // wasmtime|containerd
+  repeated string egress_allowlist = 6;
+  CapsuleResourceLimits resource_limits = 7;
+  bytes publisher_sig = 8;
+}
+
+// CapsuleResourceLimits defines the runtime resource limits for a capsule.
+message CapsuleResourceLimits {
+  uint32 cpu_ms = 1;
+  uint32 mem_mb = 2;
+  uint32 net_kb = 3;
+}
+
+// WatcherRecord stores a staked watcher that can submit SLO probe receipts.
+message WatcherRecord {
+  string watcher_address = 1;
+  repeated cosmos.base.v1beta1.Coin bonded_amount = 2;
+  repeated cosmos.base.v1beta1.Coin total_slashed = 3;
+  uint64 total_probes = 4;
+  uint64 invalid_probes = 5;
+  string status = 6;
+  google.protobuf.Timestamp registered_at = 7;
+  google.protobuf.Timestamp last_updated_at = 8;
+}
+
+// SLOProbeReceipt captures a watcher-reported SLO probe window.
+message SLOProbeReceipt {
+  string receipt_id = 1;
+  string tool_id = 2;
+  string watcher_address = 3;
+  google.protobuf.Timestamp window_start = 4;
+  google.protobuf.Timestamp window_end = 5;
+  uint32 probe_count = 6;
+  uint32 success_count = 7;
+  uint32 failure_count = 8;
+  uint32 p95_latency_ms = 9;
+  uint32 error_rate_bps = 10;
+  uint32 availability_bps = 11;
+  bytes evidence_hash = 12;
+  google.protobuf.Timestamp submitted_at = 13;
+}
+
+// SLOProbeAggregate stores median-of-watchers aggregation results for a window.
+message SLOProbeAggregate {
+  string tool_id = 1;
+  google.protobuf.Timestamp window_start = 2;
+  google.protobuf.Timestamp window_end = 3;
+  uint32 watcher_count = 4;
+  uint32 median_p95_latency_ms = 5;
+  uint32 median_availability_bps = 6;
+  uint32 median_error_rate_bps = 7;
+  google.protobuf.Timestamp aggregated_at = 8;
+  uint32 version = 9;
+  string status = 10;
+  uint32 superseded_by_version = 11;
+  string superseded_by_challenge_id = 12;
+  google.protobuf.Timestamp superseded_at = 13;
+}
+
+// GasProfile captures per-tool gas tuning knobs used by the MCP ante decorator.
+message GasProfile {
+  uint64 lock_gas = 1;
+  uint64 settle_gas = 2;
+  uint64 invocation_gas = 3;
+  uint64 cache_hit_discount_bps = 4;
+}
+
+// Pricing defines the pricing structure for a tool
+message Pricing {
+  string model = 1;
+  string unit = 2;
+  string price_per_unit = 3;
+  string minimum_cost = 4;
+  string maximum_cost = 5;
+  string quote_endpoint = 6;
+}
+
+// SLO defines Service Level Objectives
+message SLO {
+  uint32 p95_latency_ms = 1;
+  string availability = 2;
+  uint32 error_rate_bps = 3;
+  uint32 timeout_ms = 4;
+}
+
+// SandboxProfile defines security sandboxing requirements
+message SandboxProfile {
+  string profile = 1;
+  repeated string egress_allowlist = 2;
+  uint32 max_memory_mb = 3;
+  uint32 max_cpu_millicores = 4;
+  uint32 max_execution_sec = 5;
+  string pii_handling = 6;
+  bool requires_enclave = 7;
+}
+
+// CachePolicy defines caching behavior
+message CachePolicy {
+  bool enabled = 1;
+  uint32 ttl_seconds = 2;
+  bool deterministic = 3;
+  uint32 royalty_share_bps = 4;
+  uint32 max_size_mb = 5;
+}
+
+// Endpoint defines a service endpoint
+message Endpoint {
+  string protocol = 1;
+  string url = 2;
+  uint32 priority = 3;
+  string region = 4;
+}
+
+// BondRecord tracks the bond for a tool
+message BondRecord {
+  string tool_id = 1;
+  string owner = 2;
+
+  repeated cosmos.base.v1beta1.Coin bonded_amount = 3;
+  repeated cosmos.base.v1beta1.Coin minimum_required = 4;
+  repeated cosmos.base.v1beta1.Coin locked_amount = 5;
+
+  repeated PendingSlash pending_slashes = 6;
+  repeated cosmos.base.v1beta1.Coin total_slashed = 7;
+  int64 last_slash_epoch = 8;
+
+  string insurance_premium_multiplier = 9;
+  repeated cosmos.base.v1beta1.Coin insurance_contributions = 10;
+
+  string status = 11;
+  google.protobuf.Timestamp bonded_at = 12;
+  google.protobuf.Timestamp last_updated_at = 13;
+  google.protobuf.Timestamp withdraw_initiated_at = 14;
+
+  uint64 dispute_count = 15;
+  uint64 successful_calls = 16;
+  uint64 failed_calls = 17;
+}
+
+// PendingSlash represents a slash that is pending execution
+message PendingSlash {
+  string slash_id = 1;
+  repeated cosmos.base.v1beta1.Coin amount = 2;
+  string reason = 3;
+  bytes evidence_hash = 4;
+  google.protobuf.Timestamp proposed_at = 5;
+  google.protobuf.Timestamp execute_at = 6;
+  bool approved = 7;
+}
+
+// ReceiptPending represents a receipt awaiting settlement
+message ReceiptPending {
+  UsageReceipt receipt = 1;
+  bytes signature = 2;
+  string policy_snapshot = 3;
+  int64 expiry_height = 4;
+  google.protobuf.Timestamp submitted_at = 5;
+}
+
+// UsageReceipt represents a signed usage receipt from a tool invocation
+message UsageReceipt {
+  string receipt_id = 1;
+  string tool_id = 2;
+  string request_id = 3;
+  bytes request_hash = 4;
+
+  string units_used = 5;
+  string unit = 6;
+  string price_per_unit = 7;
+
+  string quoted_amount = 8;
+  string actual_amount = 9;
+
+  bytes publisher_pubkey = 10;
+  bytes publisher_sig = 11;
+
+  string router_address = 12;
+  bytes router_sig = 13;
+
+  string user_address = 14;
+
+  string policy_snapshot = 15;
+  bytes trace_hash = 16;
+
+  bool cache_hit = 17;
+  string cache_key = 18;
+  string origin_tool_id = 19;
+
+  google.protobuf.Timestamp timestamp = 20;
+  google.protobuf.Timestamp expires_at = 21;
+
+  string status = 22;
+
+  bytes attestation_proof = 23;
+  bytes enclave_quote = 24;
+
+  string session_id = 25;
+  string quote_id = 26;
+  string lock_id = 27;
+  string intent_hash = 28;
+  // Optional origin-surface identifier for attribution (e.g.
+  // "injective:iagent").
+  string origin_id = 29;
+  string trust_class = 30;
+}
+
+// SettlementRecord represents a finalized settlement
+message SettlementRecord {
+  string receipt_id = 1;
+  string tool_id = 2;
+  string policy_snapshot = 3;
+
+  string locked_quote = 4;
+  string actual_settled = 5;
+
+  string burn_amount = 6;
+  string insurance_contribution = 7;
+  string publisher_serving = 8;
+  string publisher_origin = 9;
+  string router_gross = 10;
+  string router_net = 11;
+  string referrer_share = 12;
+  string rebate_paid = 13;
+  string refund_amount = 14;
+
+  bool cache_hit = 15;
+  string cache_royalty = 16;
+
+  string publisher_address = 17;
+  string router_address = 18;
+  string user_address = 19;
+  string referrer_address = 20;
+
+  google.protobuf.Timestamp settled_at = 21;
+
+  bool was_disputed = 22;
+  string dispute_outcome = 23;
+  bytes dispute_evidence = 24;
+
+  string session_id = 25;
+  string quote_id = 26;
+  string lock_id = 27;
+  string intent_hash = 28;
+  // Optional origin-surface identifier for attribution (e.g.
+  // "injective:iagent").
+  string origin_id = 29;
+  // The computed origin-surface share (in LAC, decimal string) distributed
+  // during settlement.
+  string origin_share = 30;
+}
+
+// Challenge represents a challenge to a receipt
+message Challenge {
+  string challenge_id = 1;
+  string receipt_id = 2;
+
+  string challenger_address = 3;
+  repeated cosmos.base.v1beta1.Coin challenger_stake = 4;
+
+  string reason = 5;
+  bytes evidence_hash = 6;
+  string evidence_cid = 7;
+
+  bool automated_check = 8;
+  string harness_job_id = 9;
+
+  google.protobuf.Timestamp challenged_at = 10;
+  google.protobuf.Timestamp deadline_at = 11;
+
+  string status = 12;
+  string resolution = 13;
+  google.protobuf.Timestamp resolved_at = 14;
+
+  string outcome = 15;
+  string adjusted_amount = 16;
+}
+
+// RegistryParams defines the parameters for the registry module
+message RegistryParams {
+  uint32 burn_rate_spend_bps = 1;
+  uint32 burn_rate_acq_bps = 2;
+  uint32 insurance_pool_bps = 3;
+  uint32 quote_error_bps = 4;
+  uint32 dispute_window_seconds = 5;
+  repeated cosmos.base.v1beta1.Coin dispute_stake_lac = 6;
+  map<string, Coins> min_bond_by_category = 7;
+  SLOThresholds slo_thresholds = 8;
+  uint32 quality_rebate_bps = 9;
+  CachePolicyDefaults cache_policy_defaults = 10;
+  RevenueSplits revenue_splits = 11;
+  uint32 insurance_target_util = 12;
+  uint32 attestation_ttl_seconds = 13;
+  uint32 sbom_staleness_seconds = 14;
+  string params_version = 15;
+  bytes params_hash = 16;
+
+  // SLA slashing governance knobs.
+  uint32 sla_slash_gamma_bps = 17;
+  uint32 sla_p95_latency_consecutive = 18;
+  uint32 sla_dispute_rate_bps = 19;
+  uint32 sla_min_calls = 20;
+  uint32 sla_max_slash_per_epoch_bps = 21;
+  uint32 sla_recidivist_multiplier_bps = 22;
+
+  // Challenge resolution deadline in seconds (default 24h = 86400).
+  uint32 challenge_resolution_deadline_seconds = 23;
+
+  // Settled receipt retention in seconds (default 24h = 86400).
+  // Receipts older than this are pruned from the queue.
+  uint32 settled_receipt_retention_seconds = 24;
+
+  // Verified badge scoring weights and thresholds.
+  VerifiedBadgeParams verified_badge = 25;
+
+  // Recursive royalty graph guardrails.
+  uint32 recursive_royalty_max_depth = 26;
+  uint32 recursive_royalty_max_aggregate_bps = 27;
+}
+
+// Coins wrapper for map values
+message Coins { repeated cosmos.base.v1beta1.Coin coins = 1; }
+
+// VerifiedBadgeParams defines the tunable scoring model for verified badge
+// tiers.
+message VerifiedBadgeParams {
+  uint32 sbom_weight_bps = 1;
+  uint32 bond_weight_bps = 2;
+  uint32 challenge_weight_bps = 3;
+  uint32 uptime_weight_bps = 4;
+
+  uint32 bronze_composite_bps = 5;
+  uint32 silver_composite_bps = 6;
+  uint32 gold_composite_bps = 7;
+
+  uint32 sbom_bronze_bps = 8;
+  uint32 sbom_silver_bps = 9;
+  uint32 sbom_gold_bps = 10;
+
+  // Bond thresholds use 10000 = 1.0x minimum required bond coverage.
+  uint32 bond_bronze_bps = 11;
+  uint32 bond_silver_bps = 12;
+  uint32 bond_gold_bps = 13;
+
+  uint32 challenge_bronze_bps = 14;
+  uint32 challenge_silver_bps = 15;
+  uint32 challenge_gold_bps = 16;
+
+  uint32 uptime_bronze_bps = 17;
+  uint32 uptime_silver_bps = 18;
+  uint32 uptime_gold_bps = 19;
+}
+
+// SLOThresholds defines service level objective thresholds
+message SLOThresholds {
+  uint32 max_p95_latency_ms = 1;
+  uint32 min_availability = 2;
+  uint32 max_error_rate_bps = 3;
+  uint32 max_dispute_rate_bps = 4;
+}
+
+// CachePolicyDefaults defines default cache policy settings
+message CachePolicyDefaults {
+  uint32 default_ttl_seconds = 1;
+  uint32 default_royalty_bps = 2;
+  uint32 max_cache_size_mb = 3;
+  repeated cosmos.base.v1beta1.Coin cache_microfee_amount = 4;
+}
+
+// RevenueSplits defines how revenue is distributed
+message RevenueSplits {
+  uint32 publisher_share_bps = 1;
+  uint32 router_share_bps = 2;
+  uint32 referrer_share_bps = 3;
+  // Percentage of distributable amount reserved for origin attribution
+  // (basis points, applied only when receipt has a non-empty origin_id).
+  // Carved from distributable before the publisher/router/referrer split.
+  uint32 origin_share_bps = 4;
+}
+
+// BundleAnchor stores an on-chain anchor record for a receipt bundle merkle
+// root.
+//
+// This enables trustless verification that a given merkle root (representing a
+// set of receipt envelope hashes) was committed to chain state at a particular
+// height/time.
+message BundleAnchor {
+  // Target chain identifier for the anchoring record (e.g. "lumera",
+  // "injective").
+  string chain_id = 1;
+
+  // Merkle root for the anchored receipt bundle (SHA-256). Expected length: 32
+  // bytes.
+  bytes merkle_root = 2;
+
+  // Creator address that submitted the anchor transaction.
+  string creator = 3;
+
+  // Number of receipt envelope hashes covered by this merkle root.
+  uint64 receipt_count = 4;
+
+  // Optional bundle window start timestamp (unix ms).
+  int64 window_start_ts = 5;
+
+  // Optional bundle window end timestamp (unix ms).
+  int64 window_end_ts = 6;
+
+  // Transaction hash for the anchoring tx (tmhash of tx bytes). Expected
+  // length: 32 bytes.
+  bytes tx_hash = 7;
+
+  // Block height where the anchor was recorded.
+  int64 anchored_height = 8;
+
+  // Block time when the anchor was recorded.
+  google.protobuf.Timestamp anchored_at = 9;
+
+  // Current anchoring status. Expected values: "pending" | "anchored" |
+  // "failed".
+  string status = 10;
+
+  // Optional last error message (only meaningful when status="failed").
+  string last_error = 11;
+}
+
+// GenesisState defines the registry module's genesis state
+message GenesisState {
+  Params params = 1;
+  repeated ToolCard tool_cards = 2;
+  repeated BondRecord bond_records = 3;
+  repeated UsageReceipt receipts = 4;
+  repeated Challenge challenges = 5;
+  repeated SettlementRecord settlements = 6;
+  repeated RoyaltyTotals royalty_totals = 7;
+  EconomicsMetrics economics_metrics = 8;
+  repeated BundleAnchor bundle_anchors = 9;
+  repeated LaneRegistryEntry lane_registry = 10;
+  repeated WatcherRecord watchers = 11;
+  repeated SLOProbeReceipt slo_probe_receipts = 12;
+  repeated SLOProbeAggregate slo_probe_aggregates = 13;
+  repeated ToolCapsule tool_capsules = 14;
+  repeated OriginRoutingConfig origin_routing_configs = 15;
+  repeated ToolMetrics tool_metrics = 16;
+  repeated string activation_set = 17;
+  repeated ActivationRecord activation_history = 18;
+  map<string, string> sla_templates = 19;
+  map<string, string> dispute_terms = 20;
+  repeated QueuedReceipt queued_receipts = 21;
+  uint64 queue_sequence = 22;
+  uint64 challenge_sequence = 23;
+}
+
+// Params defines the parameters for the registry module
+message Params {
+  string min_bond_amount = 1;
+  int32 max_active_tools = 2;
+  int32 insurance_bps = 3;
+  int32 cac_royalty_bps = 4;
+  int32 quote_ttl_seconds = 5;
+  int64 settlement_period_blocks = 6;
+  int32 max_tools_per_category = 7;
+  double min_reputation = 8;
+  int64 slashing_grace_period = 9;
+  int32 max_jurisdictions = 10;
+  int64 dispute_window_seconds = 11;
+  uint32 burn_rate_spend_bps = 12;
+  uint32 burn_rate_acq_bps = 13;
+  uint32 quality_rebate_bps = 14;
+  string insurance_target_util = 15;
+  int32 premium_adjustment_bps = 16;
+  RevenueSplits revenue_splits = 17;
+  CacheFeeSplit cache_fee_split = 18;
+  uint32 max_settlements_per_block = 19;
+  uint32 max_receipts_scan_per_block = 20;
+
+  // SLA slashing governance knobs.
+  uint32 sla_slash_gamma_bps = 21;
+  uint32 sla_p95_latency_consecutive = 22;
+  uint32 sla_dispute_rate_bps = 23;
+  uint32 sla_min_calls = 24;
+  uint32 sla_max_slash_per_epoch_bps = 25;
+  uint32 sla_recidivist_multiplier_bps = 26;
+
+  // Challenge resolution deadline in seconds (default 24h = 86400).
+  // After this window, unresolved challenges are auto-resolved.
+  int64 challenge_resolution_deadline_seconds = 27;
+
+  // Settled receipt retention in seconds (default 24h = 86400).
+  // Receipts older than this are pruned from the queue.
+  int64 settled_receipt_retention_seconds = 28;
+
+  // Verified badge scoring weights and thresholds.
+  VerifiedBadgeParams verified_badge = 29;
+
+  // Recursive royalty graph guardrails.
+  uint32 recursive_royalty_max_depth = 30;
+  uint32 recursive_royalty_max_aggregate_bps = 31;
+}
+
+// CacheFeeSplit defines how CAC royalties are distributed
+message CacheFeeSplit {
+  string origin = 1;
+  string serving = 2;
+  string router = 3;
+  string burn = 4;
+}
+
+// QueuedReceipt wraps a receipt with queue metadata
+message QueuedReceipt {
+  UsageReceipt receipt = 1;
+  string status = 2;
+  google.protobuf.Timestamp queued_at = 3;
+  google.protobuf.Timestamp ready_at = 4;
+  google.protobuf.Timestamp processed_at = 5;
+  uint32 retry_count = 6;
+  string last_error = 7;
+  uint32 priority = 8;
+  uint32 dispute_count = 9;
+  uint64 sequence_num = 10;
+}
+
+// QueueStatus represents the current state of the receipt queue
+message QueueStatus {
+  uint32 pending_count = 1;
+  uint32 disputed_count = 2;
+  uint32 ready_count = 3;
+  uint32 failed_count = 4;
+  uint32 settled_count = 5;
+  google.protobuf.Timestamp last_processed =
+      6; // May be null if never processed
+}
+
+// ToolMetrics tracks performance metrics for a tool
+message ToolMetrics {
+  string tool_id = 1;
+  int64 total_invocations = 2;
+  int64 success_count = 3;
+  int64 failure_count = 4;
+  string total_revenue = 5;
+  int64 average_latency_ms = 6;
+  int64 p95_latency_ms = 7;
+  int64 p99_latency_ms = 8;
+  google.protobuf.Timestamp last_updated = 9;
+  repeated DailyStat daily_stats = 10;
+  int64 disputed_count = 11;
+  int64 cache_hits = 12;
+  string cache_royalty = 13;
+
+  // SLA evaluation bookkeeping.
+  uint32 sla_p95_violation_streak = 14;
+  bool sla_dispute_rate_breached = 15;
+
+  // Quality score tracking for rebate eligibility.
+  string quality_score_ewma = 16;
+  google.protobuf.Timestamp quality_score_last_updated = 17;
+}
+
+// DailyStat represents daily statistics for a tool
+message DailyStat {
+  google.protobuf.Timestamp date = 1;
+  int64 invocations = 2;
+  string revenue = 3;
+  double success_rate = 4;
+  int64 average_latency = 5;
+}
+
+// ActivationRecord records when a tool was activated or deactivated
+message ActivationRecord {
+  string tool_id = 1;
+  int64 height = 2;
+  bool active = 3;
+  string reason = 4;
+  google.protobuf.Timestamp timestamp = 5;
+}
+
+// RoyaltyTotals aggregates CAC royalty payouts per tool
+message RoyaltyTotals {
+  string tool_id = 1;
+  string origin = 2;
+  string serving = 3;
+  string router = 4;
+  string burn = 5;
+  uint64 cache_hits = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+// EconomicsMetrics tracks rolling utilization/dispute analytics
+message EconomicsMetrics {
+  uint64 sample_count = 1;
+  string utilization_ewma = 2;
+  string dispute_rate_ewma = 3;
+  int64 last_settlement_height = 4;
+  google.protobuf.Timestamp last_updated = 5;
+}
+
+// SlashEvent records a bond slashing event
+message SlashEvent {
+  string amount = 1;
+  string reason = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  string evidence = 4;
+}
+
+// Bond represents a performance bond for a tool
+message Bond {
+  string tool_id = 1;
+  string owner = 2;
+  string amount = 3;
+  google.protobuf.Timestamp locked_until = 4;
+  repeated SlashEvent slash_record = 5;
+}
+
+// OriginRoutingConfig defines per-origin fee routing for governance-controlled
+// distribution of the origin_share component. Each origin_id (e.g.
+// "injective:iagent") can have its own routing split to direct, buyback,
+// treasury, and insurance destinations.
+message OriginRoutingConfig {
+  // Origin identifier (e.g. "injective:iagent").
+  string origin_id = 1;
+
+  // Human-readable display name for governance UI.
+  string display_name = 2;
+
+  // Routing splits (must sum to 10000 bps).
+  OriginRoutingSplits splits = 3;
+
+  // Designated beneficiary address for "direct" portion.
+  string beneficiary_address = 4;
+
+  // Status: "active", "paused", "deprecated".
+  string status = 5;
+
+  // Governance proposal ID that last updated this config.
+  string updated_by = 6;
+
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+// OriginRoutingSplits defines how origin_share is routed for a given origin.
+// All fields are in basis points and must sum to 10000.
+message OriginRoutingSplits {
+  // Direct to origin beneficiary.
+  uint32 direct_bps = 1;
+
+  // To buyback pool (accumulated for later swap execution).
+  uint32 buyback_bps = 2;
+
+  // To protocol treasury.
+  uint32 treasury_bps = 3;
+
+  // To insurance reserve.
+  uint32 insurance_bps = 4;
+}

@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package lumera.reserve.v1;
+
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "lumera/reserve/v1/reserve.proto";
+
+option go_package = "x/reserve/types";
+
+// Msg defines the reserve module transaction service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // CreateCommitment provisions a prepaid reserve capacity block for a policy.
+  rpc CreateCommitment(MsgCreateCommitment) returns (MsgCreateCommitmentResponse);
+
+  // ReleaseExpired sweeps expired commitments from reserve indexes.
+  rpc ReleaseExpired(MsgReleaseExpired) returns (MsgReleaseExpiredResponse);
+
+  // UpdateParams updates reserve module parameters through governance.
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+// MsgCreateCommitment provisions a reserve commitment. Empty tool_id denotes
+// the keeper's wildcard commitment semantics, and duration_seconds=0 uses the
+// selected tier's default duration.
+message MsgCreateCommitment {
+  option (cosmos.msg.v1.signer) = "owner";
+
+  string owner = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string policy_id = 2;
+  string tool_id = 3;
+  string tier = 4;
+  cosmos.base.v1beta1.Coin amount = 5;
+  uint64 duration_seconds = 6;
+}
+
+message MsgCreateCommitmentResponse {
+  ReserveCommitmentSummary commitment = 1;
+}
+
+// MsgReleaseExpired lets governance or the configured authority trigger an
+// explicit expired-commitment sweep outside ordinary lazy allocation cleanup.
+message MsgReleaseExpired {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+message MsgReleaseExpiredResponse {}
+
+// MsgUpdateParams updates all reserve module parameters.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  ReserveParams params = 2;
+}
+
+message MsgUpdateParamsResponse {}

@@ -1,0 +1,247 @@
+syntax = "proto3";
+package lumera.cac.v1;
+
+option go_package = "x/cac/types";
+
+import "gogoproto/gogo.proto";
+import "google/protobuf/timestamp.proto";
+import "cosmos/base/v1beta1/coin.proto";
+
+// CacheEntry represents a content-addressed cache entry
+message CacheEntry {
+  // content_hash is the Blake3 hash of the cached content (content-addressed
+  // key)
+  string content_hash = 1;
+
+  // tool_id is the tool that produced this cached result
+  string tool_id = 2;
+
+  // request_hash is the Blake3 hash of the original request (for lookup)
+  string request_hash = 3;
+
+  // content is the cached response data (serialized JSON)
+  bytes content = 4;
+
+  // content_size_bytes is the size of the content
+  uint64 content_size_bytes = 5;
+
+  // created_at is when this cache entry was created
+  google.protobuf.Timestamp created_at = 6
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+
+  // expires_at is when this cache entry should be invalidated
+  google.protobuf.Timestamp expires_at = 7
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+
+  // access_count tracks how many times this entry has been accessed
+  uint64 access_count = 8;
+
+  // last_access_at is when this entry was last accessed
+  google.protobuf.Timestamp last_access_at = 9
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+
+  // publisher_address is the original publisher who created this cached content
+  string publisher_address = 10;
+
+  // ttl_seconds is the time-to-live in seconds (0 = use default)
+  uint64 ttl_seconds = 11;
+
+  // is_deterministic indicates if this tool produces deterministic output
+  bool is_deterministic = 12;
+
+  // tier is the current cache tier (L1=0, L2=1, L3=2, L4=3)
+  CacheTier tier = 13;
+
+  // royalty_eligible indicates if cache hits should trigger royalty payments
+  bool royalty_eligible = 14;
+}
+
+// CacheTier represents the cache storage tier
+enum CacheTier {
+  CACHE_TIER_UNSPECIFIED = 0;
+  CACHE_TIER_L1_MEMORY = 1; // ~16GB, 1ms latency
+  CACHE_TIER_L2_SSD = 2;    // ~1TB, 10ms latency
+  CACHE_TIER_L3_HDD = 3;    // ~100TB, 50ms latency
+  CACHE_TIER_L4_COLD = 4;   // unlimited, 500ms latency
+}
+
+// CacheHit records a cache hit event for royalty distribution
+message CacheHit {
+  // hit_id is a unique identifier for this cache hit
+  string hit_id = 1;
+
+  // content_hash is the hash of the cached content that was hit
+  string content_hash = 2;
+
+  // origin_tool_id is the tool that originally produced the content
+  string origin_tool_id = 3;
+
+  // serving_tool_id is the tool serving from cache (may be same as origin)
+  string serving_tool_id = 4;
+
+  // requester_address is who requested the cached content
+  string requester_address = 5;
+
+  // hit_at is when the cache hit occurred
+  google.protobuf.Timestamp hit_at = 6
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+
+  // cost_saved is the estimated cost saved by using cache
+  repeated cosmos.base.v1beta1.Coin cost_saved = 7
+      [ (gogoproto.nullable) = false ];
+
+  // latency_ms is the cache lookup latency in milliseconds
+  uint64 latency_ms = 8;
+
+  // tier is which cache tier served the hit
+  CacheTier tier = 9;
+}
+
+// CacheStats tracks cache performance statistics
+message CacheStats {
+  // total_entries is the current number of entries in cache
+  uint64 total_entries = 1;
+
+  // total_size_bytes is the total size of cached content
+  uint64 total_size_bytes = 2;
+
+  // hit_count is total number of cache hits
+  uint64 hit_count = 3;
+
+  // miss_count is total number of cache misses
+  uint64 miss_count = 4;
+
+  // hit_rate is the cache hit rate (0.0 to 1.0)
+  string hit_rate = 5 [
+    (gogoproto.customtype) = "cosmossdk.io/math.LegacyDec",
+    (gogoproto.nullable) = false
+  ];
+
+  // eviction_count is total number of evicted entries
+  uint64 eviction_count = 6;
+
+  // total_cost_saved is the total cost saved from cache hits
+  repeated cosmos.base.v1beta1.Coin total_cost_saved = 7
+      [ (gogoproto.nullable) = false ];
+
+  // avg_latency_ms is the average cache lookup latency
+  uint64 avg_latency_ms = 8;
+
+  // entries_by_tier tracks entries in each tier
+  map<int32, uint64> entries_by_tier = 9;
+
+  // last_updated is when stats were last updated
+  google.protobuf.Timestamp last_updated = 10
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+}
+
+// CacheParams defines the module parameters for CAC
+message CacheParams {
+  // default_ttl_seconds is the default TTL for cache entries
+  uint64 default_ttl_seconds = 1;
+
+  // max_entry_size_bytes is the maximum size of a single cache entry
+  uint64 max_entry_size_bytes = 2;
+
+  // l1_capacity_bytes is the L1 (memory) cache capacity
+  uint64 l1_capacity_bytes = 3;
+
+  // l2_capacity_bytes is the L2 (SSD) cache capacity
+  uint64 l2_capacity_bytes = 4;
+
+  // l3_capacity_bytes is the L3 (HDD) cache capacity
+  uint64 l3_capacity_bytes = 5;
+
+  // l4_capacity_bytes is the L4 (Cold) cache capacity
+  uint64 l4_capacity_bytes = 9;
+
+  // royalty_origin_bps is the basis points for origin tool royalty (default
+  // 5000 = 50%)
+  uint32 royalty_origin_bps = 6;
+
+  // royalty_storage_bps is the basis points mapped to the serving publisher's
+  // storage contribution on a cache hit.
+  uint32 royalty_storage_bps = 10;
+
+  // royalty_bandwidth_bps is the basis points mapped to the serving
+  // publisher's bandwidth contribution on a cache hit.
+  uint32 royalty_bandwidth_bps = 11;
+
+  // royalty_verification_bps is the basis points mapped to the serving
+  // publisher's verification contribution on a cache hit.
+  uint32 royalty_verification_bps = 12;
+
+  // royalty_governance_bps is the basis points retained in the module account
+  // for governance / treasury on a cache hit.
+  uint32 royalty_governance_bps = 13;
+
+  // royalty_decay_bps is the daily multiplicative decay factor applied to the
+  // origin publisher share. 9500 = 0.95x per day.
+  uint32 royalty_decay_bps = 14;
+
+  // blocks_per_day maps block-height distance to whole decay epochs.
+  uint64 blocks_per_day = 15;
+
+  // min_access_for_promotion is minimum accesses before tier promotion
+  uint64 min_access_for_promotion = 7;
+
+  // enable_royalties enables/disables royalty distribution on cache hits
+  bool enable_royalties = 8;
+}
+
+// InvalidationRequest represents a request to invalidate cache entries
+message InvalidationRequest {
+  // request_id is a unique identifier for this invalidation request
+  string request_id = 1;
+
+  // target_type specifies what to invalidate
+  InvalidationTargetType target_type = 2;
+
+  // target_value is the specific target (tool_id, content_hash, or pattern)
+  string target_value = 3;
+
+  // reason explains why invalidation is being requested
+  string reason = 4;
+
+  // requester is who requested the invalidation
+  string requester = 5;
+
+  // requested_at is when invalidation was requested
+  google.protobuf.Timestamp requested_at = 6
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+
+  // cascade indicates if dependent entries should also be invalidated
+  bool cascade = 7;
+}
+
+// InvalidationTargetType specifies what type of invalidation
+enum InvalidationTargetType {
+  INVALIDATION_TARGET_TYPE_UNSPECIFIED = 0;
+  INVALIDATION_TARGET_TYPE_CONTENT_HASH = 1; // Single entry by content hash
+  INVALIDATION_TARGET_TYPE_TOOL_ID = 2;      // All entries for a tool
+  INVALIDATION_TARGET_TYPE_REQUEST_HASH = 3; // Entries matching request hash
+  INVALIDATION_TARGET_TYPE_PATTERN = 4;      // Pattern-based invalidation
+  INVALIDATION_TARGET_TYPE_EXPIRED = 5;      // All expired entries
+}
+
+// InvalidationResult records the result of an invalidation
+message InvalidationResult {
+  // request_id links to the InvalidationRequest
+  string request_id = 1;
+
+  // entries_invalidated is how many entries were invalidated
+  uint64 entries_invalidated = 2;
+
+  // bytes_freed is how many bytes were freed
+  uint64 bytes_freed = 3;
+
+  // completed_at is when invalidation completed
+  google.protobuf.Timestamp completed_at = 4
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+
+  // success indicates if invalidation was successful
+  bool success = 5;
+
+  // error_message contains any error that occurred
+  string error_message = 6;
+}

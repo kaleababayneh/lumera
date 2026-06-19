@@ -1,0 +1,207 @@
+syntax = "proto3";
+package lumera.cac.v1;
+
+option go_package = "x/cac/types";
+
+import "gogoproto/gogo.proto";
+import "google/protobuf/timestamp.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos_proto/cosmos.proto";
+import "cosmos/msg/v1/msg.proto";
+import "lumera/cac/v1/cache.proto";
+
+// Msg defines the CAC module Msg service
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // CacheStore stores content in the cache
+  rpc CacheStore(MsgCacheStore) returns (MsgCacheStoreResponse);
+
+  // CacheInvalidate invalidates cache entries
+  rpc CacheInvalidate(MsgCacheInvalidate) returns (MsgCacheInvalidateResponse);
+
+  // RecordCacheHit records a cache hit for royalty distribution
+  rpc RecordCacheHit(MsgRecordCacheHit) returns (MsgRecordCacheHitResponse);
+
+  // TickDecay performs upkeep for decay / expiry accounting.
+  rpc TickDecay(MsgTickDecay) returns (MsgTickDecayResponse);
+
+  // PromoteTier promotes a cache entry to a higher tier
+  rpc PromoteTier(MsgPromoteTier) returns (MsgPromoteTierResponse);
+
+  // UpdateParams updates module parameters (governance only)
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+// MsgCacheStore stores content in the content-addressed cache
+message MsgCacheStore {
+  option (cosmos.msg.v1.signer) = "publisher";
+
+  // publisher is the address of the tool publisher storing the content
+  string publisher = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // tool_id is the identifier of the tool producing this content
+  string tool_id = 2;
+
+  // request_hash is the Blake3 hash of the original request
+  string request_hash = 3;
+
+  // content is the cached response data (serialized JSON)
+  bytes content = 4;
+
+  // ttl_seconds is the time-to-live in seconds (0 = use default)
+  uint64 ttl_seconds = 5;
+
+  // is_deterministic indicates if this tool produces deterministic output
+  bool is_deterministic = 6;
+
+  // royalty_eligible indicates if cache hits should trigger royalty payments
+  bool royalty_eligible = 7;
+}
+
+// MsgCacheStoreResponse returns the result of storing content
+message MsgCacheStoreResponse {
+  // content_hash is the Blake3 hash of the stored content (content-addressed
+  // key)
+  string content_hash = 1;
+
+  // tier is the cache tier where content was stored
+  CacheTier tier = 2;
+
+  // expires_at is when this cache entry will expire
+  google.protobuf.Timestamp expires_at = 3
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+}
+
+// MsgCacheInvalidate invalidates cache entries
+message MsgCacheInvalidate {
+  option (cosmos.msg.v1.signer) = "requester";
+
+  // requester is the address requesting invalidation
+  string requester = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // target_type specifies what to invalidate
+  InvalidationTargetType target_type = 2;
+
+  // target_value is the specific target (tool_id, content_hash, or pattern)
+  string target_value = 3;
+
+  // reason explains why invalidation is being requested
+  string reason = 4;
+
+  // cascade indicates if dependent entries should also be invalidated
+  bool cascade = 5;
+}
+
+// MsgCacheInvalidateResponse returns the result of invalidation
+message MsgCacheInvalidateResponse {
+  // request_id is the unique identifier for this invalidation request
+  string request_id = 1;
+
+  // entries_invalidated is how many entries were invalidated
+  uint64 entries_invalidated = 2;
+
+  // bytes_freed is how many bytes were freed
+  uint64 bytes_freed = 3;
+}
+
+// MsgRecordCacheHit records a cache hit for royalty distribution
+message MsgRecordCacheHit {
+  option (cosmos.msg.v1.signer) = "router";
+
+  // router is the router address recording the hit
+  string router = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // content_hash is the hash of the cached content that was hit
+  string content_hash = 2;
+
+  // origin_tool_id is the tool that originally produced the content
+  string origin_tool_id = 3;
+
+  // serving_tool_id is the tool serving from cache (may be same as origin)
+  string serving_tool_id = 4;
+
+  // requester_address is who requested the cached content
+  string requester_address = 5
+      [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // cost_saved is the estimated cost saved by using cache
+  repeated cosmos.base.v1beta1.Coin cost_saved = 6
+      [ (gogoproto.nullable) = false ];
+
+  // latency_ms is the cache lookup latency in milliseconds
+  uint64 latency_ms = 7;
+
+  // tier is which cache tier served the hit
+  CacheTier tier = 8;
+}
+
+// MsgRecordCacheHitResponse returns the result of recording a cache hit
+message MsgRecordCacheHitResponse {
+  // hit_id is a unique identifier for this cache hit
+  string hit_id = 1;
+
+  // origin_royalty is the royalty amount for the origin tool
+  repeated cosmos.base.v1beta1.Coin origin_royalty = 2
+      [ (gogoproto.nullable) = false ];
+
+  // serving_royalty is the royalty amount for the serving tool
+  repeated cosmos.base.v1beta1.Coin serving_royalty = 3
+      [ (gogoproto.nullable) = false ];
+}
+
+// MsgTickDecay triggers CAC upkeep for expiry and decay accounting.
+message MsgTickDecay {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // authority is the governance / module authority allowed to trigger upkeep.
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // limit bounds the number of expired entries processed in this tick.
+  uint64 limit = 2;
+}
+
+// MsgTickDecayResponse reports the upkeep work performed.
+message MsgTickDecayResponse {
+  uint64 entries_evicted = 1;
+  int64 tick_height = 2;
+}
+
+// MsgPromoteTier promotes a cache entry to a higher tier based on access
+// patterns
+message MsgPromoteTier {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // authority is the address with promotion authority (typically module
+  // account)
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // content_hash is the hash of the entry to promote
+  string content_hash = 2;
+
+  // target_tier is the tier to promote to
+  CacheTier target_tier = 3;
+}
+
+// MsgPromoteTierResponse returns the result of tier promotion
+message MsgPromoteTierResponse {
+  // previous_tier is the tier before promotion
+  CacheTier previous_tier = 1;
+
+  // new_tier is the tier after promotion
+  CacheTier new_tier = 2;
+}
+
+// MsgUpdateParams updates the CAC module parameters
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // authority is the governance address
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // params are the new parameters
+  CacheParams params = 2 [ (gogoproto.nullable) = false ];
+}
+
+// MsgUpdateParamsResponse confirms parameter update
+message MsgUpdateParamsResponse {}

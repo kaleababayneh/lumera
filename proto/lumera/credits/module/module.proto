@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package lumera.credits.module;
+
+import "cosmos/app/v1alpha1/module.proto";
+
+option go_package = "x/credits/module;creditsmodule";
+
+// Module is the config object of the credits module.
+message Module {
+  option (cosmos.app.v1alpha1.module) = {
+    go_import: "github.com/LumeraProtocol/lumera/x/credits"
+  };
+
+  // authority defines the custom module authority.
+  // If not set, defaults to the governance module account.
+  string authority = 1;
+}

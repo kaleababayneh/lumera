@@ -1,0 +1,90 @@
+syntax = "proto3";
+package lumera.cac.v1;
+
+option go_package = "x/cac/types";
+
+import "google/api/annotations.proto";
+import "lumera/cac/v1/cache.proto";
+
+// Query defines the gRPC querier service for the CAC module
+service Query {
+  // GetCacheEntry returns a specific cache entry by content hash
+  rpc GetCacheEntry(QueryGetCacheEntryRequest)
+      returns (QueryGetCacheEntryResponse) {
+    option (google.api.http).get = "/lumera/cac/v1/entry/{content_hash}";
+  }
+
+  // LookupByRequest looks up cache entries by request hash
+  rpc LookupByRequest(QueryLookupByRequestRequest)
+      returns (QueryLookupByRequestResponse) {
+    option (google.api.http).get = "/lumera/cac/v1/lookup/{request_hash}";
+  }
+
+  // GetCacheStats returns cache performance statistics
+  rpc GetCacheStats(QueryGetCacheStatsRequest)
+      returns (QueryGetCacheStatsResponse) {
+    option (google.api.http).get = "/lumera/cac/v1/stats";
+  }
+
+  // ListToolEntries lists all cache entries for a specific tool
+  rpc ListToolEntries(QueryListToolEntriesRequest)
+      returns (QueryListToolEntriesResponse) {
+    option (google.api.http).get = "/lumera/cac/v1/tool/{tool_id}/entries";
+  }
+
+  // GetParams returns the module parameters
+  rpc GetParams(QueryGetParamsRequest) returns (QueryGetParamsResponse) {
+    option (google.api.http).get = "/lumera/cac/v1/params";
+  }
+
+  // GetToolStats returns cache hit statistics for a specific tool.
+  rpc GetToolStats(QueryGetToolStatsRequest)
+      returns (QueryGetToolStatsResponse) {
+    option (google.api.http).get = "/lumera/cac/v1/tool/{tool_id}/stats";
+  }
+}
+
+message QueryGetCacheEntryRequest { string content_hash = 1; }
+
+message QueryGetCacheEntryResponse {
+  CacheEntry entry = 1;
+  bool found = 2;
+}
+
+message QueryLookupByRequestRequest {
+  string request_hash = 1;
+  string tool_id = 2; // optional filter by tool
+}
+
+message QueryLookupByRequestResponse { repeated CacheEntry entries = 1; }
+
+message QueryGetCacheStatsRequest {}
+
+message QueryGetCacheStatsResponse { CacheStats stats = 1; }
+
+message QueryListToolEntriesRequest {
+  string tool_id = 1;
+  uint64 limit = 2;
+  uint64 offset = 3;
+}
+
+message QueryListToolEntriesResponse {
+  repeated CacheEntry entries = 1;
+  uint64 total_count = 2;
+}
+
+message QueryGetParamsRequest {}
+
+message QueryGetParamsResponse { CacheParams params = 1; }
+
+message ToolCacheStats {
+  string tool_id = 1;
+  uint64 hit_count = 2;
+  uint64 miss_count = 3;
+  string hit_rate = 4;
+  map<string, uint64> origin_hits = 5;
+}
+
+message QueryGetToolStatsRequest { string tool_id = 1; }
+
+message QueryGetToolStatsResponse { ToolCacheStats stats = 1; }

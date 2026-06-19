@@ -1,0 +1,275 @@
+syntax = "proto3";
+package lumera.registry.v1;
+
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "lumera/registry/v1/types.proto";
+
+option go_package = "x/registry/types";
+
+// Msg defines the registry module's gRPC message service
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // RegisterTool registers a new tool
+  rpc RegisterTool(MsgRegisterTool) returns (MsgRegisterToolResponse);
+
+  // UpdateTool updates an existing tool
+  rpc UpdateTool(MsgUpdateTool) returns (MsgUpdateToolResponse);
+
+  // DelistTool removes a tool from the registry
+  rpc DelistTool(MsgDelistTool) returns (MsgDelistToolResponse);
+
+  // SubmitReceipt submits a usage receipt
+  rpc SubmitReceipt(MsgSubmitReceipt) returns (MsgSubmitReceiptResponse);
+
+  // AnchorBundle anchors a receipt bundle merkle root on-chain for trustless
+  // verification.
+  rpc AnchorBundle(MsgAnchorBundle) returns (MsgAnchorBundleResponse);
+
+  // ChallengeReceipt challenges a receipt
+  rpc ChallengeReceipt(MsgChallengeReceipt)
+      returns (MsgChallengeReceiptResponse);
+
+  // SettleReceipt settles a receipt after dispute window
+  rpc SettleReceipt(MsgSettleReceipt) returns (MsgSettleReceiptResponse);
+
+  // UpdateParams updates module parameters
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+
+  // SetSLATemplate publishes an SLA template (governance authority only).
+  rpc SetSLATemplate(MsgSetSLATemplate) returns (MsgSetSLATemplateResponse);
+
+  // SetDisputeTerms publishes dispute terms (governance authority only).
+  rpc SetDisputeTerms(MsgSetDisputeTerms) returns (MsgSetDisputeTermsResponse);
+
+  // SetLaneRegistryEntry publishes a lane registry entry (governance authority
+  // only).
+  rpc SetLaneRegistryEntry(MsgSetLaneRegistryEntry)
+      returns (MsgSetLaneRegistryEntryResponse);
+
+  // SetToolCapsule registers or updates tool capsule metadata.
+  rpc SetToolCapsule(MsgSetToolCapsule) returns (MsgSetToolCapsuleResponse);
+
+  // CreateBond creates or updates a bond for a tool
+  rpc CreateBond(MsgCreateBond) returns (MsgCreateBondResponse);
+
+  // WithdrawBond withdraws a bond
+  rpc WithdrawBond(MsgWithdrawBond) returns (MsgWithdrawBondResponse);
+
+  // RegisterWatcher registers or tops up a watcher stake
+  rpc RegisterWatcher(MsgRegisterWatcher) returns (MsgRegisterWatcherResponse);
+
+  // UnregisterWatcher withdraws watcher stake and removes from registry
+  rpc UnregisterWatcher(MsgUnregisterWatcher)
+      returns (MsgUnregisterWatcherResponse);
+
+  // SubmitSLOProbeReceipt submits a watcher SLO probe receipt
+  rpc SubmitSLOProbeReceipt(MsgSubmitSLOProbeReceipt)
+      returns (MsgSubmitSLOProbeReceiptResponse);
+
+  // SetOriginRoutingConfig creates or updates an origin routing config
+  // (governance authority only).
+  rpc SetOriginRoutingConfig(MsgSetOriginRoutingConfig)
+      returns (MsgSetOriginRoutingConfigResponse);
+}
+
+// MsgRegisterTool registers a new tool
+message MsgRegisterTool {
+  option (cosmos.msg.v1.signer) = "owner";
+
+  string owner = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  ToolCard tool_card = 2;
+  repeated cosmos.base.v1beta1.Coin bond = 3;
+}
+
+message MsgRegisterToolResponse { string tool_id = 1; }
+
+// MsgUpdateTool updates an existing tool
+message MsgUpdateTool {
+  option (cosmos.msg.v1.signer) = "owner";
+
+  string owner = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string tool_id = 2;
+  ToolCard updated_fields = 3;
+}
+
+message MsgUpdateToolResponse {}
+
+// MsgDelistTool removes a tool from the registry
+message MsgDelistTool {
+  option (cosmos.msg.v1.signer) = "owner";
+
+  string owner = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string tool_id = 2;
+}
+
+message MsgDelistToolResponse {}
+
+// MsgSubmitReceipt submits a usage receipt
+message MsgSubmitReceipt {
+  option (cosmos.msg.v1.signer) = "router";
+
+  string router = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  UsageReceipt receipt = 2;
+}
+
+message MsgSubmitReceiptResponse { string receipt_id = 1; }
+
+// MsgAnchorBundle anchors a receipt bundle merkle root on-chain.
+message MsgAnchorBundle {
+  option (cosmos.msg.v1.signer) = "creator";
+
+  string creator = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // Target chain identifier for this anchor (e.g. "lumera", "injective").
+  string chain_id = 2;
+
+  // Merkle root (SHA-256) of the receipt bundle. Expected length: 32 bytes.
+  bytes merkle_root = 3;
+
+  // Number of receipt envelope hashes in the bundle.
+  uint64 receipt_count = 4;
+
+  // Optional bundle window start timestamp (unix ms).
+  int64 window_start_ts = 5;
+
+  // Optional bundle window end timestamp (unix ms).
+  int64 window_end_ts = 6;
+}
+
+message MsgAnchorBundleResponse { BundleAnchor anchor = 1; }
+
+// MsgChallengeReceipt challenges a receipt
+message MsgChallengeReceipt {
+  option (cosmos.msg.v1.signer) = "challenger";
+
+  string challenger = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  Challenge challenge = 2;
+}
+
+message MsgChallengeReceiptResponse { string challenge_id = 1; }
+
+// MsgSettleReceipt settles a receipt after dispute window
+message MsgSettleReceipt {
+  option (cosmos.msg.v1.signer) = "settler";
+
+  string settler = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string receipt_id = 2;
+}
+
+message MsgSettleReceiptResponse { string settlement_id = 1; }
+
+// MsgUpdateParams updates module parameters
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  RegistryParams params = 2;
+}
+
+message MsgUpdateParamsResponse {}
+
+// MsgSetSLATemplate publishes a versioned SLA template.
+message MsgSetSLATemplate {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string sla_id = 2;
+  string payload = 3;
+}
+
+message MsgSetSLATemplateResponse {}
+
+// MsgSetDisputeTerms publishes a versioned dispute terms template.
+message MsgSetDisputeTerms {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string dispute_terms_id = 2;
+  string payload = 3;
+}
+
+message MsgSetDisputeTermsResponse {}
+
+// MsgSetLaneRegistryEntry publishes a lane registry entry.
+message MsgSetLaneRegistryEntry {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  LaneRegistryEntry entry = 2;
+}
+
+message MsgSetLaneRegistryEntryResponse {}
+
+// MsgSetToolCapsule registers a capsule manifest for a tool.
+message MsgSetToolCapsule {
+  option (cosmos.msg.v1.signer) = "owner";
+
+  string owner = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  ToolCapsule capsule = 2;
+}
+
+message MsgSetToolCapsuleResponse {}
+
+// MsgCreateBond creates or updates a bond for a tool
+message MsgCreateBond {
+  option (cosmos.msg.v1.signer) = "owner";
+
+  string owner = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string tool_id = 2;
+  repeated cosmos.base.v1beta1.Coin amount = 3;
+}
+
+message MsgCreateBondResponse {}
+
+// MsgWithdrawBond withdraws a bond
+message MsgWithdrawBond {
+  option (cosmos.msg.v1.signer) = "owner";
+
+  string owner = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string tool_id = 2;
+  repeated cosmos.base.v1beta1.Coin amount = 3;
+}
+
+message MsgWithdrawBondResponse {}
+
+// MsgRegisterWatcher registers or tops up a watcher stake
+message MsgRegisterWatcher {
+  option (cosmos.msg.v1.signer) = "watcher";
+
+  string watcher = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  repeated cosmos.base.v1beta1.Coin stake = 2;
+}
+
+message MsgRegisterWatcherResponse {}
+
+// MsgUnregisterWatcher removes a watcher and withdraws stake
+message MsgUnregisterWatcher {
+  option (cosmos.msg.v1.signer) = "watcher";
+
+  string watcher = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+}
+
+message MsgUnregisterWatcherResponse {}
+
+// MsgSubmitSLOProbeReceipt submits a watcher SLO probe receipt
+message MsgSubmitSLOProbeReceipt {
+  option (cosmos.msg.v1.signer) = "watcher";
+
+  string watcher = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  SLOProbeReceipt receipt = 2;
+}
+
+message MsgSubmitSLOProbeReceiptResponse { string receipt_id = 1; }
+
+// MsgSetOriginRoutingConfig creates or updates an origin routing config.
+message MsgSetOriginRoutingConfig {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  OriginRoutingConfig config = 2;
+}
+
+message MsgSetOriginRoutingConfigResponse {}

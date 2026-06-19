@@ -1,0 +1,356 @@
+syntax = "proto3";
+package lumera.registry.v1;
+
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "google/api/annotations.proto";
+import "lumera/registry/v1/types.proto";
+
+option go_package = "x/registry/types";
+
+// Query defines the registry module's gRPC query service
+service Query {
+  // GetTool retrieves a specific tool by ID
+  rpc GetTool(QueryGetToolRequest) returns (QueryGetToolResponse) {
+    option (google.api.http).get = "/lumera/registry/v1/tools/{tool_id}";
+  }
+
+  // ListTools lists all registered tools with pagination
+  rpc ListTools(QueryListToolsRequest) returns (QueryListToolsResponse) {
+    option (google.api.http).get = "/lumera/registry/v1/tools";
+  }
+
+  // GetBond retrieves bond information for a tool
+  rpc GetBond(QueryGetBondRequest) returns (QueryGetBondResponse) {
+    option (google.api.http).get = "/lumera/registry/v1/bonds/{tool_id}";
+  }
+
+  // GetReceipt retrieves a specific receipt by ID
+  rpc GetReceipt(QueryGetReceiptRequest) returns (QueryGetReceiptResponse) {
+    option (google.api.http).get = "/lumera/registry/v1/receipts/{receipt_id}";
+  }
+
+  // ListReceipts lists receipts with filters
+  rpc ListReceipts(QueryListReceiptsRequest)
+      returns (QueryListReceiptsResponse) {
+    option (google.api.http).get = "/lumera/registry/v1/receipts";
+  }
+
+  // GetBundleAnchor retrieves an on-chain anchor record for a receipt bundle
+  // merkle root.
+  rpc GetBundleAnchor(QueryGetBundleAnchorRequest)
+      returns (QueryGetBundleAnchorResponse) {
+    option (google.api.http).get =
+        "/lumera/registry/v1/bundle-anchors/{chain_id}/{merkle_root_hex}";
+  }
+
+  // GetSettlement retrieves settlement information
+  rpc GetSettlement(QueryGetSettlementRequest)
+      returns (QueryGetSettlementResponse) {
+    option (google.api.http).get =
+        "/lumera/registry/v1/settlements/{receipt_id}";
+  }
+
+  // GetChallenge retrieves challenge information
+  rpc GetChallenge(QueryGetChallengeRequest)
+      returns (QueryGetChallengeResponse) {
+    option (google.api.http).get =
+        "/lumera/registry/v1/challenges/{challenge_id}";
+  }
+
+  // ListChallenges lists active challenges
+  rpc ListChallenges(QueryListChallengesRequest)
+      returns (QueryListChallengesResponse) {
+    option (google.api.http).get = "/lumera/registry/v1/challenges";
+  }
+
+  // GetParams retrieves module parameters
+  rpc GetParams(QueryGetParamsRequest) returns (QueryGetParamsResponse) {
+    option (google.api.http).get = "/lumera/registry/v1/params";
+  }
+
+  // GetSLATemplate retrieves a stored SLA template.
+  rpc GetSLATemplate(QueryGetSLATemplateRequest)
+      returns (QueryGetSLATemplateResponse) {
+    option (google.api.http).get = "/lumera/registry/v1/sla-templates/{sla_id}";
+  }
+
+  // ListSLATemplates lists all SLA templates with pagination.
+  rpc ListSLATemplates(QueryListSLATemplatesRequest)
+      returns (QueryListSLATemplatesResponse) {
+    option (google.api.http).get = "/lumera/registry/v1/sla-templates";
+  }
+
+  // GetDisputeTerms retrieves a stored dispute terms document.
+  rpc GetDisputeTerms(QueryGetDisputeTermsRequest)
+      returns (QueryGetDisputeTermsResponse) {
+    option (google.api.http).get =
+        "/lumera/registry/v1/dispute-terms/{dispute_terms_id}";
+  }
+
+  // ListDisputeTerms lists dispute terms documents with pagination.
+  rpc ListDisputeTerms(QueryListDisputeTermsRequest)
+      returns (QueryListDisputeTermsResponse) {
+    option (google.api.http).get = "/lumera/registry/v1/dispute-terms";
+  }
+
+  // GetInsurancePool retrieves insurance pool information
+  rpc GetInsurancePool(QueryGetInsurancePoolRequest)
+      returns (QueryGetInsurancePoolResponse) {
+    option (google.api.http).get = "/lumera/registry/v1/insurance";
+  }
+
+  // GetToolMetrics retrieves metrics for a tool
+  rpc GetToolMetrics(QueryGetToolMetricsRequest)
+      returns (QueryGetToolMetricsResponse) {
+    option (google.api.http).get =
+        "/lumera/registry/v1/tools/{tool_id}/metrics";
+  }
+
+  // GetLane retrieves a lane registry entry by ID.
+  rpc GetLane(QueryGetLaneRequest) returns (QueryGetLaneResponse) {
+    option (google.api.http).get = "/lumera/registry/v1/lanes/{lane_id}";
+  }
+
+  // ListLanes lists lane registry entries with optional filters.
+  rpc ListLanes(QueryListLanesRequest) returns (QueryListLanesResponse) {
+    option (google.api.http).get = "/lumera/registry/v1/lanes";
+  }
+
+  // GetToolCapsule retrieves the capsule manifest for a tool.
+  rpc GetToolCapsule(QueryGetToolCapsuleRequest)
+      returns (QueryGetToolCapsuleResponse) {
+    option (google.api.http).get =
+        "/lumera/registry/v1/tools/{tool_id}/capsule";
+  }
+
+  // ListToolCapsules lists all capsule manifests with pagination.
+  rpc ListToolCapsules(QueryListToolCapsulesRequest)
+      returns (QueryListToolCapsulesResponse) {
+    option (google.api.http).get = "/lumera/registry/v1/tool-capsules";
+  }
+
+  // GetOriginRoutingConfig retrieves an origin routing config by origin_id.
+  rpc GetOriginRoutingConfig(QueryGetOriginRoutingConfigRequest)
+      returns (QueryGetOriginRoutingConfigResponse) {
+    option (google.api.http).get =
+        "/lumera/registry/v1/origin-routing/{origin_id}";
+  }
+
+  // ListOriginRoutingConfigs lists all origin routing configs with pagination.
+  rpc ListOriginRoutingConfigs(QueryListOriginRoutingConfigsRequest)
+      returns (QueryListOriginRoutingConfigsResponse) {
+    option (google.api.http).get = "/lumera/registry/v1/origin-routing";
+  }
+}
+
+// QueryGetToolRequest is the request type for GetTool RPC
+message QueryGetToolRequest { string tool_id = 1; }
+
+message QueryGetToolResponse {
+  ToolCard tool = 1;
+  BondRecord bond = 2;
+}
+
+// QueryListToolsRequest is the request type for ListTools RPC
+message QueryListToolsRequest {
+  repeated string categories = 1;
+  repeated string tags = 2;
+  string owner = 3;
+  string license_lane = 4;
+  cosmos.base.query.v1beta1.PageRequest pagination = 5;
+  optional bool verified = 6;
+}
+
+message QueryListToolsResponse {
+  repeated ToolCard tools = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryGetBondRequest is the request type for GetBond RPC
+message QueryGetBondRequest { string tool_id = 1; }
+
+message QueryGetBondResponse { BondRecord bond = 1; }
+
+// QueryGetReceiptRequest is the request type for GetReceipt RPC
+message QueryGetReceiptRequest { string receipt_id = 1; }
+
+message QueryGetReceiptResponse {
+  UsageReceipt receipt = 1;
+  string status = 2;
+}
+
+// QueryListReceiptsRequest is the request type for ListReceipts RPC
+message QueryListReceiptsRequest {
+  string tool_id = 1;
+  string router_address = 2;
+  string user_address = 3;
+  string status = 4;
+  cosmos.base.query.v1beta1.PageRequest pagination = 5;
+}
+
+message QueryListReceiptsResponse {
+  repeated UsageReceipt receipts = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryGetBundleAnchorRequest is the request type for GetBundleAnchor RPC.
+message QueryGetBundleAnchorRequest {
+  string chain_id = 1;
+  // Hex-encoded merkle root (SHA-256, 32 bytes). Accepts optional 0x prefix.
+  string merkle_root_hex = 2;
+}
+
+message QueryGetBundleAnchorResponse { BundleAnchor anchor = 1; }
+
+// QueryGetSettlementRequest is the request type for GetSettlement RPC
+message QueryGetSettlementRequest { string receipt_id = 1; }
+
+message QueryGetSettlementResponse { SettlementRecord settlement = 1; }
+
+// QueryGetChallengeRequest is the request type for GetChallenge RPC
+message QueryGetChallengeRequest { string challenge_id = 1; }
+
+message QueryGetChallengeResponse { Challenge challenge = 1; }
+
+// QueryListChallengesRequest is the request type for ListChallenges RPC
+message QueryListChallengesRequest {
+  string receipt_id = 1;
+  string challenger_address = 2;
+  string status = 3;
+  cosmos.base.query.v1beta1.PageRequest pagination = 4;
+}
+
+message QueryListChallengesResponse {
+  repeated Challenge challenges = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryGetParamsRequest is the request type for GetParams RPC
+message QueryGetParamsRequest {}
+
+message QueryGetParamsResponse { RegistryParams params = 1; }
+
+// QueryGetSLATemplateRequest is the request type for GetSLATemplate RPC.
+message QueryGetSLATemplateRequest { string sla_id = 1; }
+
+message QueryGetSLATemplateResponse { SLATemplateEntry template = 1; }
+
+// QueryListSLATemplatesRequest is the request type for ListSLATemplates RPC.
+message QueryListSLATemplatesRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+message QueryListSLATemplatesResponse {
+  repeated SLATemplateEntry templates = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryGetDisputeTermsRequest is the request type for GetDisputeTerms RPC.
+message QueryGetDisputeTermsRequest { string dispute_terms_id = 1; }
+
+message QueryGetDisputeTermsResponse { DisputeTermsEntry terms = 1; }
+
+// QueryListDisputeTermsRequest is the request type for ListDisputeTerms RPC.
+message QueryListDisputeTermsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+message QueryListDisputeTermsResponse {
+  repeated DisputeTermsEntry terms = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// SLATemplateEntry returns a stored SLA template document.
+message SLATemplateEntry {
+  string sla_id = 1;
+  string payload = 2;
+}
+
+// DisputeTermsEntry returns a stored dispute terms document.
+message DisputeTermsEntry {
+  string dispute_terms_id = 1;
+  string payload = 2;
+}
+
+// QueryGetInsurancePoolRequest is the request type for GetInsurancePool RPC
+message QueryGetInsurancePoolRequest {}
+
+message QueryGetInsurancePoolResponse {
+  repeated cosmos.base.v1beta1.Coin total_pool = 1;
+  repeated cosmos.base.v1beta1.Coin available = 2;
+  repeated cosmos.base.v1beta1.Coin locked = 3;
+  uint64 active_claims = 4;
+  uint64 total_claims_paid = 5;
+}
+
+// QueryGetToolMetricsRequest is the request type for GetToolMetrics RPC
+message QueryGetToolMetricsRequest {
+  string tool_id = 1;
+  uint32 window_hours = 2;
+}
+
+message QueryGetToolMetricsResponse {
+  string tool_id = 1;
+  uint64 total_calls = 2;
+  uint64 successful_calls = 3;
+  uint64 failed_calls = 4;
+  uint64 cached_calls = 5;
+  uint64 disputed_calls = 6;
+  uint32 p95_latency_ms = 7;
+  uint32 availability_bps = 8;
+  uint32 error_rate_bps = 9;
+  uint32 dispute_rate_bps = 10;
+  string total_revenue = 11;
+  string total_slashed = 12;
+}
+
+// QueryGetLaneRequest is the request type for GetLane RPC.
+message QueryGetLaneRequest { string lane_id = 1; }
+
+message QueryGetLaneResponse { LaneRegistryEntry lane = 1; }
+
+// QueryListLanesRequest is the request type for ListLanes RPC.
+message QueryListLanesRequest {
+  string lane_type = 1;
+  string operator_id = 2;
+  cosmos.base.query.v1beta1.PageRequest pagination = 3;
+}
+
+message QueryListLanesResponse {
+  repeated LaneRegistryEntry lanes = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryGetToolCapsuleRequest is the request type for GetToolCapsule RPC.
+message QueryGetToolCapsuleRequest { string tool_id = 1; }
+
+message QueryGetToolCapsuleResponse { ToolCapsule capsule = 1; }
+
+// QueryListToolCapsulesRequest is the request type for ListToolCapsules RPC.
+message QueryListToolCapsulesRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+message QueryListToolCapsulesResponse {
+  repeated ToolCapsule capsules = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryGetOriginRoutingConfigRequest is the request type for
+// GetOriginRoutingConfig RPC.
+message QueryGetOriginRoutingConfigRequest { string origin_id = 1; }
+
+message QueryGetOriginRoutingConfigResponse { OriginRoutingConfig config = 1; }
+
+// QueryListOriginRoutingConfigsRequest is the request type for
+// ListOriginRoutingConfigs RPC.
+message QueryListOriginRoutingConfigsRequest {
+  string status = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+
+message QueryListOriginRoutingConfigsResponse {
+  repeated OriginRoutingConfig configs = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}

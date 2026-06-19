@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+package lumera.reserve.v1;
+
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "google/api/annotations.proto";
+import "lumera/reserve/v1/reserve.proto";
+
+option go_package = "x/reserve/types";
+
+// Query defines the reserve module's public gRPC query service.
+service Query {
+  // Commitment retrieves one redacted reserve commitment by ID.
+  rpc Commitment(QueryCommitmentRequest) returns (QueryCommitmentResponse) {
+    option (google.api.http).get = "/lumera/reserve/v1/commitments/{commitment_id}";
+  }
+
+  // CommitmentsByOwner lists redacted commitments owned by one account.
+  rpc CommitmentsByOwner(QueryCommitmentsByOwnerRequest) returns (QueryCommitmentsByOwnerResponse) {
+    option (google.api.http).get = "/lumera/reserve/v1/owners/{owner}/commitments";
+  }
+
+  // CommitmentsByPolicy lists redacted commitments for one policy.
+  rpc CommitmentsByPolicy(QueryCommitmentsByPolicyRequest) returns (QueryCommitmentsByPolicyResponse) {
+    option (google.api.http).get = "/lumera/reserve/v1/policies/{policy_id}/commitments";
+  }
+
+  // ActiveCommitment reports whether a policy has an active commitment for a
+  // tool. Empty tool_id matches the keeper wildcard semantics.
+  rpc ActiveCommitment(QueryActiveCommitmentRequest) returns (QueryActiveCommitmentResponse) {
+    option (google.api.http).get = "/lumera/reserve/v1/policies/{policy_id}/active";
+  }
+
+  // Params retrieves reserve module parameters.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/lumera/reserve/v1/params";
+  }
+}
+
+message QueryCommitmentRequest {
+  string commitment_id = 1;
+}
+
+message QueryCommitmentResponse {
+  ReserveCommitmentSummary commitment = 1;
+}
+
+message QueryCommitmentsByOwnerRequest {
+  string owner = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+
+message QueryCommitmentsByOwnerResponse {
+  repeated ReserveCommitmentSummary commitments = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+message QueryCommitmentsByPolicyRequest {
+  string policy_id = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+
+message QueryCommitmentsByPolicyResponse {
+  repeated ReserveCommitmentSummary commitments = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+message QueryActiveCommitmentRequest {
+  string policy_id = 1;
+  string tool_id = 2;
+}
+
+message QueryActiveCommitmentResponse {
+  bool active = 1;
+  ReserveCommitmentSummary commitment = 2;
+}
+
+message QueryParamsRequest {}
+
+message QueryParamsResponse {
+  ReserveParams params = 1;
+}

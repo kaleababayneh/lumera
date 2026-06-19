@@ -201,16 +201,36 @@ real end-to-end. **Production target — no stubs may ship to mainnet.**
       lite variants). `x/credits/ibc/` left gated → **deferred to Phase 2 (IBC v11→v10)**.
 - [x] **Tagless `go build` of credits (non-ibc) + type pkgs: GREEN** — compiles in lumera's
       real config.
-- [ ] depinject wiring: `proto/lumera/credits/module/module.proto`,
+- [x] depinject wiring: `proto/lumera/credits/module/module.proto`,
       `x/credits/module/depinject.go`, 4 **stub** keepers (Insurance/Registry/Reserve/NFT),
-      register in `app/app_config.go`, extract `&app.CreditsKeeper` in `app/app.go`. Mirror
-      `x/lumeraid/module/depinject.go`.
-- [ ] `make build` (full `lumerad` with credits wired).
-- [ ] Smoke test on a localnet: submit a credits tx, query state.
-- [ ] Port unit tests → `go test ./x/credits/...` green.
+      registered in `app/app_config.go` + `&app.CreditsKeeper` in `app/app.go`.
+- [x] **`go build` of full `lumerad` with credits wired: GREEN** (191 MB binary).
+      (`make build` itself fails on macOS GNU make 3.81 — `$(strip $(shell …))` parse error;
+      use `gmake` or build on Linux. `go build -o … ./cmd/lumera` works.)
+- [ ] ⛔ **BLOCKED — `lumerad init` panics at startup.** Root cause: **lumera_ai modules use
+      protobuf-go; lumera is gogoproto.** The copied protobuf-go `.pb.go` are incompatible with
+      lumera's `protobuf-go v1.36.11` runtime (`filedesc.unmarshalSeed` slice-bounds panic).
+      Regenerating with lumera's gogo toolchain instead breaks the hand-written code (which
+      expects the protobuf-go API: `timestamppb`, `basev1beta1.Coin`, `ProtoReflect`,
+      `Msg_ServiceDesc`/`rawDescGZIP`). **DECISION NEEDED — see below.**
+- [ ] Smoke test on a localnet (blocked).
+- [ ] Port unit tests (blocked).
+
+### ⚠️ Open decision — proto framework (protobuf-go vs gogoproto)
+Porting a lumera_ai module is a **proto-framework conversion**, not just a version down-step.
+- **A. Convert modules to gogoproto** (lumera-native): regen protos with gogo + rewrite all
+  hand-written code touching the proto API (codec/msgs/genesis/keeper). Correct, but a large
+  rewrite per module (credits ≈ 17.5k LOC) × every module.
+- **B. Keep protobuf-go, regen at lumera's v1.36.11**: set up the protoc-gen-go toolchain, regen
+  the cluster (hand-written code compiles unchanged), host protobuf-go modules in lumera's gogo
+  app. Far less rework; must verify lumera v0.53 hosts protobuf-go modules (lumera_ai did on
+  v0.54) and that mixing frameworks is acceptable for production.
+- Recommendation: try **B** first (cheap to test: regen + re-init; if it boots, done with minimal
+  rework). Escalate to **A** if B can't host protobuf-go modules.
 
 ### Stubs in place (TEMPORARY — remove before testnet)
-- _(none yet — added during depinject wiring)_
+- `x/credits/module/stubs.go`: `stubInsuranceKeeper`, `stubRegistryKeeper`, `stubReserveKeeper`,
+  `stubNFTKeeper` (wired in `ProvideModule`; the loud-fail ones return errors until real).
 
 ## Later modules (same loop, dependency order)
 `registry` → `reserve`/`nft` → `payment_rails` → `passport`. As each lands, replace its stub

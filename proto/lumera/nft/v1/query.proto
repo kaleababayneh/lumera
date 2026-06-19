@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package lumera.nft.v1;
+
+import "lumera/nft/v1/toolpack.proto";
+
+option go_package = "x/nft/types";
+
+service Query {
+  rpc Toolpack(QueryToolpackRequest) returns (QueryToolpackResponse);
+  rpc ToolpacksByCurator(QueryToolpacksByCuratorRequest)
+      returns (QueryToolpacksByCuratorResponse);
+  rpc ToolpackHistory(QueryToolpackHistoryRequest)
+      returns (QueryToolpackHistoryResponse);
+}
+
+message QueryToolpackRequest { string id = 1; }
+
+message QueryToolpackResponse { ToolpackNFT toolpack = 1; }
+
+message QueryToolpacksByCuratorRequest { string curator = 1; }
+
+message QueryToolpacksByCuratorResponse { repeated ToolpackNFT toolpacks = 1; }
+
+message QueryToolpackHistoryRequest { string id = 1; }
+
+message QueryToolpackHistoryResponse { repeated ToolpackHistory history = 1; }

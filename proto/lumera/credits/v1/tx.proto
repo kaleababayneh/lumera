@@ -1,0 +1,216 @@
+syntax = "proto3";
+package lumera.credits.v1;
+
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos_proto/cosmos.proto";
+import "cosmos/msg/v1/msg.proto";
+
+option go_package = "x/credits/types";
+
+// Msg defines the credits Msg service
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // SwapLUMEtoLAC swaps LUME tokens for LAC credits
+  rpc SwapLUMEtoLAC(MsgSwapLUMEtoLAC) returns (MsgSwapLUMEtoLACResponse);
+
+  // SwapLACtoLUME swaps LAC credits for LUME tokens
+  rpc SwapLACtoLUME(MsgSwapLACtoLUME) returns (MsgSwapLACtoLUMEResponse);
+
+  // LockCredits locks LAC for tool invocation
+  rpc LockCredits(MsgLockCredits) returns (MsgLockCreditsResponse);
+
+  // UnlockCredits releases locked LAC
+  rpc UnlockCredits(MsgUnlockCredits) returns (MsgUnlockCreditsResponse);
+
+  // SettleCredits processes a settlement with burn and distribution
+  rpc SettleCredits(MsgSettleCredits) returns (MsgSettleCreditsResponse);
+
+  // SettleOverdraft processes a bonded overdraft settlement batch
+  rpc SettleOverdraft(MsgSettleOverdraft) returns (MsgSettleOverdraftResponse);
+
+  // UpdateParams updates module parameters (governance only)
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+// MsgSwapLUMEtoLAC swaps LUME for LAC at current rate
+message MsgSwapLUMEtoLAC {
+  option (cosmos.msg.v1.signer) = "sender";
+
+  string sender = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  cosmos.base.v1beta1.Coin lume_amount = 2;
+  string min_lac_out = 3; // Minimum LAC to receive (slippage protection)
+}
+
+// MsgSwapLUMEtoLACResponse returns the swap result
+message MsgSwapLUMEtoLACResponse {
+  cosmos.base.v1beta1.Coin lac_received = 1;
+  cosmos.base.v1beta1.Coin burn_amount = 2;
+  string exchange_rate = 3; // Effective rate after burn
+}
+
+// MsgSwapLACtoLUME swaps LAC for LUME at current rate
+message MsgSwapLACtoLUME {
+  option (cosmos.msg.v1.signer) = "sender";
+
+  string sender = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  cosmos.base.v1beta1.Coin lac_amount = 2;
+  string min_lume_out = 3; // Minimum LUME to receive
+}
+
+// MsgSwapLACtoLUMEResponse returns the swap result
+message MsgSwapLACtoLUMEResponse {
+  cosmos.base.v1beta1.Coin lume_received = 1;
+  cosmos.base.v1beta1.Coin burn_amount = 2;
+  string exchange_rate = 3;
+}
+
+// MsgLockCredits locks LAC for a tool invocation
+message MsgLockCredits {
+  option (cosmos.msg.v1.signer) = "router";
+
+  string router = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string session_id = 2;
+  cosmos.base.v1beta1.Coin amount = 3;
+  string tool_id = 4;
+  string quote_id = 5;
+  string policy_version = 6;
+  string intent_hash = 7;
+  uint64 ttl_seconds = 8;
+  string toolpack_id = 9;
+}
+
+// MsgLockCreditsResponse returns the lock details
+message MsgLockCreditsResponse {
+  string lock_id = 1;
+  int64 expires_at = 2; // Unix timestamp
+}
+
+// MsgUnlockCredits releases locked credits
+message MsgUnlockCredits {
+  option (cosmos.msg.v1.signer) = "router";
+
+  string router = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string lock_id = 2;
+  string reason = 3;
+}
+
+// MsgUnlockCreditsResponse confirms unlock
+message MsgUnlockCreditsResponse {
+  cosmos.base.v1beta1.Coin amount_unlocked = 1;
+}
+
+// MsgSettleCredits processes a tool invocation settlement
+message MsgSettleCredits {
+  option (cosmos.msg.v1.signer) = "router";
+
+  string router = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string lock_id = 2;
+  cosmos.base.v1beta1.Coin actual_cost = 3;
+  string receipt_id = 4;
+  string tool_id = 5;
+  string publisher = 6 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string referrer = 7 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  bool cache_hit = 8;
+  string origin_tool_id = 9; // For CAC royalties
+  string toolpack_id = 10;
+  string stage = 11; // Settlement stage (e.g. "partial_fill", "finalized")
+}
+
+// MsgSettleCreditsResponse returns settlement details
+message MsgSettleCreditsResponse {
+  cosmos.base.v1beta1.Coin burn_amount = 1;
+  cosmos.base.v1beta1.Coin publisher_amount = 2;
+  cosmos.base.v1beta1.Coin router_amount = 3;
+  cosmos.base.v1beta1.Coin referrer_amount = 4;
+  cosmos.base.v1beta1.Coin refund_amount = 5;
+}
+
+// OverdraftSettlementSplit records one deterministic settlement split row.
+message OverdraftSettlementSplit {
+  string role = 1;
+  string address = 2 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  cosmos.base.v1beta1.Coin amount = 3;
+}
+
+// OverdraftSettlementEntry records one provisional overdraft invocation row.
+message OverdraftSettlementEntry {
+  string request_id = 1;
+  string quote_id = 2;
+  string provisional_lock_id = 3;
+  string receipt_id = 4;
+  string tool_id = 5;
+  cosmos.base.v1beta1.Coin quoted_cost = 6;
+  cosmos.base.v1beta1.Coin actual_cost = 7;
+  cosmos.base.v1beta1.Coin refund_amount = 8;
+  cosmos.base.v1beta1.Coin insurance_amount = 9;
+  cosmos.base.v1beta1.Coin burn_amount = 10;
+  repeated OverdraftSettlementSplit splits = 11;
+  string toolpack_id = 12;
+  string stage = 13;
+}
+
+// MsgSettleOverdraft closes a bonded-agent overdraft settlement batch.
+message MsgSettleOverdraft {
+  option (cosmos.msg.v1.signer) = "router";
+
+  string router = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string credit_line_id = 2;
+  string settlement_batch_id = 3;
+  cosmos.base.v1beta1.Coin credit_limit = 4;
+  uint32 liquidation_threshold_bps = 5;
+  string policy_version = 6;
+  repeated OverdraftSettlementEntry entries = 7;
+}
+
+// MsgSettleOverdraftResponse returns deterministic batch settlement totals.
+message MsgSettleOverdraftResponse {
+  string settlement_id = 1;
+  string status = 2;
+  cosmos.base.v1beta1.Coin total_quoted = 3;
+  cosmos.base.v1beta1.Coin total_actual = 4;
+  cosmos.base.v1beta1.Coin total_refund = 5;
+  cosmos.base.v1beta1.Coin total_insurance = 6;
+  cosmos.base.v1beta1.Coin total_burn = 7;
+  cosmos.base.v1beta1.Coin remaining_credit = 8;
+  uint32 utilization_bps = 9;
+  bool liquidation_required = 10;
+  repeated OverdraftSettlementSplit total_splits = 11;
+}
+
+// MsgUpdateParams updates module parameters
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // Parameters to update
+  uint32 max_lock_ttl_seconds = 2;
+  uint32 dispute_window_hours = 3;
+  uint32 burn_rate_spend_bps = 4; // β_spend from whitepaper
+  uint32 burn_rate_acq_bps = 5;   // β_acq from whitepaper
+  string swap_rate = 6;           // LUME:LAC exchange rate
+  uint32 target_annual_deflation_bps = 7;
+  uint32 min_burn_rate_spend_bps = 8;
+  uint32 max_burn_rate_spend_bps = 9;
+  uint32 burn_rate_adjustment_epoch = 10;
+  uint32 death_spiral_supply_contraction_bps = 11;
+  uint32 death_spiral_burn_rate_cap_bps = 12;
+  uint32 overdraft_max_credit_line_to_bond_bps = 13;
+  uint32 overdraft_liquidation_threshold_bps = 14;
+  // Zero-valued numeric fields above mean "leave unchanged", so disabling
+  // overdraft (both overdraft params set to zero) needs an explicit signal.
+  // Must not be combined with positive overdraft values in the same message.
+  bool disable_overdraft = 15;
+  // Sets burn_rate_adjustment_epoch to zero, disabling the adaptive burn
+  // controller. Must not be combined with a positive
+  // burn_rate_adjustment_epoch in the same message.
+  bool disable_burn_rate_adjustment = 16;
+  // Sets dispute_window_hours to zero so the module defers to the registry's
+  // canonical dispute window. Must not be combined with a positive
+  // dispute_window_hours in the same message.
+  bool reset_dispute_window = 17;
+}
+
+// MsgUpdateParamsResponse confirms parameter update
+message MsgUpdateParamsResponse {}

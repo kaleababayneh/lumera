@@ -1,0 +1,293 @@
+syntax = "proto3";
+package lumera.passport.v1;
+
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "x/passport/types";
+
+// Params defines the module parameters for passport management.
+message Params {
+  // Minimum stake required to register a passport (in ulume).
+  cosmos.base.v1beta1.Coin min_stake = 1;
+  // Slash rate for dispute resolution (basis points, e.g., 500 = 5%).
+  uint32 slash_rate_bps = 2;
+  // Grace period before revocation takes effect (seconds).
+  uint32 revocation_grace_seconds = 3;
+  // Collusion risk threshold that triggers verification downgrades.
+  uint32 collusion_risk_threshold_bps = 4;
+  // Verification multiplier applied after collusion threshold breach.
+  uint32 collusion_verification_penalty_bps = 5;
+  // Maximum payer spend share before concentration is flagged.
+  uint32 collusion_max_payer_share_bps = 6;
+  // Maximum publisher spend share before concentration is flagged.
+  uint32 collusion_max_publisher_share_bps = 7;
+  // Maximum tool spend share before concentration is flagged.
+  uint32 collusion_max_tool_share_bps = 8;
+}
+
+// PassportStatus defines the lifecycle states of an agent passport.
+enum PassportStatus {
+  PASSPORT_STATUS_UNSPECIFIED = 0;
+  PASSPORT_STATUS_ACTIVE = 1;
+  PASSPORT_STATUS_SUSPENDED = 2;
+  PASSPORT_STATUS_REVOKED = 3;
+}
+
+// PassportTier defines the permission tier for router and Explorer views.
+enum PassportTier {
+  PASSPORT_TIER_UNSPECIFIED = 0;
+  PASSPORT_TIER_PROBATIONARY = 1;
+  PASSPORT_TIER_STANDARD = 2;
+  PASSPORT_TIER_TRUSTED = 3;
+  PASSPORT_TIER_PREMIUM = 4;
+}
+
+// PassportSummary aggregates the agent's activity metrics.
+message PassportSummary {
+  uint64 total_receipts = 1;
+  cosmos.base.v1beta1.Coin total_spend = 2;
+  int64 first_receipt_ts = 3;
+  int64 last_receipt_ts = 4;
+  uint32 tools_used = 5;
+  uint32 sessions_completed = 6;
+  uint32 dispute_count = 7;
+  uint32 dispute_lost_count = 8;
+  // Settled spend across finalized receipts.
+  cosmos.base.v1beta1.Coin settled_spend = 9;
+  // Refunded spend across refunded receipts.
+  cosmos.base.v1beta1.Coin refunded_spend = 10;
+  // Count of unique payers within the last 30 days.
+  uint32 unique_payers_30d = 11;
+  // Diversity index for spend across tools (0-1, higher is more diverse).
+  double tool_diversity_index = 12;
+  // Share of spend on verified tools/publishers (0-1).
+  double verified_spend_share = 13;
+  // Collusion risk score (0-1, higher is more risky).
+  double collusion_risk_score = 14;
+}
+
+// ReputationVector holds the multi-dimensional reputation scores.
+message ReputationVector {
+  // Reliability score (0-1000): completion rate, uptime, consistency.
+  uint32 reliability = 1;
+  // Quality score (0-1000): accuracy, user satisfaction.
+  uint32 quality = 2;
+  // Trustworthiness score (0-1000): dispute outcomes, honesty.
+  uint32 trustworthiness = 3;
+  // Composite score computed from dimensions (0-1000).
+  uint32 composite = 4;
+  // Last update timestamp.
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+// PassportScoreBreakdown stores the 7-dimensional tier-evaluation vector.
+message PassportScoreBreakdown {
+  uint32 reliability = 1;
+  uint32 safety = 2;
+  uint32 latency = 3;
+  uint32 cost_discipline = 4;
+  uint32 dispute = 5;
+  uint32 longevity = 6;
+  uint32 privacy = 7;
+  uint32 composite = 8;
+  bool eligible = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+// PassportTierPermissions captures router-facing budget and lane limits.
+message PassportTierPermissions {
+  PassportTier tier = 1;
+  uint64 max_budget_per_call_lac = 2;
+  uint64 max_budget_per_day_lac = 3;
+  uint64 max_budget_per_month_lac = 4;
+  bool confidential_allowed = 5;
+  repeated string allowed_lane_patterns = 6;
+}
+
+// PassportTierState is the consensus-visible tier and promotion lockup state.
+message PassportTierState {
+  PassportTier current_tier = 1;
+  PassportTier eligible_tier = 2;
+  PassportTier promotion_pending_to = 3;
+  google.protobuf.Timestamp tier_entered_at = 4;
+  google.protobuf.Timestamp promotion_started_at = 5;
+  google.protobuf.Timestamp lockup_expires_at = 6;
+  bool can_promote = 7;
+  bool promoted = 8;
+  bool demoted = 9;
+  string promotion_blocker = 10;
+  PassportTierPermissions permissions = 11;
+}
+
+// PassportTierHistoryEntry records an auditable tier transition.
+message PassportTierHistoryEntry {
+  PassportTier previous_tier = 1;
+  PassportTier new_tier = 2;
+  string reason = 3;
+  string promotion_blocker = 4;
+  PassportScoreBreakdown score_breakdown = 5;
+  bool promoted = 6;
+  bool demoted = 7;
+  google.protobuf.Timestamp transitioned_at = 8;
+}
+
+// BundleAnchor represents a Merkle tree anchor for receipt bundles.
+message BundleAnchor {
+  string bundle_id = 1;
+  bytes merkle_root = 2;
+  uint64 receipt_count = 3;
+  int64 start_ts = 4;
+  int64 end_ts = 5;
+  string storage_uri = 6;
+}
+
+// AgentPassport represents a stake-backed agent identity.
+message AgentPassport {
+  string passport_id = 1;
+  string agent_pubkey = 2;
+  string owner_address = 3;
+  int64 created_ts = 4;
+  string issuer = 5;
+  cosmos.base.v1beta1.Coin stake = 6;
+  PassportSummary summary = 7;
+  ReputationVector reputation = 8;
+  repeated BundleAnchor bundle_anchors = 9;
+  PassportStatus status = 10;
+  bytes passport_sig = 11;
+  string suspension_reason = 12;
+  string revocation_reason = 13;
+  PassportTierState tier_state = 14;
+  PassportScoreBreakdown score_breakdown = 15;
+  repeated PassportTierHistoryEntry tier_history = 16;
+}
+
+// GenesisState defines the passport module's genesis state.
+message GenesisState {
+  Params params = 1;
+  repeated AgentPassport passports = 2;
+}
+
+// MsgRegisterPassport registers a new agent passport with stake.
+message MsgRegisterPassport {
+  string creator = 1;
+  string agent_pubkey = 2;
+  cosmos.base.v1beta1.Coin stake = 3;
+}
+
+message MsgRegisterPassportResponse { string passport_id = 1; }
+
+// MsgSuspendPassport suspends an active passport.
+message MsgSuspendPassport {
+  string authority = 1;
+  string passport_id = 2;
+  string reason = 3;
+}
+
+message MsgSuspendPassportResponse {}
+
+// MsgRevokePassport permanently revokes a passport.
+message MsgRevokePassport {
+  string authority = 1;
+  string passport_id = 2;
+  string reason = 3;
+}
+
+message MsgRevokePassportResponse {}
+
+// MsgReactivatePassport reactivates a suspended passport.
+message MsgReactivatePassport {
+  string owner = 1;
+  string passport_id = 2;
+}
+
+message MsgReactivatePassportResponse {}
+
+// MsgSlashStake slashes stake from a passport (governance action).
+message MsgSlashStake {
+  string authority = 1;
+  string passport_id = 2;
+  cosmos.base.v1beta1.Coin amount = 3;
+  string reason = 4;
+}
+
+message MsgSlashStakeResponse { cosmos.base.v1beta1.Coin remaining_stake = 1; }
+
+// MsgTopUpStake adds stake to an existing passport.
+message MsgTopUpStake {
+  string owner = 1;
+  string passport_id = 2;
+  cosmos.base.v1beta1.Coin amount = 3;
+}
+
+message MsgTopUpStakeResponse { cosmos.base.v1beta1.Coin stake = 1; }
+
+// MsgUnregisterPassport removes a passport and refunds remaining stake.
+message MsgUnregisterPassport {
+  string owner = 1;
+  string passport_id = 2;
+}
+
+message MsgUnregisterPassportResponse {
+  cosmos.base.v1beta1.Coin refunded_stake = 1;
+}
+
+// MsgUpdateParams updates passport module parameters via governance.
+message MsgUpdateParams {
+  string authority = 1;
+  Params params = 2;
+}
+
+message MsgUpdateParamsResponse {}
+
+// Msg defines the passport module's message service.
+service Msg {
+  rpc RegisterPassport(MsgRegisterPassport)
+      returns (MsgRegisterPassportResponse);
+  rpc SuspendPassport(MsgSuspendPassport) returns (MsgSuspendPassportResponse);
+  rpc RevokePassport(MsgRevokePassport) returns (MsgRevokePassportResponse);
+  rpc ReactivatePassport(MsgReactivatePassport)
+      returns (MsgReactivatePassportResponse);
+  rpc SlashStake(MsgSlashStake) returns (MsgSlashStakeResponse);
+  rpc TopUpStake(MsgTopUpStake) returns (MsgTopUpStakeResponse);
+  rpc UnregisterPassport(MsgUnregisterPassport)
+      returns (MsgUnregisterPassportResponse);
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+// QueryPassportRequest is the request for querying a passport by ID.
+message QueryPassportRequest { string passport_id = 1; }
+
+message QueryPassportResponse { AgentPassport passport = 1; }
+
+// QueryPassportByAgentRequest queries a passport by agent pubkey.
+message QueryPassportByAgentRequest { string agent_pubkey = 1; }
+
+// QueryPassportByAgentResponse returns the passport for the given agent pubkey.
+message QueryPassportByAgentResponse { AgentPassport passport = 1; }
+
+// QueryPassportsRequest lists all passports with pagination.
+message QueryPassportsRequest {
+  PassportStatus status_filter = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+
+message QueryPassportsResponse {
+  repeated AgentPassport passports = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryParamsRequest queries the module parameters.
+message QueryParamsRequest {}
+
+message QueryParamsResponse { Params params = 1; }
+
+// Query defines the passport module's query service.
+service Query {
+  rpc Passport(QueryPassportRequest) returns (QueryPassportResponse);
+  rpc PassportByAgent(QueryPassportByAgentRequest)
+      returns (QueryPassportByAgentResponse);
+  rpc Passports(QueryPassportsRequest) returns (QueryPassportsResponse);
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse);
+}
