@@ -1,0 +1,62 @@
+syntax = "proto3";
+package lumera.oracle.v1;
+
+import "google/api/annotations.proto";
+import "lumera/oracle/v1/oracle.proto";
+
+option go_package = "x/oracle/types";
+
+// Query defines the gRPC querier service for the oracle module
+service Query {
+  // Params queries the oracle module parameters
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/lumera/oracle/v1/params";
+  }
+
+  // PriceFeed queries a specific price feed by asset pair
+  rpc PriceFeed(QueryPriceFeedRequest) returns (QueryPriceFeedResponse) {
+    option (google.api.http).get = "/lumera/oracle/v1/price_feed/{asset_pair}";
+  }
+
+  // AllPriceFeeds queries all price feeds
+  rpc AllPriceFeeds(QueryAllPriceFeedsRequest)
+      returns (QueryAllPriceFeedsResponse) {
+    option (google.api.http).get = "/lumera/oracle/v1/price_feeds";
+  }
+
+  // AggregatedPrice queries the aggregated price for an asset pair
+  rpc AggregatedPrice(QueryAggregatedPriceRequest)
+      returns (QueryAggregatedPriceResponse) {
+    option (google.api.http).get =
+        "/lumera/oracle/v1/aggregated_price/{asset_pair}";
+  }
+}
+
+// QueryParamsRequest is the request type for the Query/Params RPC method
+message QueryParamsRequest {}
+
+// QueryParamsResponse is the response type for the Query/Params RPC method
+message QueryParamsResponse { Params params = 1; }
+
+// QueryPriceFeedRequest is the request type for the Query/PriceFeed RPC method
+message QueryPriceFeedRequest { string asset_pair = 1; }
+
+// QueryPriceFeedResponse is the response type for the Query/PriceFeed RPC
+// method
+message QueryPriceFeedResponse { PriceFeed price_feed = 1; }
+
+// QueryAllPriceFeedsRequest is the request type for the Query/AllPriceFeeds RPC
+// method
+message QueryAllPriceFeedsRequest {}
+
+// QueryAllPriceFeedsResponse is the response type for the Query/AllPriceFeeds
+// RPC method
+message QueryAllPriceFeedsResponse { repeated PriceFeed price_feeds = 1; }
+
+// QueryAggregatedPriceRequest is the request type for the Query/AggregatedPrice
+// RPC method
+message QueryAggregatedPriceRequest { string asset_pair = 1; }
+
+// QueryAggregatedPriceResponse is the response type for the
+// Query/AggregatedPrice RPC method
+message QueryAggregatedPriceResponse { AggregatedPrice aggregated_price = 1; }

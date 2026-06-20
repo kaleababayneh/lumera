@@ -1,0 +1,20 @@
+syntax = "proto3";
+package lumera.oracle.v1;
+
+import "lumera/oracle/v1/oracle.proto";
+
+option go_package = "x/oracle/types";
+
+// GenesisState defines the oracle module's genesis state
+message GenesisState {
+  // params defines all the parameters of the oracle module
+  // (nullable so InitGenesis can detect an unset Params and substitute
+  // DefaultParams)
+  Params params = 1;
+
+  // price_feeds contains the initial price feeds
+  repeated PriceFeed price_feeds = 2;
+
+  // aggregated_prices contains the initial aggregated prices
+  repeated AggregatedPrice aggregated_prices = 3;
+}
