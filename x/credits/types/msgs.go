@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	v1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -79,10 +78,7 @@ func mustAddr(addr string) sdk.AccAddress {
 	return a
 }
 
-func coinFromProto(c *v1beta1.Coin, field string) (sdk.Coin, error) {
-	if c == nil {
-		return sdk.Coin{}, errorsmod.Wrapf(sdkerrors.ErrInvalidCoins, "%s is required", field)
-	}
+func coinFromProto(c sdk.Coin, field string) (sdk.Coin, error) {
 	denom := strings.TrimSpace(c.Denom)
 	if denom == "" {
 		return sdk.Coin{}, errorsmod.Wrapf(sdkerrors.ErrInvalidCoins, "%s denom cannot be empty", field)
@@ -94,19 +90,16 @@ func coinFromProto(c *v1beta1.Coin, field string) (sdk.Coin, error) {
 	if err := sdk.ValidateDenom(denom); err != nil {
 		return sdk.Coin{}, errorsmod.Wrapf(sdkerrors.ErrInvalidCoins, "%s denom is invalid: %s", field, err)
 	}
-	amountStr := strings.TrimSpace(c.Amount)
-	if amountStr == "" {
-		return sdk.Coin{}, errorsmod.Wrapf(sdkerrors.ErrInvalidCoins, "%s amount cannot be empty", field)
-	}
-	amount, ok := sdkmath.NewIntFromString(amountStr)
-	if !ok || !amount.IsPositive() {
+	if c.Amount.IsNil() || !c.Amount.IsPositive() {
 		return sdk.Coin{}, errorsmod.Wrapf(sdkerrors.ErrInvalidCoins, "%s amount must be positive", field)
 	}
-	return sdk.NewCoin(denom, amount), nil
+	return sdk.NewCoin(denom, c.Amount), nil
 }
 
-func nonNegativeCoinFromProto(c *v1beta1.Coin, field string, required bool) (sdk.Coin, bool, error) {
-	if c == nil {
+func nonNegativeCoinFromProto(c sdk.Coin, field string, required bool) (sdk.Coin, bool, error) {
+	// A coin field left unset decodes to a zero-value sdk.Coin (empty denom,
+	// nil amount); treat that as "absent".
+	if c.Denom == "" && c.Amount.IsNil() {
 		if required {
 			return sdk.Coin{}, false, errorsmod.Wrapf(sdkerrors.ErrInvalidCoins, "%s is required", field)
 		}
@@ -119,15 +112,10 @@ func nonNegativeCoinFromProto(c *v1beta1.Coin, field string, required bool) (sdk
 	if err := sdk.ValidateDenom(denom); err != nil {
 		return sdk.Coin{}, false, errorsmod.Wrapf(sdkerrors.ErrInvalidCoins, "%s denom is invalid: %s", field, err)
 	}
-	amountStr := strings.TrimSpace(c.Amount)
-	if amountStr == "" {
-		return sdk.Coin{}, false, errorsmod.Wrapf(sdkerrors.ErrInvalidCoins, "%s amount cannot be empty", field)
-	}
-	amount, ok := sdkmath.NewIntFromString(amountStr)
-	if !ok || amount.IsNegative() {
+	if c.Amount.IsNil() || c.Amount.IsNegative() {
 		return sdk.Coin{}, false, errorsmod.Wrapf(sdkerrors.ErrInvalidCoins, "%s amount must be non-negative", field)
 	}
-	return sdk.NewCoin(denom, amount), true, nil
+	return sdk.NewCoin(denom, c.Amount), true, nil
 }
 
 func validateCoinDenom(field string, coin sdk.Coin, denom string) error {
@@ -272,9 +260,6 @@ func (m *MsgSettleCredits) ValidateBasic() error {
 		}
 	}
 
-	if m.GetActualCost() == nil {
-		return errorsmod.Wrapf(sdkerrors.ErrInvalidCoins, "%s is required", "actual_cost")
-	}
 	if _, _, err := nonNegativeCoinFromProto(m.GetActualCost(), "actual_cost", true); err != nil {
 		return err
 	}
@@ -378,7 +363,7 @@ func (m *MsgSettleOverdraft) ValidateBasic() error {
 		}
 		for _, tc := range []struct {
 			field string
-			coin  *v1beta1.Coin
+			coin  sdk.Coin
 		}{
 			{field: "refund_amount", coin: entry.GetRefundAmount()},
 			{field: "insurance_amount", coin: entry.GetInsuranceAmount()},

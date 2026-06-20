@@ -1,4 +1,3 @@
-
 package types
 
 import (
@@ -6,9 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	v1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
 	errorsmod "cosmossdk.io/errors"
-	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
@@ -71,10 +68,7 @@ func validateRequiredIdentifier(field, id string) error {
 	return nil
 }
 
-func coinFromProto(c *v1beta1.Coin, field string) (sdk.Coin, error) {
-	if c == nil {
-		return sdk.Coin{}, errorsmod.Wrapf(sdkerrors.ErrInvalidCoins, "%s coin required", field)
-	}
+func coinFromProto(c sdk.Coin, field string) (sdk.Coin, error) {
 	denom := strings.TrimSpace(c.Denom)
 	if denom == "" {
 		return sdk.Coin{}, errorsmod.Wrapf(sdkerrors.ErrInvalidCoins, "%s denom cannot be empty", field)
@@ -86,18 +80,16 @@ func coinFromProto(c *v1beta1.Coin, field string) (sdk.Coin, error) {
 	if err := sdk.ValidateDenom(denom); err != nil {
 		return sdk.Coin{}, errorsmod.Wrapf(sdkerrors.ErrInvalidCoins, "%s denom is invalid: %s", field, err)
 	}
-	amountStr := strings.TrimSpace(c.Amount)
-	if amountStr == "" {
+	if c.Amount.IsNil() {
 		return sdk.Coin{}, errorsmod.Wrapf(sdkerrors.ErrInvalidCoins, "%s amount cannot be empty", field)
 	}
-	amount, ok := sdkmath.NewIntFromString(amountStr)
-	if !ok || amount.IsNegative() {
+	if c.Amount.IsNegative() {
 		return sdk.Coin{}, errorsmod.Wrapf(sdkerrors.ErrInvalidCoins, "%s amount must be non-negative", field)
 	}
-	return sdk.NewCoin(denom, amount), nil
+	return sdk.NewCoin(denom, c.Amount), nil
 }
 
-func coinsFromProto(coins []*v1beta1.Coin, field string) (sdk.Coins, error) {
+func coinsFromProto(coins sdk.Coins, field string) (sdk.Coins, error) {
 	if len(coins) == 0 {
 		return sdk.Coins{}, errorsmod.Wrapf(sdkerrors.ErrInvalidCoins, "%s must contain at least one coin", field)
 	}
@@ -397,9 +389,6 @@ func (m *MsgUpdateParams) GetSigners() []sdk.AccAddress {
 func (m *MsgUpdateParams) ValidateBasic() error {
 	if _, err := sanitizeAddress(m.GetAuthority()); err != nil {
 		return err
-	}
-	if m.Params == nil {
-		return fmt.Errorf("params is required")
 	}
 	return nil
 }

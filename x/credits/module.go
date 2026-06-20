@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -14,7 +13,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 	simtypes "github.com/cosmos/cosmos-sdk/types/simulation"
 	legacyruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
-	v2runtime "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/spf13/cobra"
 
 	creditscli "github.com/LumeraProtocol/lumera/x/credits/client/cli"
@@ -64,24 +62,8 @@ func (AppModuleBasic) ValidateGenesis(cdc codec.JSONCodec, _ client.TxEncodingCo
 
 // RegisterGRPCGatewayRoutes registers the gRPC Gateway routes for the credits module.
 func (AppModuleBasic) RegisterGRPCGatewayRoutes(clientCtx client.Context, mux *legacyruntime.ServeMux) {
-	bridge := v2runtime.NewServeMux()
-	if err := types.RegisterQueryHandlerClient(context.Background(), bridge, types.NewQueryClient(clientCtx)); err != nil {
+	if err := types.RegisterQueryHandlerClient(context.Background(), mux, types.NewQueryClient(clientCtx)); err != nil {
 		panic(fmt.Errorf("failed to register credits grpc-gateway query client: %w", err))
-	}
-
-	delegate := func(w http.ResponseWriter, r *http.Request, _ map[string]string) {
-		bridge.ServeHTTP(w, r)
-	}
-
-	routes := []legacyruntime.Pattern{
-		legacyruntime.MustPattern(legacyruntime.NewPattern(1, []int{2, 0, 2, 1}, []string{"lumera.credits.v1.Query", "Lock"}, "")),
-		legacyruntime.MustPattern(legacyruntime.NewPattern(1, []int{2, 0, 2, 1}, []string{"lumera.credits.v1.Query", "Locks"}, "")),
-		legacyruntime.MustPattern(legacyruntime.NewPattern(1, []int{2, 0, 2, 1}, []string{"lumera.credits.v1.Query", "Hold"}, "")),
-		legacyruntime.MustPattern(legacyruntime.NewPattern(1, []int{2, 0, 2, 1}, []string{"lumera.credits.v1.Query", "Holds"}, "")),
-		legacyruntime.MustPattern(legacyruntime.NewPattern(1, []int{2, 0, 2, 1}, []string{"lumera.credits.v1.Query", "Params"}, "")),
-	}
-	for _, route := range routes {
-		mux.Handle(http.MethodPost, route, delegate)
 	}
 }
 

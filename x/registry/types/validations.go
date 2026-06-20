@@ -1,4 +1,3 @@
-
 package types
 
 import (
@@ -14,7 +13,6 @@ import (
 	"github.com/Masterminds/semver/v3"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/shopspring/decimal"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -53,14 +51,11 @@ const (
 	MaxSLATemplatePayloadLength = 64 * 1024
 )
 
-func requireTimestamp(ts *timestamppb.Timestamp, name string) (time.Time, error) {
-	if ts == nil {
+func requireTimestamp(ts time.Time, name string) (time.Time, error) {
+	if ts.IsZero() {
 		return time.Time{}, fmt.Errorf("%s cannot be nil", name)
 	}
-	if err := ts.CheckValid(); err != nil {
-		return time.Time{}, fmt.Errorf("invalid %s: %w", name, err)
-	}
-	return ts.AsTime(), nil
+	return ts, nil
 }
 
 func validateHTTPURL(raw string, fieldName string, allowHTTP bool) error {
@@ -1310,7 +1305,10 @@ func (a *SLOProbeAggregate) Validate() error {
 		if strings.TrimSpace(a.SupersededByChallengeId) == "" {
 			return fmt.Errorf("superseded_by_challenge_id required when status is superseded")
 		}
-		if _, err := requireTimestamp(a.SupersededAt, "superseded_at"); err != nil {
+		if a.SupersededAt == nil {
+			return fmt.Errorf("superseded_at cannot be nil")
+		}
+		if _, err := requireTimestamp(*a.SupersededAt, "superseded_at"); err != nil {
 			return err
 		}
 		return nil

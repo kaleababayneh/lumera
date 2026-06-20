@@ -127,10 +127,10 @@ func LockStateInvariant(k Keeper) sdk.Invariant {
 			}
 
 			if lock.Status == types.LockStatus_LOCK_STATUS_ACTIVE {
-				if lock.ExpiresAt == nil {
+				if lock.ExpiresAt.IsZero() {
 					issues = append(issues, fmt.Sprintf("active lock %s missing expiry", lock.LockId))
-				} else if lock.ExpiresAt.AsTime().Before(blockTime) {
-					issues = append(issues, fmt.Sprintf("active lock %s expired at %s before block %s", lock.LockId, lock.ExpiresAt.AsTime().Format(time.RFC3339), blockTime.Format(time.RFC3339)))
+				} else if lock.ExpiresAt.Before(blockTime) {
+					issues = append(issues, fmt.Sprintf("active lock %s expired at %s before block %s", lock.LockId, lock.ExpiresAt.Format(time.RFC3339), blockTime.Format(time.RFC3339)))
 				}
 			} else if lock.Status == types.LockStatus_LOCK_STATUS_UNSPECIFIED {
 				issues = append(issues, fmt.Sprintf("lock %s has unspecified status", lock.LockId))
@@ -207,37 +207,13 @@ func SettlementConservationInvariant(k Keeper) sdk.Invariant {
 			}
 
 			// Calculate total cost
-			totalCost := sdkmath.ZeroInt()
-			for _, coin := range settlement.TotalCost {
-				if coin.Denom == denom {
-					amt, ok := sdkmath.NewIntFromString(coin.Amount)
-					if ok && amt.IsPositive() {
-						totalCost = totalCost.Add(amt)
-					}
-				}
-			}
+			totalCost := settlement.TotalCost.AmountOf(denom)
 
 			// Calculate burn amount
-			burnAmount := sdkmath.ZeroInt()
-			for _, coin := range settlement.BurnAmount {
-				if coin.Denom == denom {
-					amt, ok := sdkmath.NewIntFromString(coin.Amount)
-					if ok && amt.IsPositive() {
-						burnAmount = burnAmount.Add(amt)
-					}
-				}
-			}
+			burnAmount := settlement.BurnAmount.AmountOf(denom)
 
 			// Calculate net amount (distributed after burn and insurance)
-			netAmount := sdkmath.ZeroInt()
-			for _, coin := range settlement.NetAmount {
-				if coin.Denom == denom {
-					amt, ok := sdkmath.NewIntFromString(coin.Amount)
-					if ok && amt.IsPositive() {
-						netAmount = netAmount.Add(amt)
-					}
-				}
-			}
+			netAmount := settlement.NetAmount.AmountOf(denom)
 
 			// Invariant 1: burn + net should not exceed total (allows for insurance deduction)
 			outflow := burnAmount.Add(netAmount)
@@ -334,23 +310,8 @@ func MetricsConsistencyInvariant(k Keeper) sdk.Invariant {
 
 			settlementCount++
 
-			for _, coin := range settlement.BurnAmount {
-				if coin.Denom == denom {
-					amt, ok := sdkmath.NewIntFromString(coin.Amount)
-					if ok && amt.IsPositive() {
-						calculatedBurned = calculatedBurned.Add(amt)
-					}
-				}
-			}
-
-			for _, coin := range settlement.NetAmount {
-				if coin.Denom == denom {
-					amt, ok := sdkmath.NewIntFromString(coin.Amount)
-					if ok && amt.IsPositive() {
-						calculatedDistributed = calculatedDistributed.Add(amt)
-					}
-				}
-			}
+			calculatedBurned = calculatedBurned.Add(settlement.BurnAmount.AmountOf(denom))
+			calculatedDistributed = calculatedDistributed.Add(settlement.NetAmount.AmountOf(denom))
 
 			return false
 		})

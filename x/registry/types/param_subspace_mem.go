@@ -1,4 +1,3 @@
-
 // Package types holds shared types and helpers for the registry module.
 //
 //revive:disable:var-naming // Cosmos module conventions use the `types` package name.
@@ -9,8 +8,9 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/cosmos/gogoproto/proto"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"google.golang.org/protobuf/proto"
 )
 
 // InMemoryParamSubspace provides an in-memory implementation of ParamSubspace for tests.

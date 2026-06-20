@@ -4,6 +4,9 @@ package lumera.credits.v1;
 import "cosmos/base/query/v1beta1/pagination.proto";
 import "cosmos/base/v1beta1/coin.proto";
 import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
 
 option go_package = "x/credits/types";
 
@@ -62,9 +65,9 @@ message Lock {
   string quote_id = 5;
   string policy_version = 6;
   string intent_hash = 7;
-  cosmos.base.v1beta1.Coin amount = 8;
-  google.protobuf.Timestamp created_at = 9;
-  google.protobuf.Timestamp expires_at = 10;
+  cosmos.base.v1beta1.Coin amount = 8 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  google.protobuf.Timestamp created_at = 9 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp expires_at = 10 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
   LockStatus status = 11;
   string last_error = 12;
   string toolpack_id = 13;
@@ -74,9 +77,9 @@ message Settlement {
   string lock_id = 1;
   string receipt_id = 2;
   string policy_version = 3;
-  cosmos.base.v1beta1.Coin amount_burned = 4;
-  cosmos.base.v1beta1.Coin refund_amount = 5;
-  google.protobuf.Timestamp settled_at = 6;
+  cosmos.base.v1beta1.Coin amount_burned = 4 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  cosmos.base.v1beta1.Coin refund_amount = 5 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  google.protobuf.Timestamp settled_at = 6 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
   string toolpack_id = 7;
 }
 
@@ -98,28 +101,28 @@ message SettlementRecord {
   string user_id = 4;
   string router_id = 5;
   string referrer_id = 6;
-  repeated cosmos.base.v1beta1.Coin total_cost = 7;
-  repeated cosmos.base.v1beta1.Coin burn_amount = 8;
-  repeated cosmos.base.v1beta1.Coin net_amount = 9;
+  repeated cosmos.base.v1beta1.Coin total_cost = 7 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true, (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"];
+  repeated cosmos.base.v1beta1.Coin burn_amount = 8 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true, (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"];
+  repeated cosmos.base.v1beta1.Coin net_amount = 9 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true, (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"];
   bool cache_hit = 10;
   string origin_tool_id = 11;
   SettlementStatus status = 12;
-  google.protobuf.Timestamp timestamp = 13;
-  google.protobuf.Timestamp completed_at = 14;
+  google.protobuf.Timestamp timestamp = 13 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp completed_at = 14 [(gogoproto.stdtime) = true];
   string failure_reason = 15;
   string dispute_id = 16;
   string receipt_hash = 17;
   string toolpack_id = 18;
   string action_id = 19;
   uint64 fill_count = 20;
-  cosmos.base.v1beta1.Coin cumulative_filled = 21;
+  cosmos.base.v1beta1.Coin cumulative_filled = 21 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
   string stage = 22;
   // Optional origin-surface identifier for attribution (e.g.
   // "injective:iagent").
   string origin_id = 23;
   // The computed origin-surface share (in coins) that was distributed during
   // settlement.
-  repeated cosmos.base.v1beta1.Coin origin_share = 24;
+  repeated cosmos.base.v1beta1.Coin origin_share = 24 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true, (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"];
   string lock_id = 25;
 }
 
@@ -130,8 +133,8 @@ message DisputeRecord {
   string disputed_by = 3;
   string reason = 4;
   repeated string evidence = 5;
-  google.protobuf.Timestamp created_at = 6;
-  google.protobuf.Timestamp resolved_at = 7;
+  google.protobuf.Timestamp created_at = 6 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp resolved_at = 7 [(gogoproto.stdtime) = true];
   string resolution = 8;
   string status = 9; // "pending", "approved", "rejected"
 }
@@ -152,20 +155,20 @@ message CACRoyaltyRecord {
   string serving_tool_id = 3;
   string origin_publisher = 4;
   string serving_publisher = 5;
-  repeated cosmos.base.v1beta1.Coin total_amount = 6;
-  repeated cosmos.base.v1beta1.Coin origin_share = 7;
-  repeated cosmos.base.v1beta1.Coin serving_share = 8;
+  repeated cosmos.base.v1beta1.Coin total_amount = 6 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true, (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"];
+  repeated cosmos.base.v1beta1.Coin origin_share = 7 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true, (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"];
+  repeated cosmos.base.v1beta1.Coin serving_share = 8 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true, (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"];
   string settlement_id = 9;
-  google.protobuf.Timestamp timestamp = 10;
+  google.protobuf.Timestamp timestamp = 10 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 }
 
 // CACRoyaltyStats tracks cumulative royalty statistics for a tool.
 message CACRoyaltyStats {
   string tool_id = 1;
   uint64 total_cache_hits = 2;
-  repeated cosmos.base.v1beta1.Coin total_royalties_earned = 3;
-  repeated cosmos.base.v1beta1.Coin total_royalties_paid = 4;
-  google.protobuf.Timestamp last_updated = 5;
+  repeated cosmos.base.v1beta1.Coin total_royalties_earned = 3 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true, (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"];
+  repeated cosmos.base.v1beta1.Coin total_royalties_paid = 4 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true, (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"];
+  google.protobuf.Timestamp last_updated = 5 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 }
 
 message GenesisState {
@@ -187,20 +190,20 @@ message MsgLock {
   string quote_id = 4;
   string policy_version = 5;
   string intent_hash = 6;
-  cosmos.base.v1beta1.Coin amount = 7;
-  google.protobuf.Timestamp expires_at = 8;
+  cosmos.base.v1beta1.Coin amount = 7 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  google.protobuf.Timestamp expires_at = 8 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 }
 
 message MsgLockResponse {
   string lock_id = 1;
-  google.protobuf.Timestamp expires_at = 2;
+  google.protobuf.Timestamp expires_at = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 }
 
 message MsgBurn {
   string router = 1;
   string lock_id = 2;
   string receipt_id = 3;
-  cosmos.base.v1beta1.Coin amount = 4;
+  cosmos.base.v1beta1.Coin amount = 4 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
 }
 
 message MsgBurnResponse {}
@@ -349,9 +352,19 @@ message QueryParamsRequest {}
 message QueryParamsResponse { Params params = 1; }
 
 service Query {
-  rpc Lock(QueryLockRequest) returns (QueryLockResponse);
-  rpc Locks(QueryLocksRequest) returns (QueryLocksResponse);
-  rpc Hold(QueryHoldRequest) returns (QueryHoldResponse);
-  rpc Holds(QueryHoldsRequest) returns (QueryHoldsResponse);
-  rpc Params(QueryParamsRequest) returns (QueryParamsResponse);
+  rpc Lock(QueryLockRequest) returns (QueryLockResponse) {
+    option (google.api.http).get = "/lumera/credits/v1/locks/{lock_id}";
+  }
+  rpc Locks(QueryLocksRequest) returns (QueryLocksResponse) {
+    option (google.api.http).get = "/lumera/credits/v1/locks";
+  }
+  rpc Hold(QueryHoldRequest) returns (QueryHoldResponse) {
+    option (google.api.http).get = "/lumera/credits/v1/holds/{hold_id}";
+  }
+  rpc Holds(QueryHoldsRequest) returns (QueryHoldsResponse) {
+    option (google.api.http).get = "/lumera/credits/v1/holds";
+  }
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/lumera/credits/v1/params";
+  }
 }

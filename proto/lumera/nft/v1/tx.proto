@@ -13,6 +13,8 @@ import "amino/amino.proto";
 option go_package = "x/nft/types";
 
 service Msg {
+  option (cosmos.msg.v1.service) = true;
+
   rpc MintToolpack(MsgMintToolpack) returns (MsgMintToolpackResponse);
   rpc UpdateToolpack(MsgUpdateToolpack) returns (MsgUpdateToolpackResponse);
   rpc DeactivateToolpack(MsgDeactivateToolpack)

@@ -1,4 +1,3 @@
-
 package types
 
 import (
@@ -6,8 +5,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // DefaultGenesis returns the default genesis state
@@ -132,7 +129,7 @@ func (gs *GenesisState) ValidateAtTime(now time.Time) error {
 		if err := validateRegistryGenesisTimestamp(fmt.Sprintf("challenge %s resolved_at", challenge.ChallengeId), challenge.ResolvedAt); err != nil {
 			return err
 		}
-		if challenge.ResolvedAt != nil && challenge.ResolvedAt.AsTime().Before(challenge.ChallengedAt.AsTime()) {
+		if challenge.ResolvedAt != nil && challenge.ResolvedAt.Before(challenge.ChallengedAt) {
 			return fmt.Errorf("challenge %s resolved_at must be at or after challenged_at", challenge.ChallengeId)
 		}
 		if challengeIDs[challenge.ChallengeId] {
@@ -268,8 +265,8 @@ func (gs *GenesisState) ValidateAtTime(now time.Time) error {
 			return fmt.Errorf("invalid slo probe aggregate %s: %w", aggregate.ToolId, err)
 		}
 		windowEnd := ""
-		if aggregate.WindowEnd != nil {
-			windowEnd = aggregate.WindowEnd.AsTime().UTC().Format(time.RFC3339Nano)
+		if !aggregate.WindowEnd.IsZero() {
+			windowEnd = aggregate.WindowEnd.UTC().Format(time.RFC3339Nano)
 		}
 		key := fmt.Sprintf("%s:%s:v%d", aggregate.ToolId, windowEnd, aggregate.Version)
 		if aggregateKeys[key] {
@@ -375,20 +372,14 @@ func (gs *GenesisState) ValidateAtTime(now time.Time) error {
 		if queuedReceiptNeedsReadyAt(qr.Status) && qr.ReadyAt == nil {
 			return fmt.Errorf("queued receipt %s missing ready_at", receipt.ReceiptId)
 		}
-		if qr.QueuedAt != nil {
-			if err := qr.QueuedAt.CheckValid(); err != nil {
-				return fmt.Errorf("queued receipt %s invalid queued_at: %w", receipt.ReceiptId, err)
-			}
+		if err := validateRegistryGenesisTimestamp(fmt.Sprintf("queued receipt %s queued_at", receipt.ReceiptId), qr.QueuedAt); err != nil {
+			return err
 		}
-		if qr.ReadyAt != nil {
-			if err := qr.ReadyAt.CheckValid(); err != nil {
-				return fmt.Errorf("queued receipt %s invalid ready_at: %w", receipt.ReceiptId, err)
-			}
+		if err := validateRegistryGenesisTimestamp(fmt.Sprintf("queued receipt %s ready_at", receipt.ReceiptId), qr.ReadyAt); err != nil {
+			return err
 		}
-		if qr.ProcessedAt != nil {
-			if err := qr.ProcessedAt.CheckValid(); err != nil {
-				return fmt.Errorf("queued receipt %s invalid processed_at: %w", receipt.ReceiptId, err)
-			}
+		if err := validateRegistryGenesisTimestamp(fmt.Sprintf("queued receipt %s processed_at", receipt.ReceiptId), qr.ProcessedAt); err != nil {
+			return err
 		}
 		if queuedReceiptIDs[receipt.ReceiptId] {
 			return fmt.Errorf("duplicate queued receipt ID: %s", receipt.ReceiptId)
@@ -437,7 +428,7 @@ func validateToolCardGenesisTimestamps(tool *ToolCard) error {
 	if err := validateRegistryGenesisTimestamp(fmt.Sprintf("tool card %s updated_at", tool.ToolId), tool.UpdatedAt); err != nil {
 		return err
 	}
-	if tool.RegisteredAt != nil && tool.UpdatedAt != nil && tool.UpdatedAt.AsTime().Before(tool.RegisteredAt.AsTime()) {
+	if tool.RegisteredAt != nil && tool.UpdatedAt != nil && tool.UpdatedAt.Before(*tool.RegisteredAt) {
 		return fmt.Errorf("tool card %s updated_at must be at or after registered_at", tool.ToolId)
 	}
 	return nil
@@ -452,10 +443,10 @@ func validateBondGenesisTimestamps(bond *BondRecord) error {
 			return fmt.Errorf("bond %s pending_slashes[%d] cannot be nil", bond.ToolId, i)
 		}
 		prefix := fmt.Sprintf("bond %s pending_slashes[%d]", bond.ToolId, i)
-		if err := validateRegistryGenesisTimestamp(prefix+" proposed_at", slash.ProposedAt); err != nil {
+		if err := validateRegistryGenesisTimestamp(prefix+" proposed_at", &slash.ProposedAt); err != nil {
 			return err
 		}
-		if err := validateRegistryGenesisTimestamp(prefix+" execute_at", slash.ExecuteAt); err != nil {
+		if err := validateRegistryGenesisTimestamp(prefix+" execute_at", &slash.ExecuteAt); err != nil {
 			return err
 		}
 	}
@@ -519,12 +510,12 @@ func validateToolMetricsGenesisTimestamps(metrics *ToolMetrics) error {
 	return nil
 }
 
-func validateRegistryGenesisTimestamp(field string, ts *timestamppb.Timestamp) error {
+func validateRegistryGenesisTimestamp(field string, ts *time.Time) error {
 	if ts == nil {
 		return nil
 	}
-	if err := ts.CheckValid(); err != nil {
-		return fmt.Errorf("%s is invalid: %w", field, err)
+	if ts.IsZero() {
+		return fmt.Errorf("%s is invalid: timestamp is zero", field)
 	}
 	return nil
 }

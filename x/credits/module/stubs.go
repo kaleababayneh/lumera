@@ -12,25 +12,14 @@ import (
 
 // TEMPORARY dependency-keeper stubs for the credits module.
 //
-// Credits is not standalone — its keeper needs Insurance, Registry, Reserve and
-// NFT keepers. These stubs let credits build and run on the chain BEFORE those
-// modules are ported, so we can integrate one module at a time. Each stub is
-// replaced by the real module keeper as it lands.
+// Credits is not standalone — its keeper needs Registry, Reserve and NFT keepers.
+// These stubs let credits build and run on the chain BEFORE those modules are
+// ported, so we can integrate one module at a time. Each stub is replaced by the
+// real module keeper as it lands. (Insurance is DONE — x/insurance is ported and
+// wired; its real keeper is passed in `ProvideModule`.)
 //
 // MUST NOT ship to testnet/mainnet. See the "Lumera AI Module Port" progress log
 // in CLAUDE.md. Methods that need real data fail loudly rather than mis-settle.
-
-// stubInsuranceKeeper — insurance is OPTIONAL in the keeper (nil-checked at call
-// sites), so a no-op is safe until x/insurance is ported.
-type stubInsuranceKeeper struct{}
-
-func (stubInsuranceKeeper) ContributeToPool(_ context.Context, _, _, _, _, _ string, _ sdk.Coins) error {
-	return nil
-}
-
-func (stubInsuranceKeeper) GetPoolBalance(_ context.Context) (sdk.Coins, error) {
-	return sdk.NewCoins(), nil
-}
 
 // stubRegistryKeeper — settlement needs the real tool publisher; fail loudly.
 type stubRegistryKeeper struct{}

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	basev1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/tx"
@@ -140,7 +139,7 @@ func NewLockCreditsCmd() *cobra.Command {
 				Router:        clientCtx.GetFromAddress().String(),
 				SessionId:     strings.TrimSpace(sessionID),
 				ToolId:        strings.TrimSpace(toolID),
-				Amount:        &basev1beta1.Coin{Denom: coin.Denom, Amount: coin.Amount.String()},
+				Amount:        coin,
 				QuoteId:       strings.TrimSpace(quoteID),
 				PolicyVersion: strings.TrimSpace(policyVersion),
 				IntentHash:    strings.TrimSpace(intentHash),
@@ -279,7 +278,7 @@ func NewSettleCreditsCmd() *cobra.Command {
 			msg := &types.MsgSettleCredits{
 				Router:       clientCtx.GetFromAddress().String(),
 				LockId:       strings.TrimSpace(lockID),
-				ActualCost:   &basev1beta1.Coin{Denom: actualCost.Denom, Amount: actualCost.Amount.String()},
+				ActualCost:   actualCost,
 				ReceiptId:    strings.TrimSpace(receiptID),
 				ToolId:       strings.TrimSpace(toolID),
 				Publisher:    publisher,
@@ -347,7 +346,7 @@ func NewSwapLUMEtoLACCmd() *cobra.Command {
 
 			msg := &types.MsgSwapLUMEtoLAC{
 				Sender:     clientCtx.GetFromAddress().String(),
-				LumeAmount: &basev1beta1.Coin{Denom: coin.Denom, Amount: coin.Amount.String()},
+				LumeAmount: coin,
 				MinLacOut:  strings.TrimSpace(minOut),
 			}
 
@@ -393,7 +392,7 @@ func NewSwapLACtoLUMECmd() *cobra.Command {
 
 			msg := &types.MsgSwapLACtoLUME{
 				Sender:     clientCtx.GetFromAddress().String(),
-				LacAmount:  &basev1beta1.Coin{Denom: coin.Denom, Amount: coin.Amount.String()},
+				LacAmount:  coin,
 				MinLumeOut: strings.TrimSpace(minOut),
 			}
 

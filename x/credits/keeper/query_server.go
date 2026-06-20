@@ -8,15 +8,14 @@ import (
 	"strings"
 	"time"
 
-	basev1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
 	"cosmossdk.io/collections"
+	"github.com/cosmos/gogoproto/proto"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
 	"github.com/shopspring/decimal"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/LumeraProtocol/lumera/x/credits/types"
 )
@@ -482,7 +481,7 @@ func (q *queryServer) buildHoldView(ctx sdk.Context, lock *types.Lock) (*types.H
 			settlementCtx.DisputeId = settlement.DisputeId
 			settlementCtx.FailureReason = settlement.FailureReason
 			settlementCtx.FillCount = settlement.FillCount
-			settlementCtx.CompletedAtRfc3339 = timestampRFC3339(settlement.GetCompletedAt())
+			settlementCtx.CompletedAtRfc3339 = timestampPtrRFC3339(settlement.GetCompletedAt())
 
 			if amount, _, ok, err := holdCostValueFromProtoCoins(settlement.GetTotalCost(), creditDenom); err != nil {
 				return nil, grpcstatus.Errorf(codes.Internal, "invalid charged amount for hold %s: %v", lock.LockId, err)
@@ -584,25 +583,22 @@ func newHoldCost(amount decimal.Decimal, currency string) *types.HoldCost {
 	}
 }
 
-func holdCostValueFromProtoCoins(coins []*basev1beta1.Coin, creditDenom string) (decimal.Decimal, string, bool, error) {
+func holdCostValueFromProtoCoins(coins sdk.Coins, creditDenom string) (decimal.Decimal, string, bool, error) {
 	for _, coin := range coins {
-		if coin != nil && coin.Denom == creditDenom {
+		if coin.Denom == creditDenom {
 			amount, currency, err := holdCostValueFromProtoCoin(coin, creditDenom)
 			return amount, currency, true, err
 		}
 	}
 	for _, coin := range coins {
-		if coin == nil {
-			continue
-		}
 		amount, currency, err := holdCostValueFromProtoCoin(coin, creditDenom)
 		return amount, currency, true, err
 	}
 	return decimal.Zero, "", false, nil
 }
 
-func holdCostValueFromProtoCoin(coin *basev1beta1.Coin, creditDenom string) (decimal.Decimal, string, error) {
-	if coin == nil {
+func holdCostValueFromProtoCoin(coin sdk.Coin, creditDenom string) (decimal.Decimal, string, error) {
+	if coin.Amount.IsNil() {
 		return decimal.Zero, "LAC", nil
 	}
 
@@ -623,9 +619,16 @@ func holdCostValueFromProtoCoin(coin *basev1beta1.Coin, creditDenom string) (dec
 	return amount, currency, nil
 }
 
-func timestampRFC3339(ts *timestamppb.Timestamp) string {
-	if ts == nil {
+func timestampRFC3339(t time.Time) string {
+	if t.IsZero() {
 		return ""
 	}
-	return ts.AsTime().UTC().Format(time.RFC3339)
+	return t.UTC().Format(time.RFC3339)
+}
+
+func timestampPtrRFC3339(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return timestampRFC3339(*t)
 }

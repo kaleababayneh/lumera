@@ -1,4 +1,3 @@
-
 package types
 
 import (
@@ -8,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	v1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/shopspring/decimal"
 	"lukechampine.com/blake3"
 )
@@ -571,17 +570,17 @@ func buildTxPrioritizerReputationSnapshotV1(
 			successRate = decimal.NewFromInt(int64(bond.GetSuccessfulCalls())).Div(decimal.NewFromInt(int64(totalCalls)))
 			disputeRate = decimal.NewFromInt(int64(bond.GetDisputeCount())).Div(decimal.NewFromInt(int64(totalCalls)))
 		}
-		if ts := bond.GetLastUpdatedAt(); ts != nil {
-			sourceTime = ts.AsTime().UTC()
-		} else if ts := bond.GetBondedAt(); ts != nil {
-			sourceTime = ts.AsTime().UTC()
+		if ts := bond.GetLastUpdatedAt(); !ts.IsZero() {
+			sourceTime = ts.UTC()
+		} else if ts := bond.GetBondedAt(); !ts.IsZero() {
+			sourceTime = ts.UTC()
 		}
 	}
 	if aggregate != nil {
 		availability = decimal.NewFromInt(int64(aggregate.GetMedianAvailabilityBps())).Div(decimal.NewFromInt(BPSDenominator))
 		errorRate = decimal.NewFromInt(int64(aggregate.GetMedianErrorRateBps())).Div(decimal.NewFromInt(BPSDenominator))
-		if ts := aggregate.GetAggregatedAt(); ts != nil {
-			sourceTime = ts.AsTime().UTC()
+		if ts := aggregate.GetAggregatedAt(); !ts.IsZero() {
+			sourceTime = ts.UTC()
 		}
 	}
 
@@ -653,10 +652,10 @@ func buildTxPrioritizerStakeSnapshotV1(
 	snapshot.EffectiveRatio = DecimalToString(effectiveRatio)
 	snapshot.InsurancePremiumMultiplier = firstNonEmpty(strings.TrimSpace(bond.GetInsurancePremiumMultiplier()), DefaultInsuranceMultiplier)
 	snapshot.Status = strings.TrimSpace(bond.GetStatus())
-	if ts := bond.GetLastUpdatedAt(); ts != nil {
-		snapshot.SourceTime = ts.AsTime().UTC()
-	} else if ts := bond.GetBondedAt(); ts != nil {
-		snapshot.SourceTime = ts.AsTime().UTC()
+	if ts := bond.GetLastUpdatedAt(); !ts.IsZero() {
+		snapshot.SourceTime = ts.UTC()
+	} else if ts := bond.GetBondedAt(); !ts.IsZero() {
+		snapshot.SourceTime = ts.UTC()
 	}
 
 	return snapshot, nil
@@ -700,14 +699,14 @@ func buildTxPrioritizerCacheBindingV1(
 		SourceHeight: sourceHeight,
 	}
 	if bond != nil {
-		if ts := bond.GetLastUpdatedAt(); ts != nil {
-			seed.BondUpdatedAt = ts.AsTime().UTC().Format(time.RFC3339Nano)
-		} else if ts := bond.GetBondedAt(); ts != nil {
-			seed.BondUpdatedAt = ts.AsTime().UTC().Format(time.RFC3339Nano)
+		if ts := bond.GetLastUpdatedAt(); !ts.IsZero() {
+			seed.BondUpdatedAt = ts.UTC().Format(time.RFC3339Nano)
+		} else if ts := bond.GetBondedAt(); !ts.IsZero() {
+			seed.BondUpdatedAt = ts.UTC().Format(time.RFC3339Nano)
 		}
 	}
-	if aggregate != nil && aggregate.GetAggregatedAt() != nil {
-		seed.SLOAggregated = aggregate.GetAggregatedAt().AsTime().UTC().Format(time.RFC3339Nano)
+	if aggregate != nil && !aggregate.GetAggregatedAt().IsZero() {
+		seed.SLOAggregated = aggregate.GetAggregatedAt().UTC().Format(time.RFC3339Nano)
 	}
 
 	raw, _ := json.Marshal(seed)
@@ -723,13 +722,13 @@ func buildTxPrioritizerCacheBindingV1(
 	}
 }
 
-func sumCoinAmountsByDenom(coins []*v1beta1.Coin, denom string) (decimal.Decimal, error) {
+func sumCoinAmountsByDenom(coins sdk.Coins, denom string) (decimal.Decimal, error) {
 	total := DecimalZero
 	for _, coin := range coins {
-		if coin == nil || strings.TrimSpace(coin.GetDenom()) != denom {
+		if strings.TrimSpace(coin.Denom) != denom {
 			continue
 		}
-		amount, err := SafeDecimalFromStringStrict(coin.GetAmount(), "coin.amount")
+		amount, err := SafeDecimalFromStringStrict(coin.Amount.String(), "coin.amount")
 		if err != nil {
 			return decimal.Decimal{}, err
 		}

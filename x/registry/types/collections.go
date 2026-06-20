@@ -1,4 +1,3 @@
-
 package types
 
 import (
@@ -13,10 +12,10 @@ import (
 // ready time ordering (ReadyIndex).
 type ReceiptCollections struct {
 	// PendingReceipts stores canonical receipt payloads keyed by receipt ID.
-	PendingReceipts collections.Map[string, *ReceiptPending]
+	PendingReceipts collections.Map[string, ReceiptPending]
 
 	// QueuedReceipts stores queue metadata keyed by receipt ID.
-	QueuedReceipts collections.Map[string, *QueuedReceipt]
+	QueuedReceipts collections.Map[string, QueuedReceipt]
 
 	// QueuedByStatus indexes queued receipts by status.
 	QueuedByStatus collections.KeySet[collections.Pair[string, string]]
@@ -48,14 +47,14 @@ func NewReceiptCollections(sb *collections.SchemaBuilder) ReceiptCollections {
 			collections.NewPrefix(PendingReceiptPrefix),
 			"pending_receipts",
 			collections.StringKey,
-			sdkcodec.CollValueV2[ReceiptPending](),
+			sdkcodec.CollValue[ReceiptPending](ModuleCdc),
 		),
 		QueuedReceipts: collections.NewMap(
 			sb,
 			collections.NewPrefix(QueuedReceiptPrefix),
 			"queued_receipts",
 			collections.StringKey,
-			sdkcodec.CollValueV2[QueuedReceipt](),
+			sdkcodec.CollValue[QueuedReceipt](ModuleCdc),
 		),
 		QueuedByStatus: collections.NewKeySet(
 			sb,
@@ -100,4 +99,3 @@ func NewReceiptCollections(sb *collections.SchemaBuilder) ReceiptCollections {
 		),
 	}
 }
-

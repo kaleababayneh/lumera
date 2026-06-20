@@ -10,7 +10,6 @@ import (
 
 	"cosmossdk.io/collections"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	cactypes "github.com/LumeraProtocol/lumera/x/cac/types"
 	"github.com/LumeraProtocol/lumera/x/credits/types"
@@ -134,7 +133,7 @@ func (k Keeper) ProcessCACRoyalty(
 		TotalAmount:      types.CoinsToProto(publisherAmount),
 		OriginShare:      types.CoinsToProto(originAmount),
 		ServingShare:     types.CoinsToProto(servingAmount),
-		Timestamp:        timestamppb.New(sdkCtx.BlockTime()),
+		Timestamp:        sdkCtx.BlockTime(),
 	}
 
 	if err := k.SaveCACRoyaltyRecord(ctx, record); err != nil {
@@ -227,7 +226,7 @@ func (k Keeper) UpdateCACRoyaltyStats(
 		paid = paid.Add(amount...)
 		stats.TotalRoyaltiesPaid = types.CoinsToProto(paid)
 	}
-	stats.LastUpdated = timestamppb.New(sdk.UnwrapSDKContext(ctx).BlockTime())
+	stats.LastUpdated = sdk.UnwrapSDKContext(ctx).BlockTime()
 
 	// Save updated stats using Collections API
 	return k.state.CACStats.Set(ctx, toolID, stats)

@@ -1,4 +1,3 @@
-
 package types
 
 import (
@@ -7,7 +6,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/msgservice"
 	"github.com/cosmos/cosmos-sdk/types/tx"
-	gogoproto "github.com/cosmos/gogoproto/proto"
 )
 
 // RegisterLegacyAminoCodec registers the necessary x/registry interfaces and concrete types
@@ -78,7 +76,7 @@ func RegisterInterfaces(registry codectypes.InterfaceRegistry) {
 		&MsgSetOriginRoutingConfigResponse{},
 	)
 
-	msgservice.RegisterMsgServiceDesc(registry, &Msg_ServiceDesc)
+	msgservice.RegisterMsgServiceDesc(registry, &Msg_serviceDesc)
 }
 
 var (
@@ -89,48 +87,7 @@ var (
 )
 
 func init() {
-	gogoproto.RegisterFile("lumera/registry/v1/tx.proto", file_lumera_registry_v1_tx_proto_rawDescGZIP())
-	gogoproto.RegisterFile("lumera/registry/v1/query.proto", file_lumera_registry_v1_query_proto_rawDescGZIP())
-	gogoproto.RegisterFile("lumera/registry/v1/types.proto", file_lumera_registry_v1_types_proto_rawDescGZIP())
-	gogoproto.RegisterType((*MsgRegisterTool)(nil), "lumera.registry.v1.MsgRegisterTool")
-	gogoproto.RegisterType((*MsgRegisterToolResponse)(nil), "lumera.registry.v1.MsgRegisterToolResponse")
-	gogoproto.RegisterType((*MsgUpdateTool)(nil), "lumera.registry.v1.MsgUpdateTool")
-	gogoproto.RegisterType((*MsgUpdateToolResponse)(nil), "lumera.registry.v1.MsgUpdateToolResponse")
-	gogoproto.RegisterType((*MsgDelistTool)(nil), "lumera.registry.v1.MsgDelistTool")
-	gogoproto.RegisterType((*MsgDelistToolResponse)(nil), "lumera.registry.v1.MsgDelistToolResponse")
-	gogoproto.RegisterType((*MsgSubmitReceipt)(nil), "lumera.registry.v1.MsgSubmitReceipt")
-	gogoproto.RegisterType((*MsgSubmitReceiptResponse)(nil), "lumera.registry.v1.MsgSubmitReceiptResponse")
-	gogoproto.RegisterType((*MsgAnchorBundle)(nil), "lumera.registry.v1.MsgAnchorBundle")
-	gogoproto.RegisterType((*MsgAnchorBundleResponse)(nil), "lumera.registry.v1.MsgAnchorBundleResponse")
-	gogoproto.RegisterType((*MsgChallengeReceipt)(nil), "lumera.registry.v1.MsgChallengeReceipt")
-	gogoproto.RegisterType((*MsgChallengeReceiptResponse)(nil), "lumera.registry.v1.MsgChallengeReceiptResponse")
-	gogoproto.RegisterType((*MsgSettleReceipt)(nil), "lumera.registry.v1.MsgSettleReceipt")
-	gogoproto.RegisterType((*MsgSettleReceiptResponse)(nil), "lumera.registry.v1.MsgSettleReceiptResponse")
-	gogoproto.RegisterType((*MsgUpdateParams)(nil), "lumera.registry.v1.MsgUpdateParams")
-	gogoproto.RegisterType((*MsgUpdateParamsResponse)(nil), "lumera.registry.v1.MsgUpdateParamsResponse")
-	gogoproto.RegisterType((*MsgSetSLATemplate)(nil), "lumera.registry.v1.MsgSetSLATemplate")
-	gogoproto.RegisterType((*MsgSetSLATemplateResponse)(nil), "lumera.registry.v1.MsgSetSLATemplateResponse")
-	gogoproto.RegisterType((*MsgSetDisputeTerms)(nil), "lumera.registry.v1.MsgSetDisputeTerms")
-	gogoproto.RegisterType((*MsgSetDisputeTermsResponse)(nil), "lumera.registry.v1.MsgSetDisputeTermsResponse")
-	gogoproto.RegisterType((*MsgCreateBond)(nil), "lumera.registry.v1.MsgCreateBond")
-	gogoproto.RegisterType((*MsgCreateBondResponse)(nil), "lumera.registry.v1.MsgCreateBondResponse")
-	gogoproto.RegisterType((*MsgWithdrawBond)(nil), "lumera.registry.v1.MsgWithdrawBond")
-	gogoproto.RegisterType((*MsgWithdrawBondResponse)(nil), "lumera.registry.v1.MsgWithdrawBondResponse")
-	gogoproto.RegisterType((*MsgSetLaneRegistryEntry)(nil), "lumera.registry.v1.MsgSetLaneRegistryEntry")
-	gogoproto.RegisterType((*MsgSetLaneRegistryEntryResponse)(nil), "lumera.registry.v1.MsgSetLaneRegistryEntryResponse")
-	gogoproto.RegisterType((*MsgSetToolCapsule)(nil), "lumera.registry.v1.MsgSetToolCapsule")
-	gogoproto.RegisterType((*MsgSetToolCapsuleResponse)(nil), "lumera.registry.v1.MsgSetToolCapsuleResponse")
-	gogoproto.RegisterType((*MsgRegisterWatcher)(nil), "lumera.registry.v1.MsgRegisterWatcher")
-	gogoproto.RegisterType((*MsgRegisterWatcherResponse)(nil), "lumera.registry.v1.MsgRegisterWatcherResponse")
-	gogoproto.RegisterType((*MsgUnregisterWatcher)(nil), "lumera.registry.v1.MsgUnregisterWatcher")
-	gogoproto.RegisterType((*MsgUnregisterWatcherResponse)(nil), "lumera.registry.v1.MsgUnregisterWatcherResponse")
-	gogoproto.RegisterType((*MsgSubmitSLOProbeReceipt)(nil), "lumera.registry.v1.MsgSubmitSLOProbeReceipt")
-	gogoproto.RegisterType((*MsgSubmitSLOProbeReceiptResponse)(nil), "lumera.registry.v1.MsgSubmitSLOProbeReceiptResponse")
-	gogoproto.RegisterType((*MsgSetOriginRoutingConfig)(nil), "lumera.registry.v1.MsgSetOriginRoutingConfig")
-	gogoproto.RegisterType((*MsgSetOriginRoutingConfigResponse)(nil), "lumera.registry.v1.MsgSetOriginRoutingConfigResponse")
 	RegisterLegacyAminoCodec(Amino)
 	sdk.RegisterLegacyAminoCodec(Amino)
 	Amino.Seal()
 }
-
-// ProtoMessage implementations are generated in the .pb.go files

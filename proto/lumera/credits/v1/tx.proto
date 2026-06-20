@@ -4,6 +4,8 @@ package lumera.credits.v1;
 import "cosmos/base/v1beta1/coin.proto";
 import "cosmos_proto/cosmos.proto";
 import "cosmos/msg/v1/msg.proto";
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
 
 option go_package = "x/credits/types";
 
@@ -38,14 +40,14 @@ message MsgSwapLUMEtoLAC {
   option (cosmos.msg.v1.signer) = "sender";
 
   string sender = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
-  cosmos.base.v1beta1.Coin lume_amount = 2;
+  cosmos.base.v1beta1.Coin lume_amount = 2 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
   string min_lac_out = 3; // Minimum LAC to receive (slippage protection)
 }
 
 // MsgSwapLUMEtoLACResponse returns the swap result
 message MsgSwapLUMEtoLACResponse {
-  cosmos.base.v1beta1.Coin lac_received = 1;
-  cosmos.base.v1beta1.Coin burn_amount = 2;
+  cosmos.base.v1beta1.Coin lac_received = 1 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  cosmos.base.v1beta1.Coin burn_amount = 2 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
   string exchange_rate = 3; // Effective rate after burn
 }
 
@@ -54,14 +56,14 @@ message MsgSwapLACtoLUME {
   option (cosmos.msg.v1.signer) = "sender";
 
   string sender = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
-  cosmos.base.v1beta1.Coin lac_amount = 2;
+  cosmos.base.v1beta1.Coin lac_amount = 2 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
   string min_lume_out = 3; // Minimum LUME to receive
 }
 
 // MsgSwapLACtoLUMEResponse returns the swap result
 message MsgSwapLACtoLUMEResponse {
-  cosmos.base.v1beta1.Coin lume_received = 1;
-  cosmos.base.v1beta1.Coin burn_amount = 2;
+  cosmos.base.v1beta1.Coin lume_received = 1 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  cosmos.base.v1beta1.Coin burn_amount = 2 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
   string exchange_rate = 3;
 }
 
@@ -71,7 +73,7 @@ message MsgLockCredits {
 
   string router = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
   string session_id = 2;
-  cosmos.base.v1beta1.Coin amount = 3;
+  cosmos.base.v1beta1.Coin amount = 3 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
   string tool_id = 4;
   string quote_id = 5;
   string policy_version = 6;
@@ -97,7 +99,7 @@ message MsgUnlockCredits {
 
 // MsgUnlockCreditsResponse confirms unlock
 message MsgUnlockCreditsResponse {
-  cosmos.base.v1beta1.Coin amount_unlocked = 1;
+  cosmos.base.v1beta1.Coin amount_unlocked = 1 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
 }
 
 // MsgSettleCredits processes a tool invocation settlement
@@ -106,7 +108,7 @@ message MsgSettleCredits {
 
   string router = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
   string lock_id = 2;
-  cosmos.base.v1beta1.Coin actual_cost = 3;
+  cosmos.base.v1beta1.Coin actual_cost = 3 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
   string receipt_id = 4;
   string tool_id = 5;
   string publisher = 6 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
@@ -119,18 +121,18 @@ message MsgSettleCredits {
 
 // MsgSettleCreditsResponse returns settlement details
 message MsgSettleCreditsResponse {
-  cosmos.base.v1beta1.Coin burn_amount = 1;
-  cosmos.base.v1beta1.Coin publisher_amount = 2;
-  cosmos.base.v1beta1.Coin router_amount = 3;
-  cosmos.base.v1beta1.Coin referrer_amount = 4;
-  cosmos.base.v1beta1.Coin refund_amount = 5;
+  cosmos.base.v1beta1.Coin burn_amount = 1 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  cosmos.base.v1beta1.Coin publisher_amount = 2 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  cosmos.base.v1beta1.Coin router_amount = 3 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  cosmos.base.v1beta1.Coin referrer_amount = 4 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  cosmos.base.v1beta1.Coin refund_amount = 5 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
 }
 
 // OverdraftSettlementSplit records one deterministic settlement split row.
 message OverdraftSettlementSplit {
   string role = 1;
   string address = 2 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
-  cosmos.base.v1beta1.Coin amount = 3;
+  cosmos.base.v1beta1.Coin amount = 3 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
 }
 
 // OverdraftSettlementEntry records one provisional overdraft invocation row.
@@ -140,11 +142,11 @@ message OverdraftSettlementEntry {
   string provisional_lock_id = 3;
   string receipt_id = 4;
   string tool_id = 5;
-  cosmos.base.v1beta1.Coin quoted_cost = 6;
-  cosmos.base.v1beta1.Coin actual_cost = 7;
-  cosmos.base.v1beta1.Coin refund_amount = 8;
-  cosmos.base.v1beta1.Coin insurance_amount = 9;
-  cosmos.base.v1beta1.Coin burn_amount = 10;
+  cosmos.base.v1beta1.Coin quoted_cost = 6 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  cosmos.base.v1beta1.Coin actual_cost = 7 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  cosmos.base.v1beta1.Coin refund_amount = 8 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  cosmos.base.v1beta1.Coin insurance_amount = 9 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  cosmos.base.v1beta1.Coin burn_amount = 10 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
   repeated OverdraftSettlementSplit splits = 11;
   string toolpack_id = 12;
   string stage = 13;
@@ -157,7 +159,7 @@ message MsgSettleOverdraft {
   string router = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
   string credit_line_id = 2;
   string settlement_batch_id = 3;
-  cosmos.base.v1beta1.Coin credit_limit = 4;
+  cosmos.base.v1beta1.Coin credit_limit = 4 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
   uint32 liquidation_threshold_bps = 5;
   string policy_version = 6;
   repeated OverdraftSettlementEntry entries = 7;
@@ -167,12 +169,12 @@ message MsgSettleOverdraft {
 message MsgSettleOverdraftResponse {
   string settlement_id = 1;
   string status = 2;
-  cosmos.base.v1beta1.Coin total_quoted = 3;
-  cosmos.base.v1beta1.Coin total_actual = 4;
-  cosmos.base.v1beta1.Coin total_refund = 5;
-  cosmos.base.v1beta1.Coin total_insurance = 6;
-  cosmos.base.v1beta1.Coin total_burn = 7;
-  cosmos.base.v1beta1.Coin remaining_credit = 8;
+  cosmos.base.v1beta1.Coin total_quoted = 3 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  cosmos.base.v1beta1.Coin total_actual = 4 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  cosmos.base.v1beta1.Coin total_refund = 5 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  cosmos.base.v1beta1.Coin total_insurance = 6 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  cosmos.base.v1beta1.Coin total_burn = 7 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  cosmos.base.v1beta1.Coin remaining_credit = 8 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
   uint32 utilization_bps = 9;
   bool liquidation_required = 10;
   repeated OverdraftSettlementSplit total_splits = 11;

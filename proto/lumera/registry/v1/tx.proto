@@ -5,6 +5,8 @@ import "cosmos/base/v1beta1/coin.proto";
 import "cosmos/msg/v1/msg.proto";
 import "cosmos_proto/cosmos.proto";
 import "lumera/registry/v1/types.proto";
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
 
 option go_package = "x/registry/types";
 
@@ -81,7 +83,11 @@ message MsgRegisterTool {
 
   string owner = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
   ToolCard tool_card = 2;
-  repeated cosmos.base.v1beta1.Coin bond = 3;
+  repeated cosmos.base.v1beta1.Coin bond = 3 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
 }
 
 message MsgRegisterToolResponse { string tool_id = 1; }
@@ -166,7 +172,8 @@ message MsgUpdateParams {
   option (cosmos.msg.v1.signer) = "authority";
 
   string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
-  RegistryParams params = 2;
+  RegistryParams params = 2
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
 }
 
 message MsgUpdateParamsResponse {}
@@ -219,7 +226,11 @@ message MsgCreateBond {
 
   string owner = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
   string tool_id = 2;
-  repeated cosmos.base.v1beta1.Coin amount = 3;
+  repeated cosmos.base.v1beta1.Coin amount = 3 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
 }
 
 message MsgCreateBondResponse {}
@@ -230,7 +241,11 @@ message MsgWithdrawBond {
 
   string owner = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
   string tool_id = 2;
-  repeated cosmos.base.v1beta1.Coin amount = 3;
+  repeated cosmos.base.v1beta1.Coin amount = 3 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
 }
 
 message MsgWithdrawBondResponse {}
@@ -240,7 +255,11 @@ message MsgRegisterWatcher {
   option (cosmos.msg.v1.signer) = "watcher";
 
   string watcher = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
-  repeated cosmos.base.v1beta1.Coin stake = 2;
+  repeated cosmos.base.v1beta1.Coin stake = 2 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
 }
 
 message MsgRegisterWatcherResponse {}

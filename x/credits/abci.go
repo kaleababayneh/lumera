@@ -9,7 +9,6 @@ import (
 	"github.com/LumeraProtocol/lumera/x/credits/keeper"
 	"github.com/LumeraProtocol/lumera/x/credits/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // BeginBlocker processes settlements that have cleared their dispute window
@@ -30,18 +29,18 @@ func BeginBlocker(ctx sdk.Context, k *keeper.Keeper) error {
 	// Settlements MUST be finalized via SettleLock (driven by Registry or Router), which handles
 	// both the accounting and the lock closure atomically.
 	if err := k.IteratePendingSettlements(ctx, maxToProcess, func(settlement *types.SettlementRecord) (bool, bool, error) {
-		if settlement.Timestamp == nil {
+		if settlement.Timestamp.IsZero() {
 			logger.Error("missing settlement timestamp", "settlement_id", settlement.Id)
 			settlement.Status = types.SettlementStatus_SETTLEMENT_STATUS_FAILED
 			settlement.FailureReason = "missing settlement timestamp"
-			settlement.CompletedAt = timestamppb.New(currentTime)
+			settlement.CompletedAt = &currentTime
 			errorCount++
 			if err := k.UpdateSettlement(ctx, settlement); err != nil {
 				logger.Error("failed to mark settlement as failed", "settlement_id", settlement.Id, "error", err)
 			}
 			return true, false, nil
 		}
-		settlementTime := settlement.Timestamp.AsTime()
+		settlementTime := settlement.Timestamp
 
 		// Skip until dispute window elapses without counting toward per-block limit.
 		if currentTime.Sub(settlementTime) < disputeWindow {
@@ -54,7 +53,7 @@ func BeginBlocker(ctx sdk.Context, k *keeper.Keeper) error {
 			logger.Error("pending settlement missing lock_id", "settlement_id", settlement.Id)
 			settlement.Status = types.SettlementStatus_SETTLEMENT_STATUS_FAILED
 			settlement.FailureReason = "missing lock_id"
-			settlement.CompletedAt = timestamppb.New(currentTime)
+			settlement.CompletedAt = &currentTime
 			errorCount++
 			if err := k.UpdateSettlement(ctx, settlement); err != nil {
 				logger.Error("failed to mark settlement as failed", "settlement_id", settlement.Id, "error", err)
@@ -74,7 +73,7 @@ func BeginBlocker(ctx sdk.Context, k *keeper.Keeper) error {
 
 			settlement.Status = types.SettlementStatus_SETTLEMENT_STATUS_FAILED
 			settlement.FailureReason = err.Error()
-			settlement.CompletedAt = timestamppb.New(currentTime)
+			settlement.CompletedAt = &currentTime
 			errorCount++
 
 			// Update the settlement failure status in the original context

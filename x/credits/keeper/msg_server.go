@@ -103,7 +103,7 @@ func (s *msgServer) LockCredits(goCtx context.Context, msg *types.MsgLockCredits
 
 	params := keeper.GetParams(sdkCtx)
 
-	if msg.Amount == nil {
+	if msg.Amount.Amount.IsNil() {
 		return nil, fmt.Errorf("amount is required")
 	}
 	amount, err := types.CoinFromProtoSafe(msg.Amount)
@@ -155,11 +155,11 @@ func (s *msgServer) LockCredits(goCtx context.Context, msg *types.MsgLockCredits
 	}
 
 	lock, found := keeper.GetLock(sdkCtx, lockID)
-	if !found || lock.ExpiresAt == nil {
+	if !found || lock.ExpiresAt.IsZero() {
 		return nil, fmt.Errorf("lock %s missing expiry after lock creation", lockID)
 	}
 
-	resp = &types.MsgLockCreditsResponse{LockId: lockID, ExpiresAt: lock.ExpiresAt.AsTime().Unix()}
+	resp = &types.MsgLockCreditsResponse{LockId: lockID, ExpiresAt: lock.ExpiresAt.Unix()}
 	return resp, nil
 }
 
@@ -181,7 +181,7 @@ func (s *msgServer) SettleCredits(goCtx context.Context, msg *types.MsgSettleCre
 	}
 
 	// Validate input
-	if msg.ActualCost == nil {
+	if msg.ActualCost.Amount.IsNil() {
 		return nil, fmt.Errorf("actual cost is required")
 	}
 	actualCost, err := types.CoinFromProtoSafe(msg.ActualCost)
@@ -545,7 +545,7 @@ func (s *msgServer) SwapLUMEtoLAC(goCtx context.Context, msg *types.MsgSwapLUMEt
 	}
 
 	// Validate LUME amount
-	if msg.LumeAmount == nil {
+	if msg.LumeAmount.Amount.IsNil() {
 		return nil, fmt.Errorf("lume amount is required")
 	}
 	lumeAmount, err := types.CoinFromProtoSafe(msg.LumeAmount)
@@ -630,7 +630,7 @@ func (s *msgServer) SwapLACtoLUME(goCtx context.Context, msg *types.MsgSwapLACto
 	}
 
 	// Validate LAC amount
-	if msg.LacAmount == nil {
+	if msg.LacAmount.Amount.IsNil() {
 		return nil, fmt.Errorf("lac amount is required")
 	}
 	lacAmount, err := types.CoinFromProtoSafe(msg.LacAmount)

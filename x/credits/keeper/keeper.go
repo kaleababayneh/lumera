@@ -18,7 +18,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	metrics "github.com/hashicorp/go-metrics"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/LumeraProtocol/lumera/internal/logging"
 	"github.com/LumeraProtocol/lumera/x/credits/types"
@@ -184,14 +183,14 @@ func NewKeeper(
 			sb,
 			collections.NewPrefix(types.ParamsPrefix),
 			"params",
-			codec.CollValueV2[types.Params](),
+			collPtrValue[types.Params](cdc),
 		),
 		Locks: collections.NewMap(
 			sb,
 			collections.NewPrefix(types.LocksPrefix),
 			"locks",
 			collections.StringKey,
-			codec.CollValueV2[types.Lock](),
+			collPtrValue[types.Lock](cdc),
 		),
 		LockSeq: collections.NewSequence(
 			sb,
@@ -203,34 +202,34 @@ func NewKeeper(
 			collections.NewPrefix(types.SettlementPrefix),
 			"settlements",
 			collections.StringKey,
-			codec.CollValueV2[types.SettlementRecord](),
+			collPtrValue[types.SettlementRecord](cdc),
 		),
 		Disputes: collections.NewMap(
 			sb,
 			collections.NewPrefix(types.DisputePrefix),
 			"disputes",
 			collections.StringKey,
-			codec.CollValueV2[types.DisputeRecord](),
+			collPtrValue[types.DisputeRecord](cdc),
 		),
 		Metrics: collections.NewItem(
 			sb,
 			collections.NewPrefix(types.MetricsPrefix),
 			"metrics",
-			codec.CollValueV2[types.SettlementMetrics](),
+			collPtrValue[types.SettlementMetrics](cdc),
 		),
 		CACRoyalties: collections.NewMap(
 			sb,
 			collections.NewPrefix(types.CACRoyaltyPrefix),
 			"cac_royalties",
 			collections.StringKey,
-			codec.CollValueV2[types.CACRoyaltyRecord](),
+			collPtrValue[types.CACRoyaltyRecord](cdc),
 		),
 		CACStats: collections.NewMap(
 			sb,
 			collections.NewPrefix(types.CACStatsPrefix),
 			"cac_stats",
 			collections.StringKey,
-			codec.CollValueV2[types.CACRoyaltyStats](),
+			collPtrValue[types.CACRoyaltyStats](cdc),
 		),
 		CACSeq: collections.NewSequence(
 			sb,
@@ -761,14 +760,7 @@ func (k Keeper) ProcessSettlement(ctx context.Context, receipt SettlementRequest
 		existingRecord = existing
 
 		// Treat input as delta and accumulate from existing record
-		existingCoins := sdk.NewCoins()
-		for _, c := range existing.TotalCost {
-			amt, ok := sdkmath.NewIntFromString(c.Amount)
-			if !ok {
-				return nil, fmt.Errorf("corrupt stored settlement coin amount %q denom %q", c.Amount, c.Denom)
-			}
-			existingCoins = existingCoins.Add(sdk.NewCoin(c.Denom, amt))
-		}
+		existingCoins := sdk.NewCoins(existing.TotalCost...)
 		receipt.TotalAmount = receipt.TotalAmount.Add(existingCoins...)
 
 		// Preserve metadata from existing record if not provided
@@ -1289,9 +1281,9 @@ func (k Keeper) ProcessSettlement(ctx context.Context, receipt SettlementRequest
 	// UnlockCredits' refusal to release while PENDING).
 	// Transitions into COMPLETED still advance the Timestamp so it
 	// aligns with CompletedAt for downstream pruning.
-	timestamp := timestamppb.New(sdkCtx.BlockTime())
+	timestamp := sdkCtx.BlockTime()
 	if existingRecord != nil &&
-		existingRecord.Timestamp != nil &&
+		!existingRecord.Timestamp.IsZero() &&
 		existingRecord.Status == types.SettlementStatus_SETTLEMENT_STATUS_PENDING &&
 		status == types.SettlementStatus_SETTLEMENT_STATUS_PENDING {
 		timestamp = existingRecord.Timestamp
@@ -1321,10 +1313,11 @@ func (k Keeper) ProcessSettlement(ctx context.Context, receipt SettlementRequest
 		LockId:       receipt.LockID,
 	}
 	if isFinal {
-		settlementRecord.CompletedAt = timestamppb.New(sdkCtx.BlockTime())
+		completedAt := sdkCtx.BlockTime()
+		settlementRecord.CompletedAt = &completedAt
 	}
 	if receipt.FillInfo != nil {
-		settlementRecord.CumulativeFilled = types.CoinToProto(receipt.FillInfo.CumulativeFilled)
+		settlementRecord.CumulativeFilled = receipt.FillInfo.CumulativeFilled
 	}
 
 	if err := k.UpdateSettlement(ctx, settlementRecord); err != nil {
@@ -1653,9 +1646,9 @@ func (k Keeper) lockCreditsWithTTL(ctx context.Context, routerAddr string, sessi
 		QuoteId:       quoteID,
 		PolicyVersion: policyVersion,
 		IntentHash:    intentHash,
-		Amount:        types.CoinToProto(amount),
-		CreatedAt:     timestamppb.New(sdkCtx.BlockTime()),
-		ExpiresAt:     timestamppb.New(expiresAt),
+		Amount:        amount,
+		CreatedAt:     sdkCtx.BlockTime(),
+		ExpiresAt:     expiresAt,
 		Status:        types.LockStatus_LOCK_STATUS_ACTIVE,
 		ToolpackId:    packID,
 	}
@@ -1764,8 +1757,8 @@ func (k Keeper) unlockCredits(ctx context.Context, lockID string, reason string)
 	}
 
 	// Remove from expiration index
-	if lock.ExpiresAt != nil {
-		if err := k.state.LockExpiry.Remove(ctx, collections.Join(lock.ExpiresAt.AsTime(), lockID)); err != nil {
+	if !lock.ExpiresAt.IsZero() {
+		if err := k.state.LockExpiry.Remove(ctx, collections.Join(lock.ExpiresAt, lockID)); err != nil {
 			return fmt.Errorf("failed to remove lock from index: %w", err)
 		}
 	}
@@ -1921,13 +1914,7 @@ func (k Keeper) settleLock(ctx context.Context, lockID string, actualCost sdk.Co
 	// actualCost is the delta for this specific fill.
 	previousUsed := sdk.NewCoins()
 	if existing, found := k.GetSettlement(ctx, receiptID); found {
-		for _, c := range existing.TotalCost {
-			amt, ok := sdkmath.NewIntFromString(c.Amount)
-			if !ok {
-				return nil, fmt.Errorf("corrupt stored settlement coin amount %q denom %q", c.Amount, c.Denom)
-			}
-			previousUsed = previousUsed.Add(sdk.NewCoin(c.Denom, amt))
-		}
+		previousUsed = previousUsed.Add(existing.TotalCost...)
 	}
 
 	totalUsed := previousUsed.Add(actualCost)
@@ -2031,8 +2018,8 @@ func (k Keeper) settleLock(ctx context.Context, lockID string, actualCost sdk.Co
 		}
 
 		// Remove from Expiry Index
-		if lock.ExpiresAt != nil {
-			if err := k.state.LockExpiry.Remove(ctx, collections.Join(lock.ExpiresAt.AsTime(), lockID)); err != nil {
+		if !lock.ExpiresAt.IsZero() {
+			if err := k.state.LockExpiry.Remove(ctx, collections.Join(lock.ExpiresAt, lockID)); err != nil {
 				return nil, fmt.Errorf("failed to remove lock from expiry index: %w", err)
 			}
 		}
@@ -2060,11 +2047,11 @@ func (k Keeper) settleLock(ctx context.Context, lockID string, actualCost sdk.Co
 		// Extend to dispute window + 1 hour buffer
 		newExpiresAt := sdkCtx.BlockTime().Add(disputeWindow).Add(time.Hour)
 
-		if lock.ExpiresAt != nil && newExpiresAt.After(lock.ExpiresAt.AsTime()) {
-			if err := k.state.LockExpiry.Remove(ctx, collections.Join(lock.ExpiresAt.AsTime(), lockID)); err != nil {
+		if !lock.ExpiresAt.IsZero() && newExpiresAt.After(lock.ExpiresAt) {
+			if err := k.state.LockExpiry.Remove(ctx, collections.Join(lock.ExpiresAt, lockID)); err != nil {
 				return nil, fmt.Errorf("failed to remove old lock expiry index: %w", err)
 			}
-			lock.ExpiresAt = timestamppb.New(newExpiresAt)
+			lock.ExpiresAt = newExpiresAt
 			if err := k.SaveLock(ctx, lock); err != nil {
 				return nil, fmt.Errorf("failed to update lock expires at: %w", err)
 			}
@@ -2189,20 +2176,20 @@ func (k Keeper) ExpireLocks(ctx context.Context, limit int) error {
 			if !found || lock == nil {
 				continue
 			}
-			if lock.ExpiresAt == nil {
+			if lock.ExpiresAt.IsZero() {
 				// No expiry index entry to remove; skip the bump — the
 				// lock will be picked up once it's indexed again by a
 				// later write path.
 				continue
 			}
-			oldKey := collections.Join(lock.ExpiresAt.AsTime(), lockID)
+			oldKey := collections.Join(lock.ExpiresAt, lockID)
 			if err := k.state.LockExpiry.Remove(cacheCtx, oldKey); err != nil {
 				k.Logger(sdkCtx).Error("failed to remove old lock expiry index entry; skipping bump",
 					"lock_id", lockID, "error", err)
 				continue
 			}
 			newExpiresAt := sdkCtx.BlockTime().Add(time.Hour)
-			lock.ExpiresAt = timestamppb.New(newExpiresAt)
+			lock.ExpiresAt = newExpiresAt
 			if saveErr := k.SaveLock(cacheCtx, lock); saveErr != nil {
 				k.Logger(sdkCtx).Error("failed to save bumped lock expiry",
 					"lock_id", lockID, "new_expires_at", newExpiresAt, "error", saveErr)
@@ -2522,7 +2509,7 @@ func (k Keeper) UpdateSettlement(ctx context.Context, settlement *types.Settleme
 	// Get old record to handle index updates
 	oldSettlement, err := k.state.Settlements.Get(ctx, settlement.Id)
 	var oldStatus types.SettlementStatus
-	var oldCompletedAt *timestamppb.Timestamp
+	var oldCompletedAt *time.Time
 	exists := false
 
 	if err == nil {
@@ -2561,11 +2548,11 @@ func (k Keeper) UpdateSettlement(ctx context.Context, settlement *types.Settleme
 
 	// Manage Completed Index
 	if isTerminal(settlement.Status) && settlement.CompletedAt != nil {
-		newKey := collections.Join(settlement.CompletedAt.AsTime(), settlement.Id)
+		newKey := collections.Join(*settlement.CompletedAt, settlement.Id)
 		// If time changed, remove old index entry
 		if exists && isTerminal(oldStatus) && oldCompletedAt != nil {
-			if !oldCompletedAt.AsTime().Equal(settlement.CompletedAt.AsTime()) {
-				if err := k.state.SettlementsByTime.Remove(ctx, collections.Join(oldCompletedAt.AsTime(), settlement.Id)); err != nil {
+			if !oldCompletedAt.Equal(*settlement.CompletedAt) {
+				if err := k.state.SettlementsByTime.Remove(ctx, collections.Join(*oldCompletedAt, settlement.Id)); err != nil {
 					return err
 				}
 			}
@@ -2576,7 +2563,7 @@ func (k Keeper) UpdateSettlement(ctx context.Context, settlement *types.Settleme
 		}
 	} else if exists && isTerminal(oldStatus) && oldCompletedAt != nil {
 		// Remove from Completed Index if it was there but now status changed or time is nil
-		if err := k.state.SettlementsByTime.Remove(ctx, collections.Join(oldCompletedAt.AsTime(), settlement.Id)); err != nil {
+		if err := k.state.SettlementsByTime.Remove(ctx, collections.Join(*oldCompletedAt, settlement.Id)); err != nil {
 			return err
 		}
 	}
@@ -2626,7 +2613,7 @@ func (k Keeper) CreateSettlement(ctx context.Context, settlement *types.Settleme
 			return err
 		}
 	} else if (settlement.Status == types.SettlementStatus_SETTLEMENT_STATUS_COMPLETED || settlement.Status == types.SettlementStatus_SETTLEMENT_STATUS_FAILED) && settlement.CompletedAt != nil {
-		if err := k.state.SettlementsByTime.Set(ctx, collections.Join(settlement.CompletedAt.AsTime(), settlement.Id)); err != nil {
+		if err := k.state.SettlementsByTime.Set(ctx, collections.Join(*settlement.CompletedAt, settlement.Id)); err != nil {
 			return err
 		}
 	}

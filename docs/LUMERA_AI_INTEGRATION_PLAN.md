@@ -196,18 +196,47 @@ Do this for each module, in dependency order (§5). Keep a row per module in the
 
 - **Phase 0 done:** target stack locked; fork cloned; baseline `lumerad` builds; decision
   resolved (gogoproto / Option A).
-- **`credits` — in progress, blocked on the gogo conversion:**
-  - Module + its type cluster (cac/reserve/nft/registry/passport) copied into lumera; import paths
-    rewritten; build tags stripped; `ibc/` deferred.
-  - depinject wiring complete and correct: `proto/lumera/credits/module/module.proto`,
+- **`credits` + type cluster (`reserve`/`passport`/`nft`/`cac`/`registry`) — gogo-converted, BUILDS,
+  BOOTS, and RUNS.** A single-node localnet produces blocks and `lumerad query credits params`
+  returns live state over gRPC. The protobuf-go→gogo conversion blocker is RESOLVED.
+  - All six modules: gogo `.proto` annotated (nullable/stdtime/castrepeated/amino), regenerated with
+    `protoc-gen-gocosmos`, stale `*_grpc.pb.go` + HTTP-less `*.pb.gw.go` deleted, hand-written code
+    rewritten off the protobuf-go API (`timestamppb`→`time.Time`, `basev1beta1.Coin`→`sdk.Coin`,
+    `Msg_ServiceDesc`→`Msg_serviceDesc`, dropped `rawDescGZIP`/manual `RegisterType`).
+  - **credits depinject wiring complete:** `proto/lumera/credits/module/module.proto`,
     `x/credits/module/depinject.go`, 4 temporary stub keepers (`x/credits/module/stubs.go`),
-    registered in `app/app_config.go` + `app/app.go`. **`go build -o /tmp/lumerad ./cmd/lumera`
-    succeeds** (191 MB binary).
-  - **Blocker:** `lumerad init` panics at proto-descriptor registration because the copied
-    `.pb.go` are protobuf-go. **Next action:** apply recipe §4 step 2–4 to credits + its type
-    cluster (convert to gogo), then re-run `lumerad init` to confirm the graph boots.
-- **Stubs in place (TEMPORARY — remove before testnet):** `stubInsuranceKeeper`,
-  `stubRegistryKeeper`, `stubReserveKeeper`, `stubNFTKeeper` in `x/credits/module/stubs.go`.
+    registered in `app/app_config.go` + `app/app.go`.
+- **Run recipe (single-node localnet):** `go build -o /tmp/lumerad ./cmd/lumera` (cgo+libwasmvm,
+  ~1min, 200 MB) → `lumerad init` → `keys add --algo eth_secp256k1` → `genesis add-genesis-account`
+  (denom `ulume`) → `gentx`/`collect-gentxs` → `start --minimum-gas-prices=0ulume`.
+- **Gotchas discovered (apply to every future module port):**
+  1. lumera uses **grpc-gateway v1** — it does NOT regenerate a `*.pb.gw.go` for a `.proto` lacking
+     `google.api.http`; the stale protobuf-go/v2 gw file must be deleted (else `missing ProtoReflect`).
+     For credits, GET annotations were added to the `Query` service + `module.go` reverted to the
+     standard v1 `RegisterQueryHandlerClient`.
+  2. Every `service Msg` needs `option (cosmos.msg.v1.service) = true;` AND every request `Msg` needs
+     `option (cosmos.msg.v1.signer) = "<field>";` — gogo+baseapp PANIC at `start` otherwise (the
+     lumera_ai protobuf-go protos omitted these; passport/nft were fixed).
+  3. The keeper's collections stored `*types.X` via `codec.CollValueV2` (protobuf-go). gogo's
+     `codec.CollValue[T]` returns a **value** codec; to keep the keeper's pointer semantics use the
+     `collPtrValue[T]` adapter in `x/credits/keeper/collections_codec.go` (a gogo pointer ValueCodec).
+  4. Optional timestamps (code treats as "unset") → `(gogoproto.stdtime)=true` only (`*time.Time`);
+     required → add `(gogoproto.nullable)=false` (`time.Time`). Drive the choice off the existing
+     accessor/validator signatures.
+- **`insurance` — PORTED + WIRED (2026-06-20).** Full module (keeper + msg server + begin/end
+  blockers + JSON genesis) gogo-converted (same recipe as credits, incl. the `collPtrValue` codec),
+  given a `module/depinject.go` + `proto/lumera/insurance/module/module.proto`, and registered in
+  `app/app_config.go` (init/begin/end order, `Burner` module account, Modules list). The **real
+  insurance keeper now replaces `stubInsuranceKeeper`** in `x/credits/module/depinject.go` (credits
+  takes `insurancekeeper.Keeper` as a depinject input — no cycle: insurance imports only
+  `credits/types`). Node boots + produces blocks with insurance's begin/end blockers running; credits
+  still serves. **1 of 4 credits stubs removed.**
+- **Stubs remaining (TEMPORARY — remove before testnet):** `stubRegistryKeeper`, `stubReserveKeeper`,
+  `stubNFTKeeper` in `x/credits/module/stubs.go`. Replacing them requires porting full *keepers* for
+  registry/reserve/nft (those three are currently **types-only** in lumera — credits imports only
+  their type structs).
+- **Tests deferred:** `*_test.go` across the cluster still reference the old protobuf-go API / not-yet
+  ported modules and won't compile; the non-test build is green. Port tests in a later pass.
 
 ---
 
@@ -230,13 +259,13 @@ Legend: ☐ todo · ◐ in progress · ☑ done (builds + boots + tx + tests + n
 
 | Module | gogo proto | code rewrite | depinject wired | builds | boots | tx works | tests | stubs removed | Status |
 | --- | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
-| credits | ☐ | ☐ | ☑ | ☑ | ☐ | ☐ | ☐ | ☐ | ◐ |
-| passport | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |
-| reserve | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |
-| nft | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |
-| cac | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |
-| registry | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |
-| insurance | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |
+| credits | ☑ | ☑ | ☑ | ☑ | ☑ | ◐ (query ✓) | ☐ | ☐ | ◐ |
+| passport | ☑ | ☑ | — (types-only) | ☑ | ☑ | — | ☐ | — | ◐ |
+| reserve | ☑ | ☑ | — (types-only) | ☑ | ☑ | — | ☐ | — | ◐ |
+| nft | ☑ | ☑ | — (types-only) | ☑ | ☑ | — | ☐ | — | ◐ |
+| cac | ☑ | ☑ | — (types-only) | ☑ | ☑ | — | ☐ | — | ◐ |
+| registry | ☑ | ☑ | — (types-only) | ☑ | ☑ | — | ☐ | — | ◐ |
+| insurance | ☑ | ☑ | ☑ | ☑ | ☑ | ◐ | ☐ | n/a | ◐ |
 | router | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |
 | payment_rails | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |
 | incentives | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |

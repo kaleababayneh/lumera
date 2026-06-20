@@ -3,6 +3,7 @@ package lumera.passport.v1;
 
 import "cosmos/base/query/v1beta1/pagination.proto";
 import "cosmos/base/v1beta1/coin.proto";
+import "cosmos/msg/v1/msg.proto";
 import "google/protobuf/timestamp.proto";
 import "gogoproto/gogo.proto";
 import "amino/amino.proto";
@@ -173,6 +174,8 @@ message GenesisState {
 
 // MsgRegisterPassport registers a new agent passport with stake.
 message MsgRegisterPassport {
+  option (cosmos.msg.v1.signer) = "creator";
+
   string creator = 1;
   string agent_pubkey = 2;
   cosmos.base.v1beta1.Coin stake = 3 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
@@ -182,6 +185,8 @@ message MsgRegisterPassportResponse { string passport_id = 1; }
 
 // MsgSuspendPassport suspends an active passport.
 message MsgSuspendPassport {
+  option (cosmos.msg.v1.signer) = "authority";
+
   string authority = 1;
   string passport_id = 2;
   string reason = 3;
@@ -191,6 +196,8 @@ message MsgSuspendPassportResponse {}
 
 // MsgRevokePassport permanently revokes a passport.
 message MsgRevokePassport {
+  option (cosmos.msg.v1.signer) = "authority";
+
   string authority = 1;
   string passport_id = 2;
   string reason = 3;
@@ -200,6 +207,8 @@ message MsgRevokePassportResponse {}
 
 // MsgReactivatePassport reactivates a suspended passport.
 message MsgReactivatePassport {
+  option (cosmos.msg.v1.signer) = "owner";
+
   string owner = 1;
   string passport_id = 2;
 }
@@ -208,6 +217,8 @@ message MsgReactivatePassportResponse {}
 
 // MsgSlashStake slashes stake from a passport (governance action).
 message MsgSlashStake {
+  option (cosmos.msg.v1.signer) = "authority";
+
   string authority = 1;
   string passport_id = 2;
   cosmos.base.v1beta1.Coin amount = 3 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
@@ -218,6 +229,8 @@ message MsgSlashStakeResponse { cosmos.base.v1beta1.Coin remaining_stake = 1 [(g
 
 // MsgTopUpStake adds stake to an existing passport.
 message MsgTopUpStake {
+  option (cosmos.msg.v1.signer) = "owner";
+
   string owner = 1;
   string passport_id = 2;
   cosmos.base.v1beta1.Coin amount = 3 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
@@ -227,6 +240,8 @@ message MsgTopUpStakeResponse { cosmos.base.v1beta1.Coin stake = 1 [(gogoproto.n
 
 // MsgUnregisterPassport removes a passport and refunds remaining stake.
 message MsgUnregisterPassport {
+  option (cosmos.msg.v1.signer) = "owner";
+
   string owner = 1;
   string passport_id = 2;
 }
@@ -237,6 +252,8 @@ message MsgUnregisterPassportResponse {
 
 // MsgUpdateParams updates passport module parameters via governance.
 message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+
   string authority = 1;
   Params params = 2 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
 }
@@ -245,6 +262,8 @@ message MsgUpdateParamsResponse {}
 
 // Msg defines the passport module's message service.
 service Msg {
+  option (cosmos.msg.v1.service) = true;
+
   rpc RegisterPassport(MsgRegisterPassport)
       returns (MsgRegisterPassportResponse);
   rpc SuspendPassport(MsgSuspendPassport) returns (MsgSuspendPassportResponse);

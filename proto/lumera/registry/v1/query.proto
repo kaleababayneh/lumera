@@ -5,6 +5,8 @@ import "cosmos/base/query/v1beta1/pagination.proto";
 import "cosmos/base/v1beta1/coin.proto";
 import "google/api/annotations.proto";
 import "lumera/registry/v1/types.proto";
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
 
 option go_package = "x/registry/types";
 
@@ -277,9 +279,21 @@ message DisputeTermsEntry {
 message QueryGetInsurancePoolRequest {}
 
 message QueryGetInsurancePoolResponse {
-  repeated cosmos.base.v1beta1.Coin total_pool = 1;
-  repeated cosmos.base.v1beta1.Coin available = 2;
-  repeated cosmos.base.v1beta1.Coin locked = 3;
+  repeated cosmos.base.v1beta1.Coin total_pool = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+  repeated cosmos.base.v1beta1.Coin available = 2 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+  repeated cosmos.base.v1beta1.Coin locked = 3 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
   uint64 active_claims = 4;
   uint64 total_claims_paid = 5;
 }

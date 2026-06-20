@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/rand"
 
-	v1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
 	sdkmath "cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -69,8 +68,12 @@ func WeightedOperations(
 	}
 }
 
-func coin(denom, amount string) *v1beta1.Coin {
-	return &v1beta1.Coin{Denom: denom, Amount: amount}
+func coin(denom, amount string) sdk.Coin {
+	amt, ok := sdkmath.NewIntFromString(amount)
+	if !ok {
+		amt = sdkmath.ZeroInt()
+	}
+	return sdk.NewCoin(denom, amt)
 }
 
 // simulateLockCredits locks credits for a simulated tool invocation session.

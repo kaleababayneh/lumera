@@ -6,8 +6,6 @@ package types
 
 import (
 	"fmt"
-
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // NewGenesisState builds a new genesis state instance with all state types.
@@ -127,24 +125,8 @@ func (gs *GenesisState) validateLocks() error {
 }
 
 func validateGenesisLockTimestamps(lock *Lock) error {
-	if err := validateGenesisOptionalTimestamp("lock "+lock.LockId, "created_at", lock.CreatedAt); err != nil {
-		return err
-	}
-	if err := validateGenesisOptionalTimestamp("lock "+lock.LockId, "expires_at", lock.ExpiresAt); err != nil {
-		return err
-	}
-	if lock.CreatedAt != nil && lock.ExpiresAt != nil && !lock.ExpiresAt.AsTime().After(lock.CreatedAt.AsTime()) {
+	if !lock.CreatedAt.IsZero() && !lock.ExpiresAt.IsZero() && !lock.ExpiresAt.After(lock.CreatedAt) {
 		return fmt.Errorf("lock %s expires_at must be after created_at", lock.LockId)
-	}
-	return nil
-}
-
-func validateGenesisOptionalTimestamp(owner, field string, ts *timestamppb.Timestamp) error {
-	if ts == nil {
-		return nil
-	}
-	if err := ts.CheckValid(); err != nil {
-		return fmt.Errorf("%s has invalid %s: %w", owner, field, err)
 	}
 	return nil
 }
@@ -157,7 +139,7 @@ func validateGenesisLockStatus(lock *Lock) error {
 	case LockStatus_LOCK_STATUS_UNSPECIFIED:
 		return fmt.Errorf("lock %s has unspecified status", lock.LockId)
 	case LockStatus_LOCK_STATUS_ACTIVE:
-		if lock.ExpiresAt == nil {
+		if lock.ExpiresAt.IsZero() {
 			return fmt.Errorf("active lock %s missing expires_at", lock.LockId)
 		}
 	}
@@ -178,13 +160,7 @@ func (gs *GenesisState) validateSettlements() error {
 			return fmt.Errorf("duplicate settlement id %s", settlement.Id)
 		}
 		seen[settlement.Id] = struct{}{}
-		if err := validateGenesisOptionalTimestamp("settlement "+settlement.Id, "timestamp", settlement.Timestamp); err != nil {
-			return err
-		}
-		if err := validateGenesisOptionalTimestamp("settlement "+settlement.Id, "completed_at", settlement.CompletedAt); err != nil {
-			return err
-		}
-		if settlement.Timestamp != nil && settlement.CompletedAt != nil && settlement.CompletedAt.AsTime().Before(settlement.Timestamp.AsTime()) {
+		if !settlement.Timestamp.IsZero() && settlement.CompletedAt != nil && settlement.CompletedAt.Before(settlement.Timestamp) {
 			return fmt.Errorf("settlement %s completed_at must be at or after timestamp", settlement.Id)
 		}
 		if err := validateGenesisSettlementStatus(settlement); err != nil {
@@ -227,13 +203,7 @@ func (gs *GenesisState) validateDisputes() error {
 			return fmt.Errorf("duplicate dispute id %s", dispute.Id)
 		}
 		seen[dispute.Id] = struct{}{}
-		if err := validateGenesisOptionalTimestamp("dispute "+dispute.Id, "created_at", dispute.CreatedAt); err != nil {
-			return err
-		}
-		if err := validateGenesisOptionalTimestamp("dispute "+dispute.Id, "resolved_at", dispute.ResolvedAt); err != nil {
-			return err
-		}
-		if dispute.CreatedAt != nil && dispute.ResolvedAt != nil && dispute.ResolvedAt.AsTime().Before(dispute.CreatedAt.AsTime()) {
+		if !dispute.CreatedAt.IsZero() && dispute.ResolvedAt != nil && dispute.ResolvedAt.Before(dispute.CreatedAt) {
 			return fmt.Errorf("dispute %s resolved_at must be at or after created_at", dispute.Id)
 		}
 	}
@@ -261,9 +231,6 @@ func (gs *GenesisState) validateCACRoyalties() error {
 			return fmt.Errorf("duplicate CAC royalty record id %s", record.RecordId)
 		}
 		seen[record.RecordId] = struct{}{}
-		if err := validateGenesisOptionalTimestamp("CAC royalty record "+record.RecordId, "timestamp", record.Timestamp); err != nil {
-			return err
-		}
 	}
 	return nil
 }
@@ -282,9 +249,6 @@ func (gs *GenesisState) validateCACStats() error {
 			return fmt.Errorf("duplicate CAC stats for tool %s", stats.ToolId)
 		}
 		seen[stats.ToolId] = struct{}{}
-		if err := validateGenesisOptionalTimestamp("CAC stats "+stats.ToolId, "last_updated", stats.LastUpdated); err != nil {
-			return err
-		}
 	}
 	return nil
 }

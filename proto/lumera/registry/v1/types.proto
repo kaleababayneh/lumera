@@ -3,6 +3,8 @@ package lumera.registry.v1;
 
 import "cosmos/base/v1beta1/coin.proto";
 import "google/protobuf/timestamp.proto";
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
 
 option go_package = "x/registry/types";
 
@@ -35,8 +37,8 @@ message ToolCard {
   bytes attestation_root = 14;
 
   string policy_tag = 15;
-  google.protobuf.Timestamp registered_at = 16;
-  google.protobuf.Timestamp updated_at = 17;
+  google.protobuf.Timestamp registered_at = 16 [ (gogoproto.stdtime) = true ];
+  google.protobuf.Timestamp updated_at = 17 [ (gogoproto.stdtime) = true ];
 
   repeated Endpoint endpoints = 18;
   repeated string mcp_protocols = 19;
@@ -108,13 +110,23 @@ message CapsuleResourceLimits {
 // WatcherRecord stores a staked watcher that can submit SLO probe receipts.
 message WatcherRecord {
   string watcher_address = 1;
-  repeated cosmos.base.v1beta1.Coin bonded_amount = 2;
-  repeated cosmos.base.v1beta1.Coin total_slashed = 3;
+  repeated cosmos.base.v1beta1.Coin bonded_amount = 2 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+  repeated cosmos.base.v1beta1.Coin total_slashed = 3 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
   uint64 total_probes = 4;
   uint64 invalid_probes = 5;
   string status = 6;
-  google.protobuf.Timestamp registered_at = 7;
-  google.protobuf.Timestamp last_updated_at = 8;
+  google.protobuf.Timestamp registered_at = 7
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  google.protobuf.Timestamp last_updated_at = 8
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
 }
 
 // SLOProbeReceipt captures a watcher-reported SLO probe window.
@@ -122,8 +134,10 @@ message SLOProbeReceipt {
   string receipt_id = 1;
   string tool_id = 2;
   string watcher_address = 3;
-  google.protobuf.Timestamp window_start = 4;
-  google.protobuf.Timestamp window_end = 5;
+  google.protobuf.Timestamp window_start = 4
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  google.protobuf.Timestamp window_end = 5
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
   uint32 probe_count = 6;
   uint32 success_count = 7;
   uint32 failure_count = 8;
@@ -131,24 +145,28 @@ message SLOProbeReceipt {
   uint32 error_rate_bps = 10;
   uint32 availability_bps = 11;
   bytes evidence_hash = 12;
-  google.protobuf.Timestamp submitted_at = 13;
+  google.protobuf.Timestamp submitted_at = 13
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
 }
 
 // SLOProbeAggregate stores median-of-watchers aggregation results for a window.
 message SLOProbeAggregate {
   string tool_id = 1;
-  google.protobuf.Timestamp window_start = 2;
-  google.protobuf.Timestamp window_end = 3;
+  google.protobuf.Timestamp window_start = 2
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  google.protobuf.Timestamp window_end = 3
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
   uint32 watcher_count = 4;
   uint32 median_p95_latency_ms = 5;
   uint32 median_availability_bps = 6;
   uint32 median_error_rate_bps = 7;
-  google.protobuf.Timestamp aggregated_at = 8;
+  google.protobuf.Timestamp aggregated_at = 8
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
   uint32 version = 9;
   string status = 10;
   uint32 superseded_by_version = 11;
   string superseded_by_challenge_id = 12;
-  google.protobuf.Timestamp superseded_at = 13;
+  google.protobuf.Timestamp superseded_at = 13 [ (gogoproto.stdtime) = true ];
 }
 
 // GasProfile captures per-tool gas tuning knobs used by the MCP ante decorator.
@@ -210,21 +228,44 @@ message BondRecord {
   string tool_id = 1;
   string owner = 2;
 
-  repeated cosmos.base.v1beta1.Coin bonded_amount = 3;
-  repeated cosmos.base.v1beta1.Coin minimum_required = 4;
-  repeated cosmos.base.v1beta1.Coin locked_amount = 5;
+  repeated cosmos.base.v1beta1.Coin bonded_amount = 3 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+  repeated cosmos.base.v1beta1.Coin minimum_required = 4 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+  repeated cosmos.base.v1beta1.Coin locked_amount = 5 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
 
   repeated PendingSlash pending_slashes = 6;
-  repeated cosmos.base.v1beta1.Coin total_slashed = 7;
+  repeated cosmos.base.v1beta1.Coin total_slashed = 7 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
   int64 last_slash_epoch = 8;
 
   string insurance_premium_multiplier = 9;
-  repeated cosmos.base.v1beta1.Coin insurance_contributions = 10;
+  repeated cosmos.base.v1beta1.Coin insurance_contributions = 10 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
 
   string status = 11;
-  google.protobuf.Timestamp bonded_at = 12;
-  google.protobuf.Timestamp last_updated_at = 13;
-  google.protobuf.Timestamp withdraw_initiated_at = 14;
+  google.protobuf.Timestamp bonded_at = 12
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  google.protobuf.Timestamp last_updated_at = 13
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  google.protobuf.Timestamp withdraw_initiated_at = 14
+      [ (gogoproto.stdtime) = true ];
 
   uint64 dispute_count = 15;
   uint64 successful_calls = 16;
@@ -234,11 +275,17 @@ message BondRecord {
 // PendingSlash represents a slash that is pending execution
 message PendingSlash {
   string slash_id = 1;
-  repeated cosmos.base.v1beta1.Coin amount = 2;
+  repeated cosmos.base.v1beta1.Coin amount = 2 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
   string reason = 3;
   bytes evidence_hash = 4;
-  google.protobuf.Timestamp proposed_at = 5;
-  google.protobuf.Timestamp execute_at = 6;
+  google.protobuf.Timestamp proposed_at = 5
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  google.protobuf.Timestamp execute_at = 6
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
   bool approved = 7;
 }
 
@@ -248,7 +295,7 @@ message ReceiptPending {
   bytes signature = 2;
   string policy_snapshot = 3;
   int64 expiry_height = 4;
-  google.protobuf.Timestamp submitted_at = 5;
+  google.protobuf.Timestamp submitted_at = 5 [ (gogoproto.stdtime) = true ];
 }
 
 // UsageReceipt represents a signed usage receipt from a tool invocation
@@ -280,8 +327,10 @@ message UsageReceipt {
   string cache_key = 18;
   string origin_tool_id = 19;
 
-  google.protobuf.Timestamp timestamp = 20;
-  google.protobuf.Timestamp expires_at = 21;
+  google.protobuf.Timestamp timestamp = 20
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  google.protobuf.Timestamp expires_at = 21
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
 
   string status = 22;
 
@@ -325,7 +374,8 @@ message SettlementRecord {
   string user_address = 19;
   string referrer_address = 20;
 
-  google.protobuf.Timestamp settled_at = 21;
+  google.protobuf.Timestamp settled_at = 21
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
 
   bool was_disputed = 22;
   string dispute_outcome = 23;
@@ -349,7 +399,11 @@ message Challenge {
   string receipt_id = 2;
 
   string challenger_address = 3;
-  repeated cosmos.base.v1beta1.Coin challenger_stake = 4;
+  repeated cosmos.base.v1beta1.Coin challenger_stake = 4 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
 
   string reason = 5;
   bytes evidence_hash = 6;
@@ -358,12 +412,14 @@ message Challenge {
   bool automated_check = 8;
   string harness_job_id = 9;
 
-  google.protobuf.Timestamp challenged_at = 10;
-  google.protobuf.Timestamp deadline_at = 11;
+  google.protobuf.Timestamp challenged_at = 10
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  google.protobuf.Timestamp deadline_at = 11
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
 
   string status = 12;
   string resolution = 13;
-  google.protobuf.Timestamp resolved_at = 14;
+  google.protobuf.Timestamp resolved_at = 14 [ (gogoproto.stdtime) = true ];
 
   string outcome = 15;
   string adjusted_amount = 16;
@@ -376,7 +432,11 @@ message RegistryParams {
   uint32 insurance_pool_bps = 3;
   uint32 quote_error_bps = 4;
   uint32 dispute_window_seconds = 5;
-  repeated cosmos.base.v1beta1.Coin dispute_stake_lac = 6;
+  repeated cosmos.base.v1beta1.Coin dispute_stake_lac = 6 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
   map<string, Coins> min_bond_by_category = 7;
   SLOThresholds slo_thresholds = 8;
   uint32 quality_rebate_bps = 9;
@@ -412,7 +472,13 @@ message RegistryParams {
 }
 
 // Coins wrapper for map values
-message Coins { repeated cosmos.base.v1beta1.Coin coins = 1; }
+message Coins {
+  repeated cosmos.base.v1beta1.Coin coins = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+}
 
 // VerifiedBadgeParams defines the tunable scoring model for verified badge
 // tiers.
@@ -457,7 +523,11 @@ message CachePolicyDefaults {
   uint32 default_ttl_seconds = 1;
   uint32 default_royalty_bps = 2;
   uint32 max_cache_size_mb = 3;
-  repeated cosmos.base.v1beta1.Coin cache_microfee_amount = 4;
+  repeated cosmos.base.v1beta1.Coin cache_microfee_amount = 4 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
 }
 
 // RevenueSplits defines how revenue is distributed
@@ -506,7 +576,7 @@ message BundleAnchor {
   int64 anchored_height = 8;
 
   // Block time when the anchor was recorded.
-  google.protobuf.Timestamp anchored_at = 9;
+  google.protobuf.Timestamp anchored_at = 9 [ (gogoproto.stdtime) = true ];
 
   // Current anchoring status. Expected values: "pending" | "anchored" |
   // "failed".
@@ -602,9 +672,9 @@ message CacheFeeSplit {
 message QueuedReceipt {
   UsageReceipt receipt = 1;
   string status = 2;
-  google.protobuf.Timestamp queued_at = 3;
-  google.protobuf.Timestamp ready_at = 4;
-  google.protobuf.Timestamp processed_at = 5;
+  google.protobuf.Timestamp queued_at = 3 [ (gogoproto.stdtime) = true ];
+  google.protobuf.Timestamp ready_at = 4 [ (gogoproto.stdtime) = true ];
+  google.protobuf.Timestamp processed_at = 5 [ (gogoproto.stdtime) = true ];
   uint32 retry_count = 6;
   string last_error = 7;
   uint32 priority = 8;
@@ -619,8 +689,8 @@ message QueueStatus {
   uint32 ready_count = 3;
   uint32 failed_count = 4;
   uint32 settled_count = 5;
-  google.protobuf.Timestamp last_processed =
-      6; // May be null if never processed
+  google.protobuf.Timestamp last_processed = 6
+      [ (gogoproto.stdtime) = true ]; // May be null if never processed
 }
 
 // ToolMetrics tracks performance metrics for a tool
@@ -633,7 +703,7 @@ message ToolMetrics {
   int64 average_latency_ms = 6;
   int64 p95_latency_ms = 7;
   int64 p99_latency_ms = 8;
-  google.protobuf.Timestamp last_updated = 9;
+  google.protobuf.Timestamp last_updated = 9 [ (gogoproto.stdtime) = true ];
   repeated DailyStat daily_stats = 10;
   int64 disputed_count = 11;
   int64 cache_hits = 12;
@@ -645,12 +715,13 @@ message ToolMetrics {
 
   // Quality score tracking for rebate eligibility.
   string quality_score_ewma = 16;
-  google.protobuf.Timestamp quality_score_last_updated = 17;
+  google.protobuf.Timestamp quality_score_last_updated = 17
+      [ (gogoproto.stdtime) = true ];
 }
 
 // DailyStat represents daily statistics for a tool
 message DailyStat {
-  google.protobuf.Timestamp date = 1;
+  google.protobuf.Timestamp date = 1 [ (gogoproto.stdtime) = true ];
   int64 invocations = 2;
   string revenue = 3;
   double success_rate = 4;
@@ -663,7 +734,7 @@ message ActivationRecord {
   int64 height = 2;
   bool active = 3;
   string reason = 4;
-  google.protobuf.Timestamp timestamp = 5;
+  google.protobuf.Timestamp timestamp = 5 [ (gogoproto.stdtime) = true ];
 }
 
 // RoyaltyTotals aggregates CAC royalty payouts per tool
@@ -674,7 +745,7 @@ message RoyaltyTotals {
   string router = 4;
   string burn = 5;
   uint64 cache_hits = 6;
-  google.protobuf.Timestamp updated_at = 7;
+  google.protobuf.Timestamp updated_at = 7 [ (gogoproto.stdtime) = true ];
 }
 
 // EconomicsMetrics tracks rolling utilization/dispute analytics
@@ -683,14 +754,14 @@ message EconomicsMetrics {
   string utilization_ewma = 2;
   string dispute_rate_ewma = 3;
   int64 last_settlement_height = 4;
-  google.protobuf.Timestamp last_updated = 5;
+  google.protobuf.Timestamp last_updated = 5 [ (gogoproto.stdtime) = true ];
 }
 
 // SlashEvent records a bond slashing event
 message SlashEvent {
   string amount = 1;
   string reason = 2;
-  google.protobuf.Timestamp timestamp = 3;
+  google.protobuf.Timestamp timestamp = 3 [ (gogoproto.stdtime) = true ];
   string evidence = 4;
 }
 
@@ -699,7 +770,7 @@ message Bond {
   string tool_id = 1;
   string owner = 2;
   string amount = 3;
-  google.protobuf.Timestamp locked_until = 4;
+  google.protobuf.Timestamp locked_until = 4 [ (gogoproto.stdtime) = true ];
   repeated SlashEvent slash_record = 5;
 }
 
@@ -726,8 +797,8 @@ message OriginRoutingConfig {
   // Governance proposal ID that last updated this config.
   string updated_by = 6;
 
-  google.protobuf.Timestamp created_at = 7;
-  google.protobuf.Timestamp updated_at = 8;
+  google.protobuf.Timestamp created_at = 7 [ (gogoproto.stdtime) = true ];
+  google.protobuf.Timestamp updated_at = 8 [ (gogoproto.stdtime) = true ];
 }
 
 // OriginRoutingSplits defines how origin_share is routed for a given origin.

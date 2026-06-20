@@ -318,8 +318,8 @@ func (k Keeper) rebuildIndexes(ctx context.Context) error {
 			return false, nil
 		}
 		// Rebuild LockExpiry index for active locks
-		if lock.Status == types.LockStatus_LOCK_STATUS_ACTIVE && lock.ExpiresAt != nil {
-			if err := k.state.LockExpiry.Set(ctx, collections.Join(lock.ExpiresAt.AsTime(), lock.LockId)); err != nil {
+		if lock.Status == types.LockStatus_LOCK_STATUS_ACTIVE && !lock.ExpiresAt.IsZero() {
+			if err := k.state.LockExpiry.Set(ctx, collections.Join(lock.ExpiresAt, lock.LockId)); err != nil {
 				return false, fmt.Errorf("rebuild lock expiry index %s: %w", lock.LockId, err)
 			}
 		}
@@ -332,10 +332,10 @@ func (k Keeper) rebuildIndexes(ctx context.Context) error {
 		// Rebuild FinalizedLocks index for non-active locks
 		if lock.Status == types.LockStatus_LOCK_STATUS_RELEASED || lock.Status == types.LockStatus_LOCK_STATUS_BURNED || lock.Status == types.LockStatus_LOCK_STATUS_EXPIRED {
 			ts := time.Time{}
-			if lock.ExpiresAt != nil {
-				ts = lock.ExpiresAt.AsTime()
-			} else if lock.CreatedAt != nil {
-				ts = lock.CreatedAt.AsTime()
+			if !lock.ExpiresAt.IsZero() {
+				ts = lock.ExpiresAt
+			} else if !lock.CreatedAt.IsZero() {
+				ts = lock.CreatedAt
 			}
 			if err := k.state.FinalizedLocks.Set(ctx, collections.Join(ts, lock.LockId)); err != nil {
 				return false, fmt.Errorf("rebuild finalized locks index %s: %w", lock.LockId, err)
@@ -357,7 +357,7 @@ func (k Keeper) rebuildIndexes(ctx context.Context) error {
 			}
 		}
 		if (s.Status == types.SettlementStatus_SETTLEMENT_STATUS_COMPLETED || s.Status == types.SettlementStatus_SETTLEMENT_STATUS_FAILED) && s.CompletedAt != nil {
-			if err := k.state.SettlementsByTime.Set(ctx, collections.Join(s.CompletedAt.AsTime(), s.Id)); err != nil {
+			if err := k.state.SettlementsByTime.Set(ctx, collections.Join(*s.CompletedAt, s.Id)); err != nil {
 				return false, fmt.Errorf("rebuild settlements-by-time index %s: %w", s.Id, err)
 			}
 		}

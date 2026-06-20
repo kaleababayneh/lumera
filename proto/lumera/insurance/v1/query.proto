@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+package lumera.insurance.v1;
+
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "lumera/insurance/v1/insurance.proto";
+import "lumera/insurance/v1/tx.proto";
+import "google/api/annotations.proto";
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+
+option go_package = "x/insurance/types";
+
+// Query defines the gRPC querier service for the insurance module
+service Query {
+  // PoolStatus returns the current insurance pool status and metrics
+  rpc PoolStatus(QueryPoolStatusRequest) returns (QueryPoolStatusResponse) {
+    option (google.api.http).get = "/lumera/insurance/v1/pool_status";
+  }
+
+  // GetClaim returns a specific claim by ID
+  rpc GetClaim(QueryGetClaimRequest) returns (QueryGetClaimResponse) {
+    option (google.api.http).get = "/lumera/insurance/v1/claims/{claim_id}";
+  }
+
+  // ListClaims returns all claims with optional filtering
+  rpc ListClaims(QueryListClaimsRequest) returns (QueryListClaimsResponse) {
+    option (google.api.http).get = "/lumera/insurance/v1/claims";
+  }
+
+  // GetParams returns the current module parameters
+  rpc GetParams(QueryGetParamsRequest) returns (QueryGetParamsResponse) {
+    option (google.api.http).get = "/lumera/insurance/v1/params";
+  }
+}
+
+// QueryPoolStatusRequest is the request type for the Query/PoolStatus RPC
+// method
+message QueryPoolStatusRequest {}
+
+// QueryPoolStatusResponse is the response type for the Query/PoolStatus RPC
+// method
+message QueryPoolStatusResponse {
+  repeated cosmos.base.v1beta1.Coin balance = 1 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true, (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"];
+  PoolState state = 2;
+  PoolMetrics metrics = 3;
+}
+
+// QueryGetClaimRequest is the request type for the Query/GetClaim RPC method
+message QueryGetClaimRequest { string claim_id = 1; }
+
+// QueryGetClaimResponse is the response type for the Query/GetClaim RPC method
+message QueryGetClaimResponse { Claim claim = 1; }
+
+// QueryListClaimsRequest is the request type for the Query/ListClaims RPC
+// method
+message QueryListClaimsRequest {
+  string claimant_id = 1;  // Optional filter by claimant
+  string status = 2;       // Optional filter by status
+  string publisher_id = 3; // Optional filter by publisher
+  cosmos.base.query.v1beta1.PageRequest pagination = 4; // Pagination details
+}
+
+// QueryListClaimsResponse is the response type for the Query/ListClaims RPC
+// method
+message QueryListClaimsResponse {
+  repeated Claim claims = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryGetParamsRequest is the request type for the Query/GetParams RPC method
+message QueryGetParamsRequest {}
+
+// QueryGetParamsResponse is the response type for the Query/GetParams RPC
+// method
+message QueryGetParamsResponse { Params params = 1; }

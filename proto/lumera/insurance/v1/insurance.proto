@@ -1,0 +1,138 @@
+syntax = "proto3";
+
+package lumera.insurance.v1;
+
+import "cosmos/base/v1beta1/coin.proto";
+import "google/protobuf/timestamp.proto";
+import "lumera/insurance/v1/tx.proto";
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+
+option go_package = "x/insurance/types";
+
+// PoolState tracks the overall insurance pool state
+message PoolState {
+  string total_funds = 1;
+  string available_funds = 2;
+  string reserved_funds = 3;
+  string total_contributions = 4;
+  string total_payouts = 5;
+  string target_utilization = 6;
+  string current_utilization = 7;
+  PoolStatus status = 8;
+  google.protobuf.Timestamp last_updated = 9 [(gogoproto.stdtime) = true];
+  string version = 10;
+}
+
+// PoolStatus represents the health of the insurance pool
+enum PoolStatus {
+  POOL_STATUS_UNSPECIFIED = 0;
+  POOL_STATUS_HEALTHY = 1;
+  POOL_STATUS_UNDERFUNDED = 2;
+  POOL_STATUS_CRITICAL = 3;
+  POOL_STATUS_OVERFUNDED = 4;
+}
+
+// PoolMetrics tracks pool metrics for monitoring
+message PoolMetrics {
+  string total_contributions_24h = 1;
+  string total_payouts_24h = 2;
+  uint32 pending_claims = 3;
+  string average_claim_amount = 4;
+  string claim_approval_rate = 5;
+  string pool_health_score = 6;
+  string risk_exposure = 7;
+  string coverage_ratio = 8;
+  string utilization_ewma = 9;
+  string dispute_rate_ewma = 10;
+  uint64 samples = 11;
+  google.protobuf.Timestamp last_adjudicated_at = 12 [(gogoproto.stdtime) = true];
+  google.protobuf.Timestamp last_premium_adjust_at = 13 [(gogoproto.stdtime) = true];
+}
+
+// Contribution represents a contribution to the insurance pool
+message Contribution {
+  string id = 1;
+  string receipt_id = 2;
+  string tool_id = 3;
+  string publisher_id = 4;
+  cosmos.base.v1beta1.Coin amount = 5 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  string policy_version = 6;
+  google.protobuf.Timestamp timestamp = 7 [(gogoproto.stdtime) = true];
+  int64 block_height = 8;
+}
+
+// Claim represents an insurance claim
+message Claim {
+  string id = 1;
+  string receipt_id = 2;
+  string claimant_id = 3;
+  string tool_id = 4;
+  string publisher_id = 5;
+  cosmos.base.v1beta1.Coin claimed_amount = 6 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  cosmos.base.v1beta1.Coin approved_amount = 7 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  string reason = 8;
+  repeated Evidence evidence = 9;
+  ClaimStatus status = 10;
+  google.protobuf.Timestamp created_at = 11 [(gogoproto.stdtime) = true];
+  google.protobuf.Timestamp updated_at = 12 [(gogoproto.stdtime) = true];
+  google.protobuf.Timestamp resolved_at = 13 [(gogoproto.stdtime) = true];
+  string policy_snapshot = 14;
+  string dispute_id = 15;
+  string resolution_notes = 16;
+}
+
+// ClaimStatus represents the state of an insurance claim
+enum ClaimStatus {
+  CLAIM_STATUS_UNSPECIFIED = 0;
+  CLAIM_STATUS_PENDING = 1;
+  CLAIM_STATUS_APPROVED = 2;
+  CLAIM_STATUS_REJECTED = 3;
+  CLAIM_STATUS_PAID = 4;
+  CLAIM_STATUS_EXPIRED = 5;
+  CLAIM_STATUS_DISPUTED = 6;
+}
+
+// PublisherRisk represents the risk profile of a publisher
+message PublisherRisk {
+  string publisher_id = 1;
+  string tool_id = 2;
+  PremiumTier premium_tier = 3;
+  string premium_multiplier = 4;
+  uint32 dispute_count = 5;
+  uint32 claim_count = 6;
+  string success_rate = 7;
+  int64 avg_response_time_ms = 8;
+  google.protobuf.Timestamp last_slash_time = 9 [(gogoproto.stdtime) = true];
+  string risk_score = 10;
+  google.protobuf.Timestamp last_evaluated = 11 [(gogoproto.stdtime) = true];
+}
+
+// PremiumTier represents the risk tier for a publisher
+enum PremiumTier {
+  PREMIUM_TIER_UNSPECIFIED = 0;
+  PREMIUM_TIER_LOW = 1;
+  PREMIUM_TIER_STANDARD = 2;
+  PREMIUM_TIER_HIGH = 3;
+  PREMIUM_TIER_EXTREME = 4;
+}
+
+// Payout represents an insurance payout
+message Payout {
+  string id = 1;
+  string claim_id = 2;
+  string recipient_id = 3;
+  cosmos.base.v1beta1.Coin amount = 4 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  string tx_hash = 5;
+  PayoutStatus status = 6;
+  google.protobuf.Timestamp paid_at = 7 [(gogoproto.stdtime) = true];
+  int64 block_height = 8;
+}
+
+// PayoutStatus represents the state of a payout
+enum PayoutStatus {
+  PAYOUT_STATUS_UNSPECIFIED = 0;
+  PAYOUT_STATUS_PENDING = 1;
+  PAYOUT_STATUS_COMPLETED = 2;
+  PAYOUT_STATUS_FAILED = 3;
+}

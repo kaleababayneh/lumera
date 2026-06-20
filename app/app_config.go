@@ -44,6 +44,8 @@ import (
 	claimmoduletypes "github.com/LumeraProtocol/lumera/x/claim/types"
 	creditsmodulev1 "github.com/LumeraProtocol/lumera/x/credits/module"
 	creditstypes "github.com/LumeraProtocol/lumera/x/credits/types"
+	insurancemodulev1 "github.com/LumeraProtocol/lumera/x/insurance/module"
+	insurancetypes "github.com/LumeraProtocol/lumera/x/insurance/types"
 	_ "github.com/LumeraProtocol/lumera/x/evmigration/module"
 	evmigrationmoduletypes "github.com/LumeraProtocol/lumera/x/evmigration/types"
 	lumeraidmodulev1 "github.com/LumeraProtocol/lumera/x/lumeraid/module"
@@ -140,6 +142,7 @@ var (
 		actionmoduletypes.ModuleName,
 		evmigrationmoduletypes.ModuleName,
 		creditstypes.ModuleName,
+		insurancetypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis
 	}
 
@@ -176,6 +179,7 @@ var (
 		actionmoduletypes.ModuleName,
 		evmigrationmoduletypes.ModuleName,
 		creditstypes.ModuleName,
+		insurancetypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/beginBlockers
 	}
 
@@ -204,6 +208,7 @@ var (
 		precisebanktypes.ModuleName,
 		evmigrationmoduletypes.ModuleName,
 		creditstypes.ModuleName,
+		insurancetypes.ModuleName,
 		// NOTE: feemarket EndBlocker should be last to get the full block gas used
 		feemarkettypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/endBlockers
@@ -237,6 +242,7 @@ var (
 		{Account: evmtypes.ModuleName, Permissions: []string{authtypes.Minter, authtypes.Burner}},
 		{Account: erc20types.ModuleName, Permissions: []string{authtypes.Minter, authtypes.Burner}},
 		{Account: creditstypes.ModuleName, Permissions: []string{authtypes.Minter, authtypes.Burner}},
+		{Account: insurancetypes.ModuleName, Permissions: []string{authtypes.Burner}},
 		// this line is used by starport scaffolding # stargate/app/maccPerms
 	}
 
@@ -393,6 +399,10 @@ var (
 			{
 				Name:   creditstypes.ModuleName,
 				Config: appconfig.WrapAny(&creditsmodulev1.Module{}),
+			},
+			{
+				Name:   insurancetypes.ModuleName,
+				Config: appconfig.WrapAny(&insurancemodulev1.Module{}),
 			},
 			// this line is used by starport scaffolding # stargate/app/moduleConfig
 		},

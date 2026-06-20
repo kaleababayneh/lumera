@@ -10,7 +10,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/msgservice"
 	"github.com/cosmos/cosmos-sdk/types/tx"
-	gogoproto "github.com/cosmos/gogoproto/proto"
 )
 
 // RegisterLegacyAminoCodec registers concrete message types on the provided codec.
@@ -45,7 +44,7 @@ func RegisterInterfaces(registry codectypes.InterfaceRegistry) {
 		&MsgUpdateParamsResponse{},
 	)
 
-	msgservice.RegisterMsgServiceDesc(registry, &Msg_ServiceDesc)
+	msgservice.RegisterMsgServiceDesc(registry, &Msg_serviceDesc)
 }
 
 var (
@@ -56,23 +55,8 @@ var (
 )
 
 func init() {
-	gogoproto.RegisterFile("lumera/credits/v1/tx.proto", file_lumera_credits_v1_tx_proto_rawDescGZIP())
-	gogoproto.RegisterType((*MsgSwapLUMEtoLAC)(nil), "lumera.credits.v1.MsgSwapLUMEtoLAC")
-	gogoproto.RegisterType((*MsgSwapLUMEtoLACResponse)(nil), "lumera.credits.v1.MsgSwapLUMEtoLACResponse")
-	gogoproto.RegisterType((*MsgSwapLACtoLUME)(nil), "lumera.credits.v1.MsgSwapLACtoLUME")
-	gogoproto.RegisterType((*MsgSwapLACtoLUMEResponse)(nil), "lumera.credits.v1.MsgSwapLACtoLUMEResponse")
-	gogoproto.RegisterType((*MsgLockCredits)(nil), "lumera.credits.v1.MsgLockCredits")
-	gogoproto.RegisterType((*MsgLockCreditsResponse)(nil), "lumera.credits.v1.MsgLockCreditsResponse")
-	gogoproto.RegisterType((*MsgUnlockCredits)(nil), "lumera.credits.v1.MsgUnlockCredits")
-	gogoproto.RegisterType((*MsgUnlockCreditsResponse)(nil), "lumera.credits.v1.MsgUnlockCreditsResponse")
-	gogoproto.RegisterType((*MsgSettleCredits)(nil), "lumera.credits.v1.MsgSettleCredits")
-	gogoproto.RegisterType((*MsgSettleCreditsResponse)(nil), "lumera.credits.v1.MsgSettleCreditsResponse")
-	gogoproto.RegisterType((*OverdraftSettlementSplit)(nil), "lumera.credits.v1.OverdraftSettlementSplit")
-	gogoproto.RegisterType((*OverdraftSettlementEntry)(nil), "lumera.credits.v1.OverdraftSettlementEntry")
-	gogoproto.RegisterType((*MsgSettleOverdraft)(nil), "lumera.credits.v1.MsgSettleOverdraft")
-	gogoproto.RegisterType((*MsgSettleOverdraftResponse)(nil), "lumera.credits.v1.MsgSettleOverdraftResponse")
-	gogoproto.RegisterType((*MsgUpdateParams)(nil), "lumera.credits.v1.MsgUpdateParams")
-	gogoproto.RegisterType((*MsgUpdateParamsResponse)(nil), "lumera.credits.v1.MsgUpdateParamsResponse")
+	// The gogoproto-generated code self-registers its file + message descriptors
+	// in its own init(); only amino registration remains hand-wired here.
 	RegisterLegacyAminoCodec(Amino)
 	sdk.RegisterLegacyAminoCodec(Amino)
 	Amino.Seal()

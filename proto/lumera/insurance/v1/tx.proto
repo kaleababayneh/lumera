@@ -1,0 +1,132 @@
+syntax = "proto3";
+
+package lumera.insurance.v1;
+
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+
+option go_package = "x/insurance/types";
+
+// Params defines the on-chain configuration for the insurance module.
+message Params {
+  uint32 insurance_pool_bps = 1;
+  string target_utilization = 2;
+  string min_pool_balance = 3;
+  string max_claim_percent = 4;
+  int64 claim_window_seconds = 5;
+  string dispute_stake_lac = 6;
+  uint32 premium_adjustment_bps = 7;
+  string auto_approve_threshold = 8;
+  uint32 slash_decay_days = 9;
+  uint32 max_claims_per_block = 10;
+  uint32 max_payouts_per_block = 11;
+  bool enabled = 12;
+}
+
+// Evidence captures supporting material attached to a claim.
+message Evidence {
+  string type = 1;
+  string hash = 2;
+  string uri = 3;
+  string description = 4;
+}
+
+// MsgProcessContribution records an insurance contribution derived from a
+// settlement.
+message MsgProcessContribution {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority = 1
+      [ (cosmos_proto.scalar) =
+            "cosmos.AddressString" ]; // governance or router signer
+  string receipt_id = 2;
+  string tool_id = 3;
+  string publisher_id = 4;
+  cosmos.base.v1beta1.Coin amount = 5 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  string policy_version = 6;
+}
+
+message MsgProcessContributionResponse {}
+
+// MsgFileClaim allows a user or router to file an insurance claim against a
+// receipt.
+message MsgFileClaim {
+  option (cosmos.msg.v1.signer) = "claimant";
+
+  string claimant = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string receipt_id = 2;
+  string tool_id = 3;
+  string publisher_id = 4;
+  cosmos.base.v1beta1.Coin claimed_amount = 5 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  string reason = 6;
+  repeated Evidence evidence = 7;
+}
+
+message MsgFileClaimResponse { string claim_id = 1; }
+
+// MsgProcessClaim is executed by the module authority to approve or reject a
+// claim.
+message MsgProcessClaim {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string claim_id = 2;
+  string resolution = 3; // approve | reject | partial
+  cosmos.base.v1beta1.Coin approved_amount = 4 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  string notes = 5;
+}
+
+message MsgProcessClaimResponse {}
+
+// MsgProcessPayout instructs the module to settle an approved claim.
+message MsgProcessPayout {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string claim_id = 2;
+  string recipient = 3;
+  cosmos.base.v1beta1.Coin amount = 4 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  string tx_hash = 5;
+}
+
+message MsgProcessPayoutResponse {}
+
+// MsgUpdatePublisherRisk updates risk metadata that influences premium tiers.
+message MsgUpdatePublisherRisk {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string publisher_id = 2;
+  string tool_id = 3;
+  uint32 risk_score_bps = 4;
+  string premium_tier = 5;
+  string notes = 6;
+}
+
+message MsgUpdatePublisherRiskResponse {}
+
+// MsgUpdateParams allows governance to update module parameters.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  Params params = 2 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+}
+
+message MsgUpdateParamsResponse {}
+
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  rpc ProcessContribution(MsgProcessContribution)
+      returns (MsgProcessContributionResponse);
+  rpc FileClaim(MsgFileClaim) returns (MsgFileClaimResponse);
+  rpc ProcessClaim(MsgProcessClaim) returns (MsgProcessClaimResponse);
+  rpc ProcessPayout(MsgProcessPayout) returns (MsgProcessPayoutResponse);
+  rpc UpdatePublisherRisk(MsgUpdatePublisherRisk)
+      returns (MsgUpdatePublisherRiskResponse);
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
