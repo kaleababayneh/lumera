@@ -296,6 +296,39 @@ reserve/nft are self-contained (~5k each); registry is the big one. (2) `router`
 - **Tests deferred:** `*_test.go` across the cluster still reference the old protobuf-go API / not-yet
   ported modules and won't compile; the non-test build is green. Port tests in a later pass.
 
+### Scope decision — the 7 remaining "core/economic" modules: SKIP/DEFER (2026-06-21)
+A 7-way parallel code-grounded assessment (router/payment_rails/incentives/auction/challenges/vaults/
+workflows) against the thesis flywheel test (§XII "say no to peripheral") concluded: **build none of
+them now; go straight to the trust + Proof-of-Service primitives.** Verdicts:
+- **`vaults` → SKIP.** Thin ownership wrapper over `reserve` — its only Msg (`CreateVault`) just calls
+  `reserveKeeper.CreateCommitment` and re-hydrates economics from that commitment. No new signal.
+- **`router` → DEFER.** Whitepaper meta-tool, but its on-chain settlement *is* the verified credits
+  loop, its discovery *is* the registry slice, and its Msg surface is authority-only telemetry. Needs
+  registry `SubmitReceipt`/`GetToolMetrics` (not yet exposed). Becomes the natural **integration
+  surface after** bonds + PoS land — it then *consumes* trust/intelligence signal instead of
+  re-packaging settled functionality. (~6k keeper LOC.)
+- **`payment_rails` → DEFER.** Modern cross-chain on-ramp (escrow external INJ/USDC/USDT → oracle-price
+  → mint LAC; burn → withdraw; IBC settlement). Deps (credits, oracle) ported, so not blocked — but
+  it's *liquidity / go-to-market*, not moat; IBC piece is Phase-2. Revisit once trust/PoS ships.
+- **`incentives` → DEFER (flagged "core").** The genuine **trust-graph engine**: metrics →
+  `RequestEvaluation` → tiered, expiring **badges** → bps multipliers (`GetRoutingMultiplier`/
+  `GetInsuranceDiscount`/`GetLACBonus`). Modern; hard deps (registry/bank/account) ported; only
+  *soft*-blocked on `router`. This is the **tool-reputation** complement to `passport`'s
+  agent-reputation — strongest follow-up candidate, queue **right after Step 3 (bonds)** as part of
+  building out the trust graph.
+- **`auction` → DEFER.** Well-built bid market, but not a wired module and hard-blocked on unported
+  `priority`. Adjacent, not core now.
+- **`challenges` → DEFER.** *Sounds* trust-graph (benchmarks/ranks tools), but in code the scores never
+  write back to registry/passport reputation and `min_badge_tier` is never enforced — so it isn't a
+  trust signal today. Needs unported registry SLO-probe hooks + `lumeraid` nonce verify.
+- **`workflows` → DEFER.** Modern bundle orchestration (composable-intelligence primitive); deps
+  (credits/registry) ported, but its money path is redundant with the verified credits loop. Revisit
+  after the inference primitive exists.
+
+**Net path forward:** Step 3 = **registry bonds slice** (publisher stake → skin-in-the-game, the trust
+primitive). Step 4 = **SuperNode Proof-of-Service inference receipts** (the catalyst). Then revisit
+`incentives` (trust graph) and `router` (integration surface) on top of that signal.
+
 ---
 
 ## 9. Open decisions & risks
@@ -324,16 +357,16 @@ Legend: ☐ todo · ◐ in progress · ☑ done (builds + boots + tx + tests + n
 | cac | ☑ | ☑ | — (types-only) | ☑ | ☑ | — | ☐ | — | ◐ |
 | registry | ☑ | ◐ (tool slice) | ☑ | ☑ | ☑ | ☑ (register/query ✓) | ☐ | n/a | ◐ |
 | insurance | ☑ | ☑ | ☑ | ☑ | ☑ | ◐ | ☐ | n/a | ◐ |
-| router | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |
-| payment_rails | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |
-| incentives | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |
-| auction | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |
-| challenges | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |
+| router | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | DEFER (integration surface, post-PoS) |
+| payment_rails | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | DEFER (on-ramp/liquidity, Phase-2 IBC) |
+| incentives | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | DEFER (trust-graph engine; next after Step 3) |
+| auction | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | DEFER (blocked on priority) |
+| challenges | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | DEFER (no real trust signal today) |
 | oracle | ☑ | ☑ | ☑ | ☑ | ☑ | ☑ (query ✓) | ☐ | n/a | ◐ |
 | policies | ☑ | ☑ | ☑ | ☑ | ☑ | ☑ (query ✓) | ☐ | n/a | ◐ |
 | priority | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |
-| vaults | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |
-| workflows | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |
+| vaults | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | SKIP (thin wrapper over reserve) |
+| workflows | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | DEFER (composable-intel, post-PoS) |
 | ibc_action | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ (Phase 2) |
 | lumeraid | — | — | — | — | — | — | — | — | reconcile (use lumera's) |
 | feemarket | — | — | — | — | — | — | — | — | reconcile/skip |
