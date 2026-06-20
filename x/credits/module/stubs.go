@@ -12,21 +12,14 @@ import (
 
 // TEMPORARY dependency-keeper stubs for the credits module.
 //
-// Credits is not standalone — its keeper needs Registry, Reserve and NFT keepers.
-// These stubs let credits build and run on the chain BEFORE those modules are
-// ported, so we can integrate one module at a time. Each stub is replaced by the
-// real module keeper as it lands. (Insurance is DONE — x/insurance is ported and
-// wired; its real keeper is passed in `ProvideModule`.)
+// Credits is not standalone — its keeper needs Reserve and NFT keepers. These
+// stubs let credits build and run BEFORE those modules are ported, so we can
+// integrate one module at a time. Each stub is replaced by the real module keeper
+// as it lands. (Insurance + Registry are DONE — x/insurance and x/registry are
+// ported and wired; their real keepers are passed in `ProvideModule`.)
 //
 // MUST NOT ship to testnet/mainnet. See the "Lumera AI Module Port" progress log
 // in CLAUDE.md. Methods that need real data fail loudly rather than mis-settle.
-
-// stubRegistryKeeper — settlement needs the real tool publisher; fail loudly.
-type stubRegistryKeeper struct{}
-
-func (stubRegistryKeeper) GetToolPublisher(_ context.Context, _ string) (sdk.AccAddress, error) {
-	return nil, fmt.Errorf("credits: registry keeper not wired (TEMPORARY stub)")
-}
 
 // stubReserveKeeper — reserve allocation needs the real keeper; fail loudly.
 type stubReserveKeeper struct{}

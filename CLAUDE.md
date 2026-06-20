@@ -241,9 +241,18 @@ consensus. **Option B is ruled out. Path = Option A: convert each ported module 
 Order: cac/reserve/nft/registry/passport types → credits → (later) registry/router/payment_rails.
 
 ### Stubs (TEMPORARY — remove before testnet)
-- `x/credits/module/stubs.go`: `stubRegistryKeeper`, `stubReserveKeeper`, `stubNFTKeeper`
-  (loud-fail; return errors until real). **`stubInsuranceKeeper` is GONE** — `x/insurance` is ported
-  + wired and its real keeper is passed in `ProvideModule`.
+- `x/credits/module/stubs.go`: `stubReserveKeeper`, `stubNFTKeeper` (loud-fail; return errors until
+  real). **`stubInsuranceKeeper` and `stubRegistryKeeper` are GONE** — `x/insurance` and `x/registry`
+  are ported + wired and their real keepers are passed in `ProvideModule`. **2 of 4 stubs removed.**
+
+## Module 3: `x/registry` — keeper slice ported + wired + e2e-verified
+Built a **focused, modern registry keeper** (ToolCard registry + `GetToolPublisher`, on
+KVStoreService + collections + `collPtrValue`) instead of wholesale-porting the legacy ~17k-line
+keeper. `MsgRegisterTool` + `GetTool` query + minimal CLI; the rest of the registry RPCs no-op via
+`UnimplementedMsgServer/QueryServer` and port as later slices. Verified e2e: `tx registry
+register-tool` (code 0) → `query registry get-tool` returns the owner/publisher. Replaces
+`stubRegistryKeeper` in credits → unblocks `MsgSettleCredits` publisher payout. (Modules 4/5: `oracle`,
+`policies` — standalone full modules, ported + wired + running.)
 
 ## Module 2: `x/insurance` — DONE (ported + wired + booting)
 Full module (keeper/msg-server/begin+end-blockers/JSON genesis) gogo-converted with the credits

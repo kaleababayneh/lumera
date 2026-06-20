@@ -266,10 +266,21 @@ types-only) to remove credits' 3 remaining stubs and satisfy the dependents' `Ne
 reserve/nft are self-contained (~5k each); registry is the big one. (2) `router` + `payment_rails`
 (the agent loop). (3) the rest + the **test port** (validate the money paths before testnet).
 
-- **Stubs remaining (TEMPORARY — remove before testnet):** `stubRegistryKeeper`, `stubReserveKeeper`,
-  `stubNFTKeeper` in `x/credits/module/stubs.go`. Replacing them requires porting full *keepers* for
-  registry/reserve/nft (those three are currently **types-only** in lumera — credits imports only
-  their type structs).
+- **`registry` — KEEPER SLICE PORTED + WIRED (2026-06-21).** Rather than wholesale-port the legacy
+  ~17k-line keeper (raw store keys + deprecated param subspace + sparse deps on
+  challenges/insurance/passport), we built a **focused, modern registry keeper** on Lumera's real
+  wiring (KVStoreService + collections + `collPtrValue`, using the already-converted `registry/types`):
+  ToolCard registration + lookup + **`GetToolPublisher`** — the exact method credits settlement needs
+  to pay publishers. `MsgRegisterTool` + `GetTool` query + minimal CLI implemented; the remaining
+  registry RPCs (bonds, disputes, SLA/SLO, receipts, anchors, watchers) are no-op'd via the generated
+  `UnimplementedMsgServer/QueryServer` and ported as later slices. Verified e2e on a localnet:
+  `tx registry register-tool` (code 0) → `query registry get-tool` returns the owner/publisher.
+  **The real registry keeper replaces `stubRegistryKeeper` in credits — 2 of 4 stubs now removed
+  (insurance + registry).** This unblocks `MsgSettleCredits` publisher payout (thesis "will someone pay").
+- **Stubs remaining (TEMPORARY — remove before testnet):** `stubReserveKeeper`, `stubNFTKeeper` in
+  `x/credits/module/stubs.go`. reserve/nft are still **types-only** (credits imports only their type
+  structs); porting their keepers removes the last two stubs. The remaining registry surface
+  (bonds/disputes/SLA/SLO) ports as incremental slices on the keeper just landed.
 - **Tests deferred:** `*_test.go` across the cluster still reference the old protobuf-go API / not-yet
   ported modules and won't compile; the non-test build is green. Port tests in a later pass.
 
@@ -299,7 +310,7 @@ Legend: ☐ todo · ◐ in progress · ☑ done (builds + boots + tx + tests + n
 | reserve | ☑ | ☑ | — (types-only) | ☑ | ☑ | — | ☐ | — | ◐ |
 | nft | ☑ | ☑ | — (types-only) | ☑ | ☑ | — | ☐ | — | ◐ |
 | cac | ☑ | ☑ | — (types-only) | ☑ | ☑ | — | ☐ | — | ◐ |
-| registry | ☑ | ☑ | — (types-only) | ☑ | ☑ | — | ☐ | — | ◐ |
+| registry | ☑ | ◐ (tool slice) | ☑ | ☑ | ☑ | ☑ (register/query ✓) | ☐ | n/a | ◐ |
 | insurance | ☑ | ☑ | ☑ | ☑ | ☑ | ◐ | ☐ | n/a | ◐ |
 | router | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |
 | payment_rails | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |
