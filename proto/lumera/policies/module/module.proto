@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package lumera.policies.module;
+
+import "cosmos/app/v1alpha1/module.proto";
+
+option go_package = "x/policies/module;policiesmodule";
+
+// Module is the config object of the policies module.
+message Module {
+  option (cosmos.app.v1alpha1.module) = {
+    go_import: "github.com/LumeraProtocol/lumera/x/policies"
+  };
+
+  // authority defines the custom module authority.
+  // If not set, defaults to the governance module account.
+  string authority = 1;
+}

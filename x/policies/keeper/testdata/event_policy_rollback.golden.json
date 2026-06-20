@@ -1,0 +1,1 @@
+{"type":"policy_rollback","attributes":[{"key":"policy_id","value":"policy-001"},{"key":"target_version","value":"v1"},{"key":"previous_version","value":"v2"},{"key":"rolled_back_by","value":"lumera1admin"},{"key":"reason","value":"security_vulnerability"}]}

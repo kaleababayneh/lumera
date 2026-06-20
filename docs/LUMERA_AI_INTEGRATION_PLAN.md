@@ -231,6 +231,41 @@ Do this for each module, in dependency order (§5). Keep a row per module in the
   takes `insurancekeeper.Keeper` as a depinject input — no cycle: insurance imports only
   `credits/types`). Node boots + produces blocks with insurance's begin/end blockers running; credits
   still serves. **1 of 4 credits stubs removed.**
+- **`oracle` — PORTED + WIRED (2026-06-20).** Standalone full module (keeper + msg server + JSON
+  genesis + query gateway), gogo-converted, `module/depinject.go` + `proto/lumera/oracle/module/
+  module.proto`, registered in `app/app_config.go` (no module account — no coin handling) and held in
+  `app/app.go` (`OracleKeeper`). Node boots + produces blocks; `lumerad query oracle params` returns
+  defaults (asset pairs LAC/USD, ETH/USD, BTC/USD). **REVIEW NOTE:** the lumera_ai oracle proto
+  carried `(gogoproto.customtype)=LegacyDec/Int` annotations that protobuf-go silently ignored;
+  rather than rewrite the entire string-based keeper to `LegacyDec`, the conversion **stripped those
+  annotations back to `string`** (wire-compatible; the keeper parses via `LegacyNewDecFromStr`). If
+  the intended Go type was `LegacyDec`, restore the annotations and convert the keeper later.
+  **oracle also uses ABCI vote extensions** (`vote_extension.go`) — the module boots, but the vote
+  extensions are NOT yet wired into the app's ABCI++ handlers (`ExtendVote`/`VerifyVoteExtension`/
+  `PrepareProposal`), so price feeds via vote extensions won't populate until that app wiring is added.
+- **`policies` — PORTED + WIRED (2026-06-20).** Standalone full module (oracle twin:
+  `NewKeeper(cdc, store, authority)`, timestamps-only, `collPtrValue` collections, no query gateway —
+  queries over gRPC), gogo-converted, `module/depinject.go` + appconfig proto, registered in
+  `app/app_config.go` (no module account) + held in `app/app.go`. Node boots + produces blocks;
+  `lumerad query policies params` returns defaults.
+
+### Modules integrated so far (node builds + boots + produces blocks + serves queries)
+**4 full modules** — `credits`, `insurance`, `oracle`, `policies` — plus **5 type modules**
+(`reserve, passport, nft, cac, registry`) credits depends on. **9 lumera_ai modules total.** All
+converted via the §4 recipe + §8 gotchas, each verified to build/boot/query. 1 of 4 credits stubs
+removed (insurance).
+
+### The remaining modules are the INTERDEPENDENT CORE — sequencing matters
+Every clean *standalone* module (`NewKeeper` needing only bank/account/authority) is now done. Each
+remaining module needs another module's **keeper** at construction (checked via their `NewKeeper`):
+`incentives`→registry+router · `vaults`→reserve · `auction`→priority+reserve ·
+`payment_rails`→credits+nft+oracle+reserve · `router`/`workflows`→credits+registry ·
+`challenges`→credits · `registry` itself is ~45k lines / 5 deps. (`priority` is a library, not an
+app module.) **Next, in order:** (1) port the **reserve, nft, registry keepers** (currently
+types-only) to remove credits' 3 remaining stubs and satisfy the dependents' `NewKeeper` —
+reserve/nft are self-contained (~5k each); registry is the big one. (2) `router` + `payment_rails`
+(the agent loop). (3) the rest + the **test port** (validate the money paths before testnet).
+
 - **Stubs remaining (TEMPORARY — remove before testnet):** `stubRegistryKeeper`, `stubReserveKeeper`,
   `stubNFTKeeper` in `x/credits/module/stubs.go`. Replacing them requires porting full *keepers* for
   registry/reserve/nft (those three are currently **types-only** in lumera — credits imports only
@@ -271,8 +306,8 @@ Legend: ☐ todo · ◐ in progress · ☑ done (builds + boots + tx + tests + n
 | incentives | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |
 | auction | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |
 | challenges | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |
-| oracle | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |
-| policies | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |
+| oracle | ☑ | ☑ | ☑ | ☑ | ☑ | ☑ (query ✓) | ☐ | n/a | ◐ |
+| policies | ☑ | ☑ | ☑ | ☑ | ☑ | ☑ (query ✓) | ☐ | n/a | ◐ |
 | priority | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |
 | vaults | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |
 | workflows | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ☐ |

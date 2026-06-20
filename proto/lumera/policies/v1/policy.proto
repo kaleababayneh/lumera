@@ -1,0 +1,428 @@
+syntax = "proto3";
+package lumera.policies.v1;
+
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "google/protobuf/timestamp.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "x/policies/types";
+
+// PolicyState represents the lifecycle state of a policy
+enum PolicyState {
+  POLICY_STATE_UNSPECIFIED = 0;
+  POLICY_STATE_DRAFT = 1;
+  POLICY_STATE_REVIEW = 2;
+  POLICY_STATE_ACTIVE = 3;
+  POLICY_STATE_DEPRECATED = 4;
+  POLICY_STATE_ARCHIVED = 5;
+}
+
+// BudgetActionType represents actions when budget limits are reached
+enum BudgetActionType {
+  BUDGET_ACTION_TYPE_UNSPECIFIED = 0;
+  BUDGET_ACTION_TYPE_WARN = 1;
+  BUDGET_ACTION_TYPE_THROTTLE = 2;
+  BUDGET_ACTION_TYPE_APPROVE = 3;
+  BUDGET_ACTION_TYPE_DENY = 4;
+  BUDGET_ACTION_TYPE_QUEUE = 5;
+  BUDGET_ACTION_TYPE_ESCALATE = 6;
+}
+
+// DataHandlingPolicy represents how sensitive data should be handled
+enum DataHandlingPolicy {
+  DATA_HANDLING_POLICY_UNSPECIFIED = 0;
+  DATA_HANDLING_POLICY_ALLOW = 1;
+  DATA_HANDLING_POLICY_REDACT = 2;
+  DATA_HANDLING_POLICY_ENCRYPT = 3;
+  DATA_HANDLING_POLICY_DENY = 4;
+}
+
+// EncryptionLevel represents encryption requirements
+enum EncryptionLevel {
+  ENCRYPTION_LEVEL_UNSPECIFIED = 0;
+  ENCRYPTION_LEVEL_NONE = 1;
+  ENCRYPTION_LEVEL_AES256 = 2;
+  ENCRYPTION_LEVEL_AES512 = 3;
+  ENCRYPTION_LEVEL_QUANTUM_RESISTANT = 4;
+}
+
+// IsolationLevel represents sandbox isolation requirements
+enum IsolationLevel {
+  ISOLATION_LEVEL_UNSPECIFIED = 0;
+  ISOLATION_LEVEL_NONE = 1;
+  ISOLATION_LEVEL_PROCESS = 2;
+  ISOLATION_LEVEL_CONTAINER = 3;
+  ISOLATION_LEVEL_VM = 4;
+  ISOLATION_LEVEL_ENCLAVE = 5;
+}
+
+// VerificationTier represents tool verification levels
+enum VerificationTier {
+  VERIFICATION_TIER_UNSPECIFIED = 0;
+  VERIFICATION_TIER_NONE = 1;
+  VERIFICATION_TIER_BRONZE = 2;
+  VERIFICATION_TIER_SILVER = 3;
+  VERIFICATION_TIER_GOLD = 4;
+  VERIFICATION_TIER_PLATINUM = 5;
+}
+
+// AuditLevel represents audit trail detail level
+enum AuditLevel {
+  AUDIT_LEVEL_UNSPECIFIED = 0;
+  AUDIT_LEVEL_NONE = 1;
+  AUDIT_LEVEL_BASIC = 2;
+  AUDIT_LEVEL_ENHANCED = 3;
+  AUDIT_LEVEL_CONTINUOUS = 4;
+}
+
+// Params defines the module parameters for x/policies
+message Params {
+  // min_policy_deposit is the minimum LAC required to create a policy
+  string min_policy_deposit = 1;
+  // max_policy_version_history is the maximum number of versions to retain
+  uint32 max_policy_version_history = 2;
+  // default_migration_window_seconds is the default time for policy migration
+  uint32 default_migration_window_seconds = 3;
+  // max_inheritance_depth limits policy inheritance chain length
+  uint32 max_inheritance_depth = 4;
+  // default_audit_retention_days is the default audit log retention period
+  uint32 default_audit_retention_days = 5;
+}
+
+// BudgetLimit defines spending limits with soft and hard caps
+message BudgetLimit {
+  // soft_limit is the warning threshold (in LAC micro-units)
+  string soft_limit = 1;
+  // hard_limit is the maximum allowed (in LAC micro-units)
+  string hard_limit = 2;
+  // action_on_soft is the action when soft limit is reached
+  BudgetActionType action_on_soft = 3;
+  // action_on_hard is the action when hard limit is reached
+  BudgetActionType action_on_hard = 4;
+  // approval_required_above is the threshold requiring manual approval
+  string approval_required_above = 5;
+  // approvers are addresses that can approve over-limit requests
+  repeated string approvers = 6;
+}
+
+// ReserveConfig defines reserve tier allocation settings
+message ReserveConfig {
+  // tier is the reserve tier (bronze, silver, gold)
+  string tier = 1;
+  // commitment_period_seconds is the lock period
+  uint32 commitment_period_seconds = 2;
+  // prepaid_amount is the reserved LAC amount
+  string prepaid_amount = 3;
+  // discount_rate_bps is the discount in basis points
+  uint32 discount_rate_bps = 4;
+  // rollover_allowed indicates if unused credits roll over
+  bool rollover_allowed = 5;
+  // refund_policy specifies refund behavior (none, prorated, full)
+  string refund_policy = 6;
+}
+
+// BudgetControls defines all budget-related constraints
+message BudgetControls {
+  BudgetLimit per_call = 1;
+  BudgetLimit per_session = 2;
+  BudgetLimit per_hour = 3;
+  BudgetLimit per_day = 4;
+  BudgetLimit per_week = 5;
+  BudgetLimit per_month = 6;
+  // per_category maps category names to limits
+  map<string, BudgetLimit> per_category = 7;
+  // per_tool maps tool IDs to limits
+  map<string, BudgetLimit> per_tool = 8;
+  BudgetLimit burst_allowance = 9;
+  ReserveConfig reserve_allocation = 10;
+}
+
+// ToolFilters defines tool selection constraints
+message ToolFilters {
+  repeated string allowed_categories = 1;
+  repeated string denied_categories = 2;
+  repeated string allowed_tools = 3;
+  repeated string denied_tools = 4;
+  repeated string required_capabilities = 5;
+  repeated string forbidden_capabilities = 6;
+  VerificationTier min_verification_tier = 7;
+  // max_dispute_rate_bps is the maximum dispute rate in basis points
+  uint32 max_dispute_rate_bps = 8;
+  // min_uptime_bps is the minimum uptime in basis points (9900 = 99%)
+  uint32 min_uptime_bps = 9;
+  repeated string required_certifications = 10;
+}
+
+// DataClassification defines handling policies for data types
+message DataClassification {
+  DataHandlingPolicy pii_handling = 1;
+  DataHandlingPolicy phi_handling = 2;
+  DataHandlingPolicy pci_handling = 3;
+  DataHandlingPolicy proprietary_handling = 4;
+}
+
+// EncryptionRequirements defines encryption policies
+message EncryptionRequirements {
+  EncryptionLevel at_rest = 1;
+  // in_transit specifies TLS version (tls1.2, tls1.3, mtls, ipsec)
+  string in_transit = 2;
+  // key_management specifies key management approach (managed, byok, hsm,
+  // enclave)
+  string key_management = 3;
+}
+
+// DataResidency defines geographic data constraints
+message DataResidency {
+  repeated string allowed_regions = 1;
+  repeated string denied_regions = 2;
+  // cross_border_transfer specifies policy (allow, approve, deny)
+  string cross_border_transfer = 3;
+  bool localization_required = 4;
+}
+
+// EnclaveRequirements defines TEE requirements
+message EnclaveRequirements {
+  // required_for lists tool categories requiring enclave execution
+  repeated string required_for = 1;
+  string attestation_policy = 2;
+  uint32 min_tcb_level = 3;
+  repeated string allowed_providers = 4;
+  // key_provisioning specifies key handling (automatic, manual, delegated)
+  string key_provisioning = 5;
+}
+
+// CachePreferences defines caching behavior
+message CachePreferences {
+  // strategy specifies caching approach (always, never, selective, user_choice)
+  string strategy = 1;
+  repeated string exclude_categories = 2;
+  uint32 ttl_override_seconds = 3;
+  bool encryption_required = 4;
+  repeated string geographic_restrictions = 5;
+}
+
+// PrivacyControls combines all privacy-related settings
+message PrivacyControls {
+  DataClassification data_classification = 1;
+  EncryptionRequirements encryption_requirements = 2;
+  DataResidency data_residency = 3;
+  EnclaveRequirements enclave_requirements = 4;
+  CachePreferences cache_preferences = 5;
+}
+
+// ResourceLimits defines sandbox resource constraints
+message ResourceLimits {
+  uint32 cpu_cores = 1;
+  uint32 memory_mb = 2;
+  uint32 disk_gb = 3;
+  uint32 network_mbps = 4;
+  uint32 execution_time_ms = 5;
+  uint32 file_descriptors = 6;
+  uint32 thread_count = 7;
+}
+
+// RateLimits defines request rate constraints
+message RateLimits {
+  uint32 requests_per_second = 1;
+  uint32 requests_per_minute = 2;
+  uint32 requests_per_hour = 3;
+  uint32 burst_size = 4;
+  uint32 cooldown_ms = 5;
+  // backoff_strategy specifies retry approach (linear, exponential, adaptive)
+  string backoff_strategy = 6;
+}
+
+// SecurityControls combines all security-related settings
+message SecurityControls {
+  // auth_method specifies authentication (api_key, oauth, saml, mtls, web3)
+  string auth_method = 1;
+  bool mfa_required = 2;
+  uint32 session_timeout_seconds = 3;
+  uint32 credential_rotation_days = 4;
+  // authorization_model specifies access control (rbac, abac, dac, mac)
+  string authorization_model = 5;
+  bool default_deny = 6;
+  repeated string required_sandbox_profiles = 7;
+  repeated string forbidden_sandbox_profiles = 8;
+  IsolationLevel isolation_level = 9;
+  ResourceLimits resource_limits = 10;
+  RateLimits rate_limits = 11;
+  repeated string ip_allowlist = 12;
+  repeated string ip_denylist = 13;
+  repeated string geo_blocking = 14;
+}
+
+// EgressPolicy defines outbound network constraints
+message EgressPolicy {
+  repeated string allowed_domains = 1;
+  repeated string denied_domains = 2;
+  repeated string allowed_ports = 3;
+  // protocol_allowlist specifies allowed protocols (http, https, grpc, etc.)
+  repeated string protocol_allowlist = 4;
+}
+
+// NetworkControls combines all network-related settings
+message NetworkControls {
+  RateLimits rate_limits = 1;
+  EgressPolicy egress_policy = 2;
+  // geographic_routing specifies preferred regions for routing
+  repeated string geographic_routing = 3;
+  // timeout_ms is the default network timeout
+  uint32 timeout_ms = 4;
+  // retry_policy specifies retry behavior
+  string retry_policy = 5;
+}
+
+// JurisdictionConfig defines geographic compliance constraints
+message JurisdictionConfig {
+  repeated string allowed = 1;
+  repeated string denied = 2;
+  // cross_border_policy specifies cross-border data transfer rules
+  string cross_border_policy = 3;
+}
+
+// LicenseRequirements defines license compliance constraints
+message LicenseRequirements {
+  repeated string acceptable_licenses = 1;
+  // copyleft_policy specifies copyleft handling (allow, deny, review)
+  string copyleft_policy = 2;
+  // usage_type specifies intended use (commercial, non-commercial, research)
+  string usage_type = 3;
+}
+
+// ComplianceRequirements combines all compliance-related settings
+message ComplianceRequirements {
+  repeated string compliance_frameworks = 1;
+  JurisdictionConfig jurisdictions = 2;
+  LicenseRequirements license_requirements = 3;
+  // audit_retention_days specifies how long to keep audit logs
+  uint32 audit_retention_days = 4;
+  // data_retention_days specifies how long to keep user data
+  uint32 data_retention_days = 5;
+}
+
+// PolicyMetadata contains descriptive information about a policy
+message PolicyMetadata {
+  string name = 1;
+  string description = 2;
+  repeated string tags = 3;
+  string owner = 4;
+  string organization = 5;
+  repeated string compliance_frameworks = 6;
+  AuditLevel audit_level = 7;
+}
+
+// PolicyLifecycle tracks policy state transitions
+message PolicyLifecycle {
+  PolicyState state = 1;
+  google.protobuf.Timestamp created_at = 2 [ (gogoproto.stdtime) = true ];
+  google.protobuf.Timestamp activated_at = 3 [ (gogoproto.stdtime) = true ];
+  google.protobuf.Timestamp deprecated_at = 4 [ (gogoproto.stdtime) = true ];
+  google.protobuf.Timestamp archived_at = 5 [ (gogoproto.stdtime) = true ];
+  string created_by = 6;
+  repeated string approved_by = 7;
+  uint32 approval_threshold = 8;
+  uint32 migration_window_seconds = 9;
+  string successor_policy_id = 10;
+}
+
+// PolicySignature provides cryptographic verification
+message PolicySignature {
+  string signer = 1;
+  bytes signature = 2;
+  google.protobuf.Timestamp signed_at = 3 [ (gogoproto.stdtime) = true ];
+  string algorithm = 4;
+}
+
+// PolicyProfile is the complete policy definition
+message PolicyProfile {
+  string policy_id = 1;
+  string version = 2;
+  string schema_version = 3;
+  PolicyMetadata metadata = 4;
+  ToolFilters tool_filters = 5;
+  BudgetControls budgets = 6;
+  PrivacyControls privacy = 7;
+  SecurityControls security = 8;
+  NetworkControls network = 9;
+  ComplianceRequirements compliance = 10;
+  PolicyLifecycle lifecycle = 11;
+  repeated PolicySignature signatures = 12;
+  // parent_policy_ids for inheritance
+  repeated string parent_policy_ids = 13;
+  // policy_hash is the blake3 hash of the canonical policy content
+  string policy_hash = 14;
+}
+
+// PolicyUpdate records a policy version change
+message PolicyUpdate {
+  string policy_id = 1;
+  string version = 2;
+  string previous_version = 3;
+  google.protobuf.Timestamp updated_at = 4 [ (gogoproto.stdtime) = true ];
+  string updater = 5;
+  string update_reason = 6;
+  map<string, string> changes = 7;
+  uint64 block_height = 8;
+}
+
+// PolicyAuditEntry records policy enforcement decisions
+message PolicyAuditEntry {
+  string audit_id = 1;
+  string policy_id = 2;
+  string policy_version = 3;
+  string user_id = 4;
+  string tool_id = 5;
+  string action = 6;
+  bool allowed = 7;
+  string denial_reason = 8;
+  map<string, string> context = 9;
+  google.protobuf.Timestamp timestamp = 10 [ (gogoproto.stdtime) = true ];
+  uint64 block_height = 11;
+}
+
+// GenesisState defines the policies module's genesis state
+message GenesisState {
+  Params params = 1;
+  repeated PolicyProfile policies = 2;
+  repeated PolicyUpdate policy_updates = 3;
+  uint64 policy_update_counter = 4;
+}
+
+// QueryPolicyRequest is the request type for the Query/Policy RPC method
+message QueryPolicyRequest {
+  string policy_id = 1;
+  string version = 2;
+}
+
+// QueryPolicyResponse is the response type for the Query/Policy RPC method
+message QueryPolicyResponse { PolicyProfile policy = 1; }
+
+// QueryPoliciesRequest is the request for listing policies
+message QueryPoliciesRequest {
+  string owner = 1;
+  PolicyState state = 2;
+  cosmos.base.query.v1beta1.PageRequest pagination = 3;
+}
+
+// QueryPoliciesResponse is the response for listing policies
+message QueryPoliciesResponse {
+  repeated PolicyProfile policies = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryParamsRequest is the request type for the Query/Params RPC method
+message QueryParamsRequest {}
+
+// QueryParamsResponse is the response type for the Query/Params RPC method
+message QueryParamsResponse { Params params = 1; }
+
+// Query defines the gRPC querier service for the policies module
+service Query {
+  // Policy returns a specific policy by ID and optional version
+  rpc Policy(QueryPolicyRequest) returns (QueryPolicyResponse);
+  // Policies returns a list of policies with optional filtering
+  rpc Policies(QueryPoliciesRequest) returns (QueryPoliciesResponse);
+  // Params returns the module parameters
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse);
+}

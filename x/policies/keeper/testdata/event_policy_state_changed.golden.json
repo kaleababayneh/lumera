@@ -1,0 +1,1 @@
+{"type":"policy_state_changed","attributes":[{"key":"policy_id","value":"policy-001"},{"key":"version","value":"v1"},{"key":"old_state","value":"1"},{"key":"new_state","value":"2"}]}

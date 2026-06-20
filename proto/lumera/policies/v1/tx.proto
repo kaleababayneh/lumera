@@ -1,0 +1,124 @@
+syntax = "proto3";
+package lumera.policies.v1;
+
+import "cosmos/msg/v1/msg.proto";
+import "lumera/policies/v1/policy.proto";
+import "google/protobuf/timestamp.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "x/policies/types";
+
+// Msg defines the policies module Msg service
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // CreatePolicy creates a new policy profile
+  rpc CreatePolicy(MsgCreatePolicy) returns (MsgCreatePolicyResponse);
+  // UpdatePolicy updates an existing policy
+  rpc UpdatePolicy(MsgUpdatePolicy) returns (MsgUpdatePolicyResponse);
+  // ActivatePolicy transitions a policy from draft/review to active
+  rpc ActivatePolicy(MsgActivatePolicy) returns (MsgActivatePolicyResponse);
+  // DeprecatePolicy marks a policy as deprecated
+  rpc DeprecatePolicy(MsgDeprecatePolicy) returns (MsgDeprecatePolicyResponse);
+  // ArchivePolicy archives a deprecated policy
+  rpc ArchivePolicy(MsgArchivePolicy) returns (MsgArchivePolicyResponse);
+  // UpdateParams updates the module parameters (authority only)
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+// MsgCreatePolicy creates a new policy profile
+message MsgCreatePolicy {
+  option (cosmos.msg.v1.signer) = "creator";
+
+  string creator = 1;
+  PolicyProfile policy = 2;
+}
+
+// MsgCreatePolicyResponse is the response type for MsgCreatePolicy
+message MsgCreatePolicyResponse {
+  string policy_id = 1;
+  string version = 2;
+  string policy_hash = 3;
+}
+
+// MsgUpdatePolicy updates an existing policy, creating a new version
+message MsgUpdatePolicy {
+  option (cosmos.msg.v1.signer) = "updater";
+
+  string updater = 1;
+  string policy_id = 2;
+  PolicyProfile policy = 3;
+  string update_reason = 4;
+}
+
+// MsgUpdatePolicyResponse is the response type for MsgUpdatePolicy
+message MsgUpdatePolicyResponse {
+  string policy_id = 1;
+  string new_version = 2;
+  string previous_version = 3;
+  string policy_hash = 4;
+}
+
+// MsgActivatePolicy transitions a policy to active state
+message MsgActivatePolicy {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority = 1;
+  string policy_id = 2;
+  string version = 3;
+}
+
+// MsgActivatePolicyResponse is the response type for MsgActivatePolicy
+message MsgActivatePolicyResponse {
+  string policy_id = 1;
+  string version = 2;
+  google.protobuf.Timestamp activated_at = 3 [ (gogoproto.stdtime) = true ];
+}
+
+// MsgDeprecatePolicy marks a policy as deprecated
+message MsgDeprecatePolicy {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority = 1;
+  string policy_id = 2;
+  string version = 3;
+  string successor_policy_id = 4;
+  uint32 migration_window_seconds = 5;
+}
+
+// MsgDeprecatePolicyResponse is the response type for MsgDeprecatePolicy
+message MsgDeprecatePolicyResponse {
+  string policy_id = 1;
+  string version = 2;
+  google.protobuf.Timestamp deprecated_at = 3 [ (gogoproto.stdtime) = true ];
+  google.protobuf.Timestamp migration_deadline = 4 [ (gogoproto.stdtime) = true ];
+}
+
+// MsgArchivePolicy archives a deprecated policy
+message MsgArchivePolicy {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority = 1;
+  string policy_id = 2;
+  string version = 3;
+}
+
+// MsgArchivePolicyResponse is the response type for MsgArchivePolicy
+message MsgArchivePolicyResponse {
+  string policy_id = 1;
+  string version = 2;
+  google.protobuf.Timestamp archived_at = 3 [ (gogoproto.stdtime) = true ];
+}
+
+// MsgUpdateParams updates the module parameters
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // authority is the address that controls the module (typically gov module
+  // account)
+  string authority = 1;
+  Params params = 2;
+}
+
+// MsgUpdateParamsResponse is the response type for MsgUpdateParams
+message MsgUpdateParamsResponse {}

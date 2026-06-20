@@ -48,6 +48,8 @@ import (
 	insurancetypes "github.com/LumeraProtocol/lumera/x/insurance/types"
 	oraclemodulev1 "github.com/LumeraProtocol/lumera/x/oracle/module"
 	oracletypes "github.com/LumeraProtocol/lumera/x/oracle/types"
+	policiesmodulev1 "github.com/LumeraProtocol/lumera/x/policies/module"
+	policiestypes "github.com/LumeraProtocol/lumera/x/policies/types"
 	_ "github.com/LumeraProtocol/lumera/x/evmigration/module"
 	evmigrationmoduletypes "github.com/LumeraProtocol/lumera/x/evmigration/types"
 	lumeraidmodulev1 "github.com/LumeraProtocol/lumera/x/lumeraid/module"
@@ -146,6 +148,7 @@ var (
 		creditstypes.ModuleName,
 		insurancetypes.ModuleName,
 		oracletypes.ModuleName,
+		policiestypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis
 	}
 
@@ -184,6 +187,7 @@ var (
 		creditstypes.ModuleName,
 		insurancetypes.ModuleName,
 		oracletypes.ModuleName,
+		policiestypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/beginBlockers
 	}
 
@@ -214,6 +218,7 @@ var (
 		creditstypes.ModuleName,
 		insurancetypes.ModuleName,
 		oracletypes.ModuleName,
+		policiestypes.ModuleName,
 		// NOTE: feemarket EndBlocker should be last to get the full block gas used
 		feemarkettypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/endBlockers
@@ -412,6 +417,10 @@ var (
 			{
 				Name:   oracletypes.ModuleName,
 				Config: appconfig.WrapAny(&oraclemodulev1.Module{}),
+			},
+			{
+				Name:   policiestypes.ModuleName,
+				Config: appconfig.WrapAny(&policiesmodulev1.Module{}),
 			},
 			// this line is used by starport scaffolding # stargate/app/moduleConfig
 		},
