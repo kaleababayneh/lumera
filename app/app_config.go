@@ -52,6 +52,10 @@ import (
 	policiestypes "github.com/LumeraProtocol/lumera/x/policies/types"
 	registrymodulev1 "github.com/LumeraProtocol/lumera/x/registry/module"
 	registrytypes "github.com/LumeraProtocol/lumera/x/registry/types"
+	nftmodulev1 "github.com/LumeraProtocol/lumera/x/nft/module"
+	nfttypes "github.com/LumeraProtocol/lumera/x/nft/types"
+	reservemodulev1 "github.com/LumeraProtocol/lumera/x/reserve/module"
+	reservetypes "github.com/LumeraProtocol/lumera/x/reserve/types"
 	_ "github.com/LumeraProtocol/lumera/x/evmigration/module"
 	evmigrationmoduletypes "github.com/LumeraProtocol/lumera/x/evmigration/types"
 	lumeraidmodulev1 "github.com/LumeraProtocol/lumera/x/lumeraid/module"
@@ -152,6 +156,8 @@ var (
 		oracletypes.ModuleName,
 		policiestypes.ModuleName,
 		registrytypes.ModuleName,
+		nfttypes.ModuleName,
+		reservetypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis
 	}
 
@@ -192,6 +198,8 @@ var (
 		oracletypes.ModuleName,
 		policiestypes.ModuleName,
 		registrytypes.ModuleName,
+		nfttypes.ModuleName,
+		reservetypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/beginBlockers
 	}
 
@@ -224,6 +232,8 @@ var (
 		oracletypes.ModuleName,
 		policiestypes.ModuleName,
 		registrytypes.ModuleName,
+		nfttypes.ModuleName,
+		reservetypes.ModuleName,
 		// NOTE: feemarket EndBlocker should be last to get the full block gas used
 		feemarkettypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/endBlockers
@@ -430,6 +440,14 @@ var (
 			{
 				Name:   registrytypes.ModuleName,
 				Config: appconfig.WrapAny(&registrymodulev1.Module{}),
+			},
+			{
+				Name:   nfttypes.ModuleName,
+				Config: appconfig.WrapAny(&nftmodulev1.Module{}),
+			},
+			{
+				Name:   reservetypes.ModuleName,
+				Config: appconfig.WrapAny(&reservemodulev1.Module{}),
 			},
 			// this line is used by starport scaffolding # stargate/app/moduleConfig
 		},

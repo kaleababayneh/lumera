@@ -277,10 +277,22 @@ reserve/nft are self-contained (~5k each); registry is the big one. (2) `router`
   `tx registry register-tool` (code 0) → `query registry get-tool` returns the owner/publisher.
   **The real registry keeper replaces `stubRegistryKeeper` in credits — 2 of 4 stubs now removed
   (insurance + registry).** This unblocks `MsgSettleCredits` publisher payout (thesis "will someone pay").
-- **Stubs remaining (TEMPORARY — remove before testnet):** `stubReserveKeeper`, `stubNFTKeeper` in
-  `x/credits/module/stubs.go`. reserve/nft are still **types-only** (credits imports only their type
-  structs); porting their keepers removes the last two stubs. The remaining registry surface
-  (bonds/disputes/SLA/SLO) ports as incremental slices on the keeper just landed.
+- **`reserve` + `nft` — KEEPERS PORTED + WIRED (2026-06-21). ALL 4 CREDITS STUBS REMOVED;
+  `x/credits/module/stubs.go` is DELETED.**
+  - **reserve** uses modern construction already (KVStoreService) and stores commitments/params as
+    JSON, so it was copied + de-tagged + minimally fixed (log/v2→log; the query_server + CLI off the
+    protobuf-go API). Full module: `AllocateReserve` (the credits discount hook), `CreateCommitment`,
+    `ReleaseExpired`, queries, CLI. Verified e2e: `tx reserve create-commitment` (code 0) →
+    `query reserve commitments-by-policy` returns the commitment (bronze tier, discount_bps=250).
+  - **nft** built as a focused slice (Toolpack NFT registry: `GetToolpack`, `RecordRoyaltyPayout`,
+    `MintToolpack`, query + CLI); history/curator-index/cumulative-royalty-stats are later slices,
+    no-op'd via `UnimplementedMsgServer/QueryServer`.
+  - **The full settlement loop still works with all real keepers** (re-verified: swap→register→lock→
+    settle pays the publisher 543,200 ulac; reserve `AllocateReserve` runs for real, returns
+    Applied=false with no matching commitment, settlement proceeds).
+- **NO STUBS REMAIN in credits.** All four dependency keepers (insurance, registry, reserve, nft) are
+  real and wired. Remaining work toward testnet: port the deferred *test suites* (verify money paths),
+  finish the registry sub-slices (bonds/disputes/SLA/SLO), and the inference Proof-of-Service track.
 - **Tests deferred:** `*_test.go` across the cluster still reference the old protobuf-go API / not-yet
   ported modules and won't compile; the non-test build is green. Port tests in a later pass.
 
@@ -307,8 +319,8 @@ Legend: ☐ todo · ◐ in progress · ☑ done (builds + boots + tx + tests + n
 | --- | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
 | credits | ☑ | ☑ | ☑ | ☑ | ☑ | ◐ (query ✓) | ☐ | ☐ | ◐ |
 | passport | ☑ | ☑ | — (types-only) | ☑ | ☑ | — | ☐ | — | ◐ |
-| reserve | ☑ | ☑ | — (types-only) | ☑ | ☑ | — | ☐ | — | ◐ |
-| nft | ☑ | ☑ | — (types-only) | ☑ | ☑ | — | ☐ | — | ◐ |
+| reserve | ☑ | ☑ | ☑ | ☑ | ☑ | ☑ (commitment ✓) | ☐ | n/a | ◐ |
+| nft | ☑ | ☑ | ☑ | ☑ | ☑ | ☑ (mint/royalty ✓) | ☐ | n/a | ◐ |
 | cac | ☑ | ☑ | — (types-only) | ☑ | ☑ | — | ☐ | — | ◐ |
 | registry | ☑ | ◐ (tool slice) | ☑ | ☑ | ☑ | ☑ (register/query ✓) | ☐ | n/a | ◐ |
 | insurance | ☑ | ☑ | ☑ | ☑ | ☑ | ◐ | ☐ | n/a | ◐ |

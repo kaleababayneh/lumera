@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package lumera.nft.module;
+
+import "cosmos/app/v1alpha1/module.proto";
+
+option go_package = "x/nft/module;nftmodule";
+
+message Module {
+  option (cosmos.app.v1alpha1.module) = {
+    go_import: "github.com/LumeraProtocol/lumera/x/nft"
+  };
+  string authority = 1;
+}

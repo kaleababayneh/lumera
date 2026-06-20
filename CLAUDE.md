@@ -240,10 +240,13 @@ consensus. **Option B is ruled out. Path = Option A: convert each ported module 
    **This is the real porting cost, per module.**
 Order: cac/reserve/nft/registry/passport types → credits → (later) registry/router/payment_rails.
 
-### Stubs (TEMPORARY — remove before testnet)
-- `x/credits/module/stubs.go`: `stubReserveKeeper`, `stubNFTKeeper` (loud-fail; return errors until
-  real). **`stubInsuranceKeeper` and `stubRegistryKeeper` are GONE** — `x/insurance` and `x/registry`
-  are ported + wired and their real keepers are passed in `ProvideModule`. **2 of 4 stubs removed.**
+### Stubs — ALL REMOVED ✅
+`x/credits/module/stubs.go` is **DELETED**. All four credits dependency keepers are real + wired in
+`ProvideModule`: **insurance, registry, reserve, nft**. The full settlement loop runs end-to-end on a
+localnet (swap LUME→LAC → register tool → lock → settle → publisher paid 543,200 ulac; 3% burn;
+reserve discount commitments creatable). Modules 3–7 (`registry, oracle, policies, nft` + `reserve`
+keeper) ported + wired + e2e-verified. Remaining toward testnet: port the deferred test suites, the
+registry sub-slices (bonds/disputes/SLA/SLO), and the inference Proof-of-Service track.
 
 ## Module 3: `x/registry` — keeper slice ported + wired + e2e-verified
 Built a **focused, modern registry keeper** (ToolCard registry + `GetToolPublisher`, on

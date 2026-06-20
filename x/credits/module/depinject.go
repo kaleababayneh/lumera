@@ -12,7 +12,9 @@ import (
 	creditskeeper "github.com/LumeraProtocol/lumera/x/credits/keeper"
 	creditstypes "github.com/LumeraProtocol/lumera/x/credits/types"
 	insurancekeeper "github.com/LumeraProtocol/lumera/x/insurance/keeper"
+	nftkeeper "github.com/LumeraProtocol/lumera/x/nft/keeper"
 	registrykeeper "github.com/LumeraProtocol/lumera/x/registry/keeper"
+	reservekeeper "github.com/LumeraProtocol/lumera/x/reserve/keeper"
 )
 
 // ----------------------------------------------------------------------------
@@ -37,6 +39,8 @@ type ModuleInputs struct {
 	BankKeeper      creditstypes.BankKeeper
 	InsuranceKeeper insurancekeeper.Keeper
 	RegistryKeeper  registrykeeper.Keeper
+	NFTKeeper       nftkeeper.Keeper
+	ReserveKeeper   *reservekeeper.Keeper
 }
 
 type ModuleOutputs struct {
@@ -61,10 +65,8 @@ func ProvideModule(in ModuleInputs) ModuleOutputs {
 		// Insurance + Registry are now REAL keepers (x/insurance, x/registry wired).
 		in.InsuranceKeeper,
 		in.RegistryKeeper,
-		// TEMPORARY stubs — replace with the real module keepers before testnet.
-		// Remaining: reserve -> nft (see CLAUDE.md).
-		stubReserveKeeper{},
-		stubNFTKeeper{},
+		in.ReserveKeeper,
+		in.NFTKeeper,
 		authority,
 	)
 

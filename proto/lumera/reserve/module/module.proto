@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package lumera.reserve.module;
+
+import "cosmos/app/v1alpha1/module.proto";
+
+option go_package = "x/reserve/module;reservemodule";
+
+message Module {
+  option (cosmos.app.v1alpha1.module) = {
+    go_import: "github.com/LumeraProtocol/lumera/x/reserve"
+  };
+  string authority = 1;
+}
