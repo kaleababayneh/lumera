@@ -2,14 +2,11 @@
 package types
 
 import (
-	"sync"
-
 	"github.com/cosmos/cosmos-sdk/codec"
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/msgservice"
 	"github.com/cosmos/cosmos-sdk/types/tx"
-	gogoproto "github.com/cosmos/gogoproto/proto"
 )
 
 var (
@@ -28,9 +25,9 @@ func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
 }
 
 // RegisterInterfaces registers the NFT module message interfaces with the global registry.
+// The gogoproto-generated code self-registers its file and message descriptors
+// in its own init(), so no manual proto registration is needed here.
 func RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
-	registerGogoDescriptors()
-
 	registry.RegisterImplementations((*sdk.Msg)(nil),
 		&MsgMintToolpack{},
 		&MsgUpdateToolpack{},
@@ -45,29 +42,10 @@ func RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
 		&MsgRecordRoyaltyPayoutResponse{},
 	)
 
-	msgservice.RegisterMsgServiceDesc(registry, &Msg_ServiceDesc)
-}
-
-var registerOnce sync.Once
-
-func registerGogoDescriptors() {
-	registerOnce.Do(func() {
-		gogoproto.RegisterFile("lumera/nft/v1/tx.proto", file_lumera_nft_v1_tx_proto_rawDescGZIP())
-		gogoproto.RegisterFile("lumera/nft/v1/toolpack.proto", file_lumera_nft_v1_toolpack_proto_rawDescGZIP())
-
-		gogoproto.RegisterType((*MsgMintToolpack)(nil), "lumera.nft.v1.MsgMintToolpack")
-		gogoproto.RegisterType((*MsgMintToolpackResponse)(nil), "lumera.nft.v1.MsgMintToolpackResponse")
-		gogoproto.RegisterType((*MsgUpdateToolpack)(nil), "lumera.nft.v1.MsgUpdateToolpack")
-		gogoproto.RegisterType((*MsgUpdateToolpackResponse)(nil), "lumera.nft.v1.MsgUpdateToolpackResponse")
-		gogoproto.RegisterType((*MsgDeactivateToolpack)(nil), "lumera.nft.v1.MsgDeactivateToolpack")
-		gogoproto.RegisterType((*MsgDeactivateToolpackResponse)(nil), "lumera.nft.v1.MsgDeactivateToolpackResponse")
-		gogoproto.RegisterType((*MsgRecordRoyaltyPayout)(nil), "lumera.nft.v1.MsgRecordRoyaltyPayout")
-		gogoproto.RegisterType((*MsgRecordRoyaltyPayoutResponse)(nil), "lumera.nft.v1.MsgRecordRoyaltyPayoutResponse")
-	})
+	msgservice.RegisterMsgServiceDesc(registry, &Msg_serviceDesc)
 }
 
 func init() {
-	registerGogoDescriptors()
 	RegisterLegacyAminoCodec(Amino)
 	Amino.Seal()
 }

@@ -57,7 +57,7 @@ func NewMsgRegisterPassport(creator, agentPubkey string, stake sdk.Coin) *MsgReg
 	return &MsgRegisterPassport{
 		Creator:     creator,
 		AgentPubkey: agentPubkey,
-		Stake:       CoinToProto(stake),
+		Stake:       stake,
 	}
 }
 
@@ -97,10 +97,7 @@ func (msg *MsgRegisterPassport) ValidateBasic() error {
 	if err := validateAgentPubkey(msg.AgentPubkey); err != nil {
 		return err
 	}
-	if msg.Stake == nil {
-		return ErrInsufficientStake
-	}
-	stake := CoinFromProto(msg.Stake)
+	stake := msg.Stake
 	if stake.Denom == "" || stake.Amount.IsNil() || !stake.Amount.IsPositive() {
 		return ErrInsufficientStake
 	}
@@ -201,7 +198,7 @@ func NewMsgSlashStake(authority, passportID string, amount sdk.Coin, reason stri
 	return &MsgSlashStake{
 		Authority:  authority,
 		PassportId: passportID,
-		Amount:     CoinToProto(amount),
+		Amount:     amount,
 		Reason:     reason,
 	}
 }
@@ -217,10 +214,7 @@ func (msg *MsgSlashStake) ValidateBasic() error {
 	if len(msg.Reason) > MaxPassportReasonLen {
 		return fmt.Errorf("reason length %d exceeds maximum %d", len(msg.Reason), MaxPassportReasonLen)
 	}
-	if msg.Amount == nil {
-		return fmt.Errorf("slash amount cannot be nil")
-	}
-	amount := CoinFromProto(msg.Amount)
+	amount := msg.Amount
 	if amount.Denom == "" || amount.Amount.IsNil() || !amount.Amount.IsPositive() {
 		return fmt.Errorf("slash amount must be positive")
 	}
@@ -238,7 +232,7 @@ func NewMsgTopUpStake(owner, passportID string, amount sdk.Coin) *MsgTopUpStake 
 	return &MsgTopUpStake{
 		Owner:      owner,
 		PassportId: passportID,
-		Amount:     CoinToProto(amount),
+		Amount:     amount,
 	}
 }
 
@@ -250,10 +244,7 @@ func (msg *MsgTopUpStake) ValidateBasic() error {
 	if err := validatePassportID(msg.PassportId); err != nil {
 		return err
 	}
-	if msg.Amount == nil {
-		return ErrInsufficientStake
-	}
-	amount := CoinFromProto(msg.Amount)
+	amount := msg.Amount
 	if amount.Denom == "" || amount.Amount.IsNil() || !amount.Amount.IsPositive() {
 		return ErrInsufficientStake
 	}
@@ -292,7 +283,7 @@ func (msg *MsgUnregisterPassport) GetSigners() []sdk.AccAddress {
 }
 
 // NewMsgUpdateParams creates a new MsgUpdateParams.
-func NewMsgUpdateParams(authority string, params *Params) *MsgUpdateParams {
+func NewMsgUpdateParams(authority string, params Params) *MsgUpdateParams {
 	return &MsgUpdateParams{
 		Authority: authority,
 		Params:    params,
@@ -303,9 +294,6 @@ func NewMsgUpdateParams(authority string, params *Params) *MsgUpdateParams {
 func (msg *MsgUpdateParams) ValidateBasic() error {
 	if _, err := sdk.AccAddressFromBech32(msg.Authority); err != nil {
 		return fmt.Errorf("invalid authority address: %w", err)
-	}
-	if msg.Params == nil {
-		return fmt.Errorf("params cannot be nil")
 	}
 	if err := msg.Params.Validate(); err != nil {
 		return fmt.Errorf("invalid params: %w", err)

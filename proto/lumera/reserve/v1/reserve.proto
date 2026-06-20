@@ -4,6 +4,8 @@ package lumera.reserve.v1;
 
 import "cosmos/base/v1beta1/coin.proto";
 import "google/protobuf/timestamp.proto";
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
 
 option go_package = "x/reserve/types";
 
@@ -42,11 +44,11 @@ message ReserveCommitmentSummary {
   string policy_id = 3;
   string tool_id = 4;
   string tier = 5;
-  cosmos.base.v1beta1.Coin total_amount = 6;
-  cosmos.base.v1beta1.Coin remaining_amount = 7;
+  cosmos.base.v1beta1.Coin total_amount = 6 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  cosmos.base.v1beta1.Coin remaining_amount = 7 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
   uint32 discount_bps = 8;
-  google.protobuf.Timestamp starts_at = 9;
-  google.protobuf.Timestamp expires_at = 10;
+  google.protobuf.Timestamp starts_at = 9 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp expires_at = 10 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
   bool rollover_allowed = 11;
   ReserveCommitmentStatus status = 12;
   uint32 remaining_bps = 13;

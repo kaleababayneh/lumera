@@ -184,6 +184,10 @@ EVM integration tests live in `tests/integration/evm/` with subpackages: ante, c
 
 # Lumera AI Module Port — Progress Log
 
+**Authoritative plan:** `docs/LUMERA_AI_INTEGRATION_PLAN.md` — end goal (all lumera_ai chain
+modules → testnet → mainnet), the repeatable per-module recipe, dependency sequence, deploy
+steps, and the module tracker. **Read it first.** This section is the live status only.
+
 Porting lumera_ai's core modules onto this chain (target: **SDK v0.53.6 / IBC v10.5.0 /
 CometBFT v0.38.21 / Go 1.26.2**). Approach: land each module with its not-yet-ported
 dependency keepers **stubbed** (every stub marked `// TEMPORARY: replace with real <module>
@@ -212,21 +216,24 @@ real end-to-end. **Production target — no stubs may ship to mainnet.**
       lumera's `protobuf-go v1.36.11` runtime (`filedesc.unmarshalSeed` slice-bounds panic).
       Regenerating with lumera's gogo toolchain instead breaks the hand-written code (which
       expects the protobuf-go API: `timestamppb`, `basev1beta1.Coin`, `ProtoReflect`,
-      `Msg_ServiceDesc`/`rawDescGZIP`). **DECISION NEEDED — see below.**
+      `Msg_ServiceDesc`/`rawDescGZIP`). **Decision resolved below (gogoproto). NEXT: apply the
+      gogo conversion (recipe in the plan, §4) to credits + its type cluster, then re-run
+      `lumerad init` to confirm the depinject graph boots.**
 - [ ] Smoke test on a localnet (blocked).
 - [ ] Port unit tests (blocked).
 
-### ⚠️ Open decision — proto framework (protobuf-go vs gogoproto)
-Porting a lumera_ai module is a **proto-framework conversion**, not just a version down-step.
-- **A. Convert modules to gogoproto** (lumera-native): regen protos with gogo + rewrite all
-  hand-written code touching the proto API (codec/msgs/genesis/keeper). Correct, but a large
-  rewrite per module (credits ≈ 17.5k LOC) × every module.
-- **B. Keep protobuf-go, regen at lumera's v1.36.11**: set up the protoc-gen-go toolchain, regen
-  the cluster (hand-written code compiles unchanged), host protobuf-go modules in lumera's gogo
-  app. Far less rework; must verify lumera v0.53 hosts protobuf-go modules (lumera_ai did on
-  v0.54) and that mixing frameworks is acceptable for production.
-- Recommendation: try **B** first (cheap to test: regen + re-init; if it boots, done with minimal
-  rework). Escalate to **A** if B can't host protobuf-go modules.
+### ✅ Resolved (core team, 2026-06-19) — gogoproto only → Option A
+Core team: **lumerad cannot host protobuf-go module state/messages.** Module message/state
+types MUST be gogoproto (`protoc-gen-gocosmos` + `grpc-gateway`; 50 `.pb.go` / 0 `.pulsar.go`).
+protobuf-go coexists only for wiring/CLI/signer metadata — never anything hitting the codec or
+consensus. **Option B is ruled out. Path = Option A: convert each ported module to gogoproto:**
+1. Add gogo annotations to the `.proto` (`(gogoproto.customtype)` `sdk.Coin`, `(gogoproto.stdtime)`,
+   `(gogoproto.nullable)=false`, etc.) to match lumera's conventions.
+2. Regenerate with `protoc-gen-gocosmos` + `grpc-gateway`; delete the protobuf-go `*_grpc.pb.go`.
+3. Rewrite hand-written code that used the protobuf-go API → gogo (`basev1beta1.Coin` → `sdk.Coin`;
+   `timestamppb` → `time.Time`; drop `ProtoReflect`/`rawDescGZIP`; gogo-style grpc registration).
+   **This is the real porting cost, per module.**
+Order: cac/reserve/nft/registry/passport types → credits → (later) registry/router/payment_rails.
 
 ### Stubs in place (TEMPORARY — remove before testnet)
 - `x/credits/module/stubs.go`: `stubInsuranceKeeper`, `stubRegistryKeeper`, `stubReserveKeeper`,

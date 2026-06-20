@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	v1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
-	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -58,18 +56,11 @@ func validateOptionalCanonicalIdentifier(field, value string) error {
 	return nil
 }
 
-func validateRoyaltyAmount(amount *v1beta1.Coin) error {
-	if amount == nil {
-		return fmt.Errorf("amount is required")
-	}
+func validateRoyaltyAmount(amount sdk.Coin) error {
 	if err := sdk.ValidateDenom(amount.Denom); err != nil {
 		return fmt.Errorf("amount denom is invalid: %w", err)
 	}
-	parsedAmount, ok := sdkmath.NewIntFromString(amount.Amount)
-	if !ok {
-		return fmt.Errorf("amount must be a valid integer")
-	}
-	if !parsedAmount.IsPositive() {
+	if amount.Amount.IsNil() || !amount.Amount.IsPositive() {
 		return fmt.Errorf("amount must be positive")
 	}
 	return nil

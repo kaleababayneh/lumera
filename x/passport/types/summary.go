@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"math"
 
-	v1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
-	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -39,8 +37,11 @@ func (s *PassportSummary) Validate() error {
 	return nil
 }
 
-func validateSummaryCoin(field string, coin *v1beta1.Coin) error {
-	if coin == nil {
+func validateSummaryCoin(field string, coin sdk.Coin) error {
+	// A present-but-empty coin (zero value) carries an empty denom and a nil
+	// amount; treat it as "unset" and skip, matching the prior nil-pointer
+	// behaviour.
+	if coin.Denom == "" && coin.Amount.IsNil() {
 		return nil
 	}
 	if coin.Denom == "" {
@@ -49,11 +50,10 @@ func validateSummaryCoin(field string, coin *v1beta1.Coin) error {
 	if err := sdk.ValidateDenom(coin.Denom); err != nil {
 		return fmt.Errorf("%s denom is invalid: %w", field, err)
 	}
-	amount, ok := sdkmath.NewIntFromString(coin.Amount)
-	if !ok {
+	if coin.Amount.IsNil() {
 		return fmt.Errorf("%s amount must be a valid integer", field)
 	}
-	if amount.IsNegative() {
+	if coin.Amount.IsNegative() {
 		return fmt.Errorf("%s amount cannot be negative", field)
 	}
 	return nil

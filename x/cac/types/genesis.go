@@ -4,8 +4,7 @@ package types
 import (
 	"fmt"
 	"strings"
-
-	"google.golang.org/protobuf/types/known/timestamppb"
+	"time"
 )
 
 // GenesisState defines the CAC module's genesis state.
@@ -184,25 +183,22 @@ func validateGenesisEntries(gs *GenesisState) error {
 }
 
 func validateGenesisEntryTimestampOrder(index int, entry *CacheEntry) error {
-	if entry.GetCreatedAt() != nil && entry.GetExpiresAt() != nil && !entry.GetExpiresAt().AsTime().After(entry.GetCreatedAt().AsTime()) {
+	createdAt := entry.GetCreatedAt()
+	expiresAt := entry.GetExpiresAt()
+	lastAccessAt := entry.GetLastAccessAt()
+	if !createdAt.IsZero() && !expiresAt.IsZero() && !expiresAt.After(createdAt) {
 		return fmt.Errorf("entries[%d].expires_at must be after created_at", index)
 	}
-	if entry.GetCreatedAt() != nil && entry.GetLastAccessAt() != nil && entry.GetLastAccessAt().AsTime().Before(entry.GetCreatedAt().AsTime()) {
+	if !createdAt.IsZero() && !lastAccessAt.IsZero() && lastAccessAt.Before(createdAt) {
 		return fmt.Errorf("entries[%d].last_access_at cannot be before created_at", index)
 	}
-	if entry.GetExpiresAt() != nil && entry.GetLastAccessAt() != nil && entry.GetLastAccessAt().AsTime().After(entry.GetExpiresAt().AsTime()) {
+	if !expiresAt.IsZero() && !lastAccessAt.IsZero() && lastAccessAt.After(expiresAt) {
 		return fmt.Errorf("entries[%d].last_access_at cannot be after expires_at", index)
 	}
 	return nil
 }
 
-func validateGenesisTimestamp(field string, ts *timestamppb.Timestamp) error {
-	if ts == nil {
-		return nil
-	}
-	if err := ts.CheckValid(); err != nil {
-		return fmt.Errorf("%s is invalid: %w", field, err)
-	}
+func validateGenesisTimestamp(_ string, _ time.Time) error {
 	return nil
 }
 

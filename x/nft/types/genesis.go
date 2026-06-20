@@ -8,7 +8,6 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // RoyaltyEntry captures a single royalty accumulator record for genesis export.
@@ -185,28 +184,28 @@ func (gs *GenesisState) validateRoyalties(toolpacks map[string]struct{}) error {
 	return nil
 }
 
-func validateOptionalTimestamp(owner, field string, ts *timestamppb.Timestamp) error {
+func validateOptionalTimestamp(owner, field string, ts *time.Time) error {
 	if ts == nil {
 		return nil
 	}
-	if err := ts.CheckValid(); err != nil {
-		return fmt.Errorf("%s %s is invalid: %w", owner, field, err)
+	if ts.IsZero() {
+		return fmt.Errorf("%s %s is invalid: zero timestamp", owner, field)
 	}
 	return nil
 }
 
-func validateToolpackTimestampOrder(id string, createdAt, updatedAt, expiresAt *timestamppb.Timestamp) error {
-	if createdAt != nil && updatedAt != nil && updatedAt.AsTime().Before(createdAt.AsTime()) {
+func validateToolpackTimestampOrder(id string, createdAt, updatedAt, expiresAt *time.Time) error {
+	if createdAt != nil && updatedAt != nil && updatedAt.Before(*createdAt) {
 		return fmt.Errorf("toolpack %s updated_at cannot be before created_at", id)
 	}
-	if createdAt != nil && expiresAt != nil && !expiresAt.AsTime().After(createdAt.AsTime()) {
+	if createdAt != nil && expiresAt != nil && !expiresAt.After(*createdAt) {
 		return fmt.Errorf("toolpack %s expires_at must be after created_at", id)
 	}
 	return nil
 }
 
-func validateHistoryTimestampOrder(id string, version uint64, createdAt, expiresAt *timestamppb.Timestamp) error {
-	if createdAt != nil && expiresAt != nil && !expiresAt.AsTime().After(createdAt.AsTime()) {
+func validateHistoryTimestampOrder(id string, version uint64, createdAt, expiresAt *time.Time) error {
+	if createdAt != nil && expiresAt != nil && !expiresAt.After(*createdAt) {
 		return fmt.Errorf("history %s version %d expires_at must be after created_at", id, version)
 	}
 	return nil

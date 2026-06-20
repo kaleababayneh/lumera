@@ -7,6 +7,8 @@ import "cosmos/msg/v1/msg.proto";
 import "cosmos_proto/cosmos.proto";
 import "google/protobuf/timestamp.proto";
 import "lumera/nft/v1/toolpack.proto";
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
 
 option go_package = "x/nft/types";
 
@@ -27,7 +29,7 @@ message MsgMintToolpack {
   repeated ToolReference tools = 3;
   string policy_version = 4;
   uint32 royalty_bps = 5;
-  google.protobuf.Timestamp expires_at = 6;
+  google.protobuf.Timestamp expires_at = 6 [(gogoproto.stdtime) = true];
 }
 
 message MsgMintToolpackResponse { ToolpackNFT toolpack = 1; }
@@ -60,7 +62,7 @@ message MsgRecordRoyaltyPayout {
 
   string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
   string toolpack_id = 2;
-  cosmos.base.v1beta1.Coin amount = 3;
+  cosmos.base.v1beta1.Coin amount = 3 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
 }
 
 message MsgRecordRoyaltyPayoutResponse {}

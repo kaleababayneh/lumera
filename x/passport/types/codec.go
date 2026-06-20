@@ -2,15 +2,12 @@
 package types
 
 import (
-	"sync"
-
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/codec/legacy"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/msgservice"
 	"github.com/cosmos/cosmos-sdk/types/tx"
-	gogoproto "github.com/cosmos/gogoproto/proto"
 )
 
 // RegisterLegacyAminoCodec registers the passport module's types on the LegacyAmino codec.
@@ -25,9 +22,11 @@ func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
 }
 
 // RegisterInterfaces registers interface types.
+//
+// The gogoproto-generated code self-registers its file and message
+// descriptors in its own init(), so no manual proto registration is needed
+// here.
 func RegisterInterfaces(registry codectypes.InterfaceRegistry) {
-	registerGogoDescriptors()
-
 	registry.RegisterImplementations((*sdk.Msg)(nil),
 		&MsgRegisterPassport{},
 		&MsgSuspendPassport{},
@@ -48,7 +47,7 @@ func RegisterInterfaces(registry codectypes.InterfaceRegistry) {
 		&MsgUnregisterPassportResponse{},
 	)
 
-	msgservice.RegisterMsgServiceDesc(registry, &Msg_ServiceDesc)
+	msgservice.RegisterMsgServiceDesc(registry, &Msg_serviceDesc)
 }
 
 var (
@@ -56,31 +55,7 @@ var (
 	ModuleCdc = codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
 )
 
-var registerOnce sync.Once
-
-func registerGogoDescriptors() {
-	registerOnce.Do(func() {
-		gogoproto.RegisterFile("lumera/passport/v1/passport.proto", file_lumera_passport_v1_passport_proto_rawDescGZIP())
-
-		gogoproto.RegisterType((*MsgRegisterPassport)(nil), "lumera.passport.v1.MsgRegisterPassport")
-		gogoproto.RegisterType((*MsgRegisterPassportResponse)(nil), "lumera.passport.v1.MsgRegisterPassportResponse")
-		gogoproto.RegisterType((*MsgSuspendPassport)(nil), "lumera.passport.v1.MsgSuspendPassport")
-		gogoproto.RegisterType((*MsgSuspendPassportResponse)(nil), "lumera.passport.v1.MsgSuspendPassportResponse")
-		gogoproto.RegisterType((*MsgRevokePassport)(nil), "lumera.passport.v1.MsgRevokePassport")
-		gogoproto.RegisterType((*MsgRevokePassportResponse)(nil), "lumera.passport.v1.MsgRevokePassportResponse")
-		gogoproto.RegisterType((*MsgReactivatePassport)(nil), "lumera.passport.v1.MsgReactivatePassport")
-		gogoproto.RegisterType((*MsgReactivatePassportResponse)(nil), "lumera.passport.v1.MsgReactivatePassportResponse")
-		gogoproto.RegisterType((*MsgSlashStake)(nil), "lumera.passport.v1.MsgSlashStake")
-		gogoproto.RegisterType((*MsgSlashStakeResponse)(nil), "lumera.passport.v1.MsgSlashStakeResponse")
-		gogoproto.RegisterType((*MsgTopUpStake)(nil), "lumera.passport.v1.MsgTopUpStake")
-		gogoproto.RegisterType((*MsgTopUpStakeResponse)(nil), "lumera.passport.v1.MsgTopUpStakeResponse")
-		gogoproto.RegisterType((*MsgUnregisterPassport)(nil), "lumera.passport.v1.MsgUnregisterPassport")
-		gogoproto.RegisterType((*MsgUnregisterPassportResponse)(nil), "lumera.passport.v1.MsgUnregisterPassportResponse")
-	})
-}
-
 func init() {
-	registerGogoDescriptors()
 	RegisterLegacyAminoCodec(Amino)
 	Amino.Seal()
 }

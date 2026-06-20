@@ -4,7 +4,6 @@ package types
 import (
 	"fmt"
 
-	v1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -34,7 +33,7 @@ const (
 // DefaultParams returns the default passport module parameters.
 func DefaultParams() *Params {
 	return &Params{
-		MinStake:                        &v1beta1.Coin{Denom: DefaultMinStakeDenom, Amount: fmt.Sprintf("%d", DefaultMinStakeAmount)},
+		MinStake:                        sdk.NewCoin(DefaultMinStakeDenom, sdkmath.NewInt(DefaultMinStakeAmount)),
 		SlashRateBps:                    DefaultSlashRateBPS,
 		RevocationGraceSeconds:          DefaultRevocationGraceSeconds,
 		CollusionRiskThresholdBps:       DefaultCollusionRiskThresholdBPS,
@@ -47,26 +46,21 @@ func DefaultParams() *Params {
 
 // Validate performs basic validation on module parameters.
 func (p *Params) Validate() error {
-	if p.MinStake == nil {
-		return fmt.Errorf("min_stake cannot be nil")
-	}
 	if p.MinStake.Denom == "" {
 		return fmt.Errorf("min_stake denom cannot be empty")
 	}
-	// sdk.NewCoin (called from MinStakeCoin → CoinFromProto) panics on
-	// a denom that's non-empty but fails format validation, so reject
-	// malformed denoms in Params.Validate where they can still surface
-	// as a clean governance/genesis validation error.
+	// sdk.NewCoin (called from MinStakeCoin) panics on a denom that's
+	// non-empty but fails format validation, so reject malformed denoms in
+	// Params.Validate where they can still surface as a clean
+	// governance/genesis validation error.
 	if err := sdk.ValidateDenom(p.MinStake.Denom); err != nil {
 		return fmt.Errorf("min_stake denom is invalid: %w", err)
 	}
-	// MinStake.Amount is a protobuf string; unparseable or negative
-	// values cause the same downstream panic. Amount == "" is tolerated
-	// as "zero" by sdkmath.NewIntFromString returning ok=false, so treat
-	// unparseable amount as an explicit validation error.
-	amount, ok := sdkmath.NewIntFromString(p.MinStake.Amount)
-	if !ok {
-		return fmt.Errorf("min_stake amount is invalid: %q", p.MinStake.Amount)
+	// A nil Amount (present-but-empty coin) or a negative amount causes the
+	// same downstream panic; surface both as explicit validation errors.
+	amount := p.MinStake.Amount
+	if amount.IsNil() {
+		return fmt.Errorf("min_stake amount is invalid: nil")
 	}
 	if amount.IsNegative() {
 		return fmt.Errorf("min_stake amount cannot be negative: %s", amount.String())
@@ -104,8 +98,8 @@ func validatePositiveBPS(name string, value uint32) error {
 
 // MinStakeCoin returns the minimum stake as an sdk.Coin.
 func (p *Params) MinStakeCoin() sdk.Coin {
-	if p.MinStake == nil {
+	if p.MinStake.Denom == "" || p.MinStake.Amount.IsNil() {
 		return sdk.NewCoin(DefaultMinStakeDenom, sdkmath.NewInt(DefaultMinStakeAmount))
 	}
-	return CoinFromProto(p.MinStake)
+	return p.MinStake
 }

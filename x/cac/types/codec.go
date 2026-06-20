@@ -10,7 +10,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/msgservice"
 	"github.com/cosmos/cosmos-sdk/types/tx"
-	gogoproto "github.com/cosmos/gogoproto/proto"
 )
 
 // RegisterLegacyAminoCodec registers concrete message types on the provided codec.
@@ -43,7 +42,7 @@ func RegisterInterfaces(registry codectypes.InterfaceRegistry) {
 		&MsgUpdateParamsResponse{},
 	)
 
-	msgservice.RegisterMsgServiceDesc(registry, &Msg_ServiceDesc)
+	msgservice.RegisterMsgServiceDesc(registry, &Msg_serviceDesc)
 }
 
 var (
@@ -54,19 +53,6 @@ var (
 )
 
 func init() {
-	gogoproto.RegisterFile("lumera/cac/v1/tx.proto", file_lumera_cac_v1_tx_proto_rawDescGZIP())
-	gogoproto.RegisterType((*MsgCacheStore)(nil), "lumera.cac.v1.MsgCacheStore")
-	gogoproto.RegisterType((*MsgCacheStoreResponse)(nil), "lumera.cac.v1.MsgCacheStoreResponse")
-	gogoproto.RegisterType((*MsgCacheInvalidate)(nil), "lumera.cac.v1.MsgCacheInvalidate")
-	gogoproto.RegisterType((*MsgCacheInvalidateResponse)(nil), "lumera.cac.v1.MsgCacheInvalidateResponse")
-	gogoproto.RegisterType((*MsgRecordCacheHit)(nil), "lumera.cac.v1.MsgRecordCacheHit")
-	gogoproto.RegisterType((*MsgRecordCacheHitResponse)(nil), "lumera.cac.v1.MsgRecordCacheHitResponse")
-	gogoproto.RegisterType((*MsgTickDecay)(nil), "lumera.cac.v1.MsgTickDecay")
-	gogoproto.RegisterType((*MsgTickDecayResponse)(nil), "lumera.cac.v1.MsgTickDecayResponse")
-	gogoproto.RegisterType((*MsgPromoteTier)(nil), "lumera.cac.v1.MsgPromoteTier")
-	gogoproto.RegisterType((*MsgPromoteTierResponse)(nil), "lumera.cac.v1.MsgPromoteTierResponse")
-	gogoproto.RegisterType((*MsgUpdateParams)(nil), "lumera.cac.v1.MsgUpdateParams")
-	gogoproto.RegisterType((*MsgUpdateParamsResponse)(nil), "lumera.cac.v1.MsgUpdateParamsResponse")
 	RegisterLegacyAminoCodec(Amino)
 	sdk.RegisterLegacyAminoCodec(Amino)
 	Amino.Seal()

@@ -5,8 +5,6 @@ import (
 	"math"
 	"strings"
 	"time"
-
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // ReceiptInput holds the minimal data needed from a receipt for reputation scoring.
@@ -812,18 +810,19 @@ func TierLevelFromPassportTier(tier PassportTier) TierLevel {
 	}
 }
 
-func timestampProto(t time.Time) *timestamppb.Timestamp {
+func timestampProto(t time.Time) *time.Time {
 	if t.IsZero() {
 		return nil
 	}
-	return timestamppb.New(t.UTC())
+	utc := t.UTC()
+	return &utc
 }
 
-func timestampTimeOr(ts *timestamppb.Timestamp, fallback time.Time) time.Time {
+func timestampTimeOr(ts *time.Time, fallback time.Time) time.Time {
 	if ts == nil {
 		return fallback
 	}
-	return ts.AsTime().UTC()
+	return ts.UTC()
 }
 
 func cloneScoreBreakdown(score *PassportScoreBreakdown) *PassportScoreBreakdown {

@@ -258,8 +258,9 @@ func (m *MsgUpdateParams) ValidateBasic() error {
 	if _, err := parseAccAddress(m.GetAuthority()); err != nil {
 		return errorsmod.Wrapf(sdkerrors.ErrInvalidAddress, "invalid authority address: %s", err)
 	}
-	if m.GetParams() == nil {
-		return fmt.Errorf("params is required")
+	params := m.GetParams()
+	if err := params.Validate(); err != nil {
+		return err
 	}
 	return nil
 }

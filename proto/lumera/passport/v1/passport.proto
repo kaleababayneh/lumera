@@ -4,13 +4,15 @@ package lumera.passport.v1;
 import "cosmos/base/query/v1beta1/pagination.proto";
 import "cosmos/base/v1beta1/coin.proto";
 import "google/protobuf/timestamp.proto";
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
 
 option go_package = "x/passport/types";
 
 // Params defines the module parameters for passport management.
 message Params {
   // Minimum stake required to register a passport (in ulume).
-  cosmos.base.v1beta1.Coin min_stake = 1;
+  cosmos.base.v1beta1.Coin min_stake = 1 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
   // Slash rate for dispute resolution (basis points, e.g., 500 = 5%).
   uint32 slash_rate_bps = 2;
   // Grace period before revocation takes effect (seconds).
@@ -47,7 +49,7 @@ enum PassportTier {
 // PassportSummary aggregates the agent's activity metrics.
 message PassportSummary {
   uint64 total_receipts = 1;
-  cosmos.base.v1beta1.Coin total_spend = 2;
+  cosmos.base.v1beta1.Coin total_spend = 2 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
   int64 first_receipt_ts = 3;
   int64 last_receipt_ts = 4;
   uint32 tools_used = 5;
@@ -55,9 +57,9 @@ message PassportSummary {
   uint32 dispute_count = 7;
   uint32 dispute_lost_count = 8;
   // Settled spend across finalized receipts.
-  cosmos.base.v1beta1.Coin settled_spend = 9;
+  cosmos.base.v1beta1.Coin settled_spend = 9 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
   // Refunded spend across refunded receipts.
-  cosmos.base.v1beta1.Coin refunded_spend = 10;
+  cosmos.base.v1beta1.Coin refunded_spend = 10 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
   // Count of unique payers within the last 30 days.
   uint32 unique_payers_30d = 11;
   // Diversity index for spend across tools (0-1, higher is more diverse).
@@ -79,7 +81,7 @@ message ReputationVector {
   // Composite score computed from dimensions (0-1000).
   uint32 composite = 4;
   // Last update timestamp.
-  google.protobuf.Timestamp updated_at = 5;
+  google.protobuf.Timestamp updated_at = 5 [(gogoproto.stdtime) = true];
 }
 
 // PassportScoreBreakdown stores the 7-dimensional tier-evaluation vector.
@@ -93,7 +95,7 @@ message PassportScoreBreakdown {
   uint32 privacy = 7;
   uint32 composite = 8;
   bool eligible = 9;
-  google.protobuf.Timestamp updated_at = 10;
+  google.protobuf.Timestamp updated_at = 10 [(gogoproto.stdtime) = true];
 }
 
 // PassportTierPermissions captures router-facing budget and lane limits.
@@ -111,9 +113,9 @@ message PassportTierState {
   PassportTier current_tier = 1;
   PassportTier eligible_tier = 2;
   PassportTier promotion_pending_to = 3;
-  google.protobuf.Timestamp tier_entered_at = 4;
-  google.protobuf.Timestamp promotion_started_at = 5;
-  google.protobuf.Timestamp lockup_expires_at = 6;
+  google.protobuf.Timestamp tier_entered_at = 4 [(gogoproto.stdtime) = true];
+  google.protobuf.Timestamp promotion_started_at = 5 [(gogoproto.stdtime) = true];
+  google.protobuf.Timestamp lockup_expires_at = 6 [(gogoproto.stdtime) = true];
   bool can_promote = 7;
   bool promoted = 8;
   bool demoted = 9;
@@ -130,7 +132,7 @@ message PassportTierHistoryEntry {
   PassportScoreBreakdown score_breakdown = 5;
   bool promoted = 6;
   bool demoted = 7;
-  google.protobuf.Timestamp transitioned_at = 8;
+  google.protobuf.Timestamp transitioned_at = 8 [(gogoproto.stdtime) = true];
 }
 
 // BundleAnchor represents a Merkle tree anchor for receipt bundles.
@@ -150,7 +152,7 @@ message AgentPassport {
   string owner_address = 3;
   int64 created_ts = 4;
   string issuer = 5;
-  cosmos.base.v1beta1.Coin stake = 6;
+  cosmos.base.v1beta1.Coin stake = 6 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
   PassportSummary summary = 7;
   ReputationVector reputation = 8;
   repeated BundleAnchor bundle_anchors = 9;
@@ -173,7 +175,7 @@ message GenesisState {
 message MsgRegisterPassport {
   string creator = 1;
   string agent_pubkey = 2;
-  cosmos.base.v1beta1.Coin stake = 3;
+  cosmos.base.v1beta1.Coin stake = 3 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
 }
 
 message MsgRegisterPassportResponse { string passport_id = 1; }
@@ -208,20 +210,20 @@ message MsgReactivatePassportResponse {}
 message MsgSlashStake {
   string authority = 1;
   string passport_id = 2;
-  cosmos.base.v1beta1.Coin amount = 3;
+  cosmos.base.v1beta1.Coin amount = 3 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
   string reason = 4;
 }
 
-message MsgSlashStakeResponse { cosmos.base.v1beta1.Coin remaining_stake = 1; }
+message MsgSlashStakeResponse { cosmos.base.v1beta1.Coin remaining_stake = 1 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true]; }
 
 // MsgTopUpStake adds stake to an existing passport.
 message MsgTopUpStake {
   string owner = 1;
   string passport_id = 2;
-  cosmos.base.v1beta1.Coin amount = 3;
+  cosmos.base.v1beta1.Coin amount = 3 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
 }
 
-message MsgTopUpStakeResponse { cosmos.base.v1beta1.Coin stake = 1; }
+message MsgTopUpStakeResponse { cosmos.base.v1beta1.Coin stake = 1 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true]; }
 
 // MsgUnregisterPassport removes a passport and refunds remaining stake.
 message MsgUnregisterPassport {
@@ -230,13 +232,13 @@ message MsgUnregisterPassport {
 }
 
 message MsgUnregisterPassportResponse {
-  cosmos.base.v1beta1.Coin refunded_stake = 1;
+  cosmos.base.v1beta1.Coin refunded_stake = 1 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
 }
 
 // MsgUpdateParams updates passport module parameters via governance.
 message MsgUpdateParams {
   string authority = 1;
-  Params params = 2;
+  Params params = 2 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
 }
 
 message MsgUpdateParamsResponse {}

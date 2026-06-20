@@ -4,9 +4,9 @@ package types
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // DefaultGenesis returns the default genesis state for the passport module.
@@ -90,10 +90,7 @@ func validateGenesisPassportLifecycle(passport *AgentPassport) error {
 	default:
 		return fmt.Errorf("passport %s has invalid status: %s", passport.PassportId, passport.Status.String())
 	}
-	if passport.Stake == nil {
-		return fmt.Errorf("passport %s stake must be a positive coin", passport.PassportId)
-	}
-	stake := CoinFromProto(passport.Stake)
+	stake := passport.Stake
 	if stake.Denom == "" || stake.Amount.IsNil() || !stake.IsPositive() {
 		return fmt.Errorf("passport %s stake must be a positive coin", passport.PassportId)
 	}
@@ -113,7 +110,7 @@ func validatePassportGenesisTimestamps(passport *AgentPassport) error {
 	if passport.TierState != nil {
 		for _, field := range []struct {
 			name string
-			ts   *timestamppb.Timestamp
+			ts   *time.Time
 		}{
 			{name: "tier_state.tier_entered_at", ts: passport.TierState.GetTierEnteredAt()},
 			{name: "tier_state.promotion_started_at", ts: passport.TierState.GetPromotionStartedAt()},
@@ -146,12 +143,16 @@ func validateGenesisScoreBreakdownTimestamp(passportID, field string, score *Pas
 	return validateGenesisTimestamp(passportID, field+".updated_at", score.GetUpdatedAt())
 }
 
-func validateGenesisTimestamp(passportID, field string, ts *timestamppb.Timestamp) error {
+func validateGenesisTimestamp(passportID, field string, ts *time.Time) error {
 	if ts == nil {
 		return nil
 	}
-	if err := ts.CheckValid(); err != nil {
-		return fmt.Errorf("passport %s %s is invalid: %w", passportID, field, err)
+	// gogoproto stdtime decodes the wire timestamp into a Go time.Time, so a
+	// non-nil pointer is already a structurally valid instant. Reject the
+	// degenerate zero value, which signals a malformed/unset timestamp that
+	// slipped through as a present-but-empty field.
+	if ts.IsZero() {
+		return fmt.Errorf("passport %s %s is invalid: zero timestamp", passportID, field)
 	}
 	return nil
 }
