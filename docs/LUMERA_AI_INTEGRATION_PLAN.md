@@ -292,7 +292,23 @@ reserve/nft are self-contained (~5k each); registry is the big one. (2) `router`
     Applied=false with no matching commitment, settlement proceeds).
 - **NO STUBS REMAIN in credits.** All four dependency keepers (insurance, registry, reserve, nft) are
   real and wired. Remaining work toward testnet: port the deferred *test suites* (verify money paths),
-  finish the registry sub-slices (bonds/disputes/SLA/SLO), and the inference Proof-of-Service track.
+  finish the registry sub-slices (disputes/SLA/SLO), and the inference Proof-of-Service track.
+- **`registry` bond slice — BUILT + WIRED + VERIFIED (2026-06-21). Step 3 (publisher skin-in-the-game).**
+  A focused first bond slice on the registry keeper (`x/registry/keeper/bond.go`, native `sdk.Coins`/
+  `time.Time` — the gogo `BondRecord` already carries them, so NO proto-coin helpers): `register-tool`
+  now escrows the publisher's bond into the registry module account, enforcing the params
+  `MinBondAmount` floor (`BondDenom=ulume`, default 1,000,000). New surface: keeper `CreateBond`
+  (escrow/top-up) + `WithdrawBond` (reclaim **only the excess** above the minimum while registered) +
+  `Get/Set/RemoveBondRecord`/`GetAllBonds`; `MsgCreateBond`/`MsgWithdrawBond` handlers (the gogo
+  msgs were already signer-annotated `owner`); `GetBond` query; CLI `register-tool --bond` /
+  `create-bond` / `withdraw-bond` / `get-bond`; genesis import/export of `BondRecords`. **app wiring:**
+  added `{Account: registrytypes.ModuleName}` to maccPerms (no mint/burn — pure bond custody) so the
+  module account exists to hold escrow. The slash/lock/SLA/restitution/badge/metrics machinery from
+  lumera_ai's full `bond.go` is intentionally NOT ported (later slices); `BondRecord`'s extra fields
+  are zero-initialised for forward-compat. Verified e2e on a fresh localnet: register escrows 1,000,000
+  ulume (pub balance + registry module account both move exactly), `get-bond`=1,000,000, top-up→
+  1,500,000, withdraw 500k→1,000,000, full withdraw **rejected code 8** ("would violate minimum
+  requirement"), and the swap→lock→settle loop still pays the publisher 543,200 ulac with bonds live.
 - **Tests deferred:** `*_test.go` across the cluster still reference the old protobuf-go API / not-yet
   ported modules and won't compile; the non-test build is green. Port tests in a later pass.
 
@@ -355,7 +371,7 @@ Legend: ☐ todo · ◐ in progress · ☑ done (builds + boots + tx + tests + n
 | reserve | ☑ | ☑ | ☑ | ☑ | ☑ | ☑ (commitment ✓) | ☐ | n/a | ◐ |
 | nft | ☑ | ☑ | ☑ | ☑ | ☑ | ☑ (mint/royalty ✓) | ☐ | n/a | ◐ |
 | cac | ☑ | ☑ | — (types-only) | ☑ | ☑ | — | ☐ | — | ◐ |
-| registry | ☑ | ◐ (tool slice) | ☑ | ☑ | ☑ | ☑ (register/query ✓) | ☐ | n/a | ◐ |
+| registry | ☑ | ◐ (tool+bond slice) | ☑ | ☑ | ☑ | ☑ (register/bond/settle ✓) | ☐ | n/a | ◐ |
 | insurance | ☑ | ☑ | ☑ | ☑ | ☑ | ◐ | ☐ | n/a | ◐ |
 | router | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | DEFER (integration surface, post-PoS) |
 | payment_rails | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | DEFER (on-ramp/liquidity, Phase-2 IBC) |

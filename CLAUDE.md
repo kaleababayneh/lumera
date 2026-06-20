@@ -248,7 +248,7 @@ reserve discount commitments creatable). Modules 3–7 (`registry, oracle, polic
 keeper) ported + wired + e2e-verified. Remaining toward testnet: port the deferred test suites, the
 registry sub-slices (bonds/disputes/SLA/SLO), and the inference Proof-of-Service track.
 
-## Module 3: `x/registry` — keeper slice ported + wired + e2e-verified
+## Module 3: `x/registry` — keeper slice ported + wired + e2e-verified (+ bond slice)
 Built a **focused, modern registry keeper** (ToolCard registry + `GetToolPublisher`, on
 KVStoreService + collections + `collPtrValue`) instead of wholesale-porting the legacy ~17k-line
 keeper. `MsgRegisterTool` + `GetTool` query + minimal CLI; the rest of the registry RPCs no-op via
@@ -256,6 +256,16 @@ keeper. `MsgRegisterTool` + `GetTool` query + minimal CLI; the rest of the regis
 register-tool` (code 0) → `query registry get-tool` returns the owner/publisher. Replaces
 `stubRegistryKeeper` in credits → unblocks `MsgSettleCredits` publisher payout. (Modules 4/5: `oracle`,
 `policies` — standalone full modules, ported + wired + running.)
+
+**Bond slice (Step 3 — publisher skin-in-the-game, 2026-06-21):** `register-tool` now escrows the
+publisher's bond (`MinBondAmount` floor, `BondDenom=ulume`) into the registry module account.
+`x/registry/keeper/bond.go` (native `sdk.Coins`/`time.Time`): `CreateBond` (escrow/top-up),
+`WithdrawBond` (reclaim only the excess above the minimum while registered), bond record CRUD,
+`MsgCreateBond`/`MsgWithdrawBond` handlers, `GetBond` query, CLI (`--bond`/`create-bond`/
+`withdraw-bond`/`get-bond`), genesis import/export. Added `{Account: registry}` to maccPerms (custody,
+no mint/burn). Slash/lock/SLA/restitution are later slices. Verified e2e: register escrows 1,000,000
+ulume → top-up → partial withdraw → full-withdraw rejected (code 8, below minimum) → settlement loop
+still pays the publisher 543,200 ulac.
 
 ## Module 2: `x/insurance` — DONE (ported + wired + booting)
 Full module (keeper/msg-server/begin+end-blockers/JSON genesis) gogo-converted with the credits

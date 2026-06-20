@@ -25,9 +25,10 @@ type Keeper struct {
 	accountKeeper types.AccountKeeper
 	bankKeeper    types.BankKeeper
 
-	Schema    collections.Schema
-	params    collections.Item[*types.Params]
-	toolCards collections.Map[string, *types.ToolCard]
+	Schema      collections.Schema
+	params      collections.Item[*types.Params]
+	toolCards   collections.Map[string, *types.ToolCard]
+	bondRecords collections.Map[string, *types.BondRecord]
 }
 
 // NewKeeper constructs the registry keeper using modern depinject wiring
@@ -59,6 +60,13 @@ func NewKeeper(
 			"tool_cards",
 			collections.StringKey,
 			collPtrValue[types.ToolCard](cdc),
+		),
+		bondRecords: collections.NewMap(
+			sb,
+			collections.NewPrefix(types.BondRecordPrefix),
+			"bond_records",
+			collections.StringKey,
+			collPtrValue[types.BondRecord](cdc),
 		),
 	}
 	schema, err := sb.Build()

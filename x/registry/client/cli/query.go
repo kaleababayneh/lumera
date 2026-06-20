@@ -20,6 +20,30 @@ func GetQueryCmd() *cobra.Command {
 		RunE:                       client.ValidateCmd,
 	}
 	cmd.AddCommand(CmdGetTool())
+	cmd.AddCommand(CmdGetBond())
+	return cmd
+}
+
+// CmdGetBond queries the bond record escrowed for a tool by its publisher.
+func CmdGetBond() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-bond [tool-id]",
+		Short: "Query the publisher bond escrowed for a tool",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+			qc := types.NewQueryClient(clientCtx)
+			res, err := qc.GetBond(cmd.Context(), &types.QueryGetBondRequest{ToolId: args[0]})
+			if err != nil {
+				return err
+			}
+			return clientCtx.PrintProto(res)
+		},
+	}
+	flags.AddQueryFlagsToCmd(cmd)
 	return cmd
 }
 

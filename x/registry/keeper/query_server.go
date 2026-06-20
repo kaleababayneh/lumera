@@ -38,3 +38,15 @@ func (q queryServer) GetTool(goCtx context.Context, req *types.QueryGetToolReque
 	}
 	return &types.QueryGetToolResponse{Tool: tool}, nil
 }
+
+// GetBond returns the bond record escrowed for a tool by its publisher.
+func (q queryServer) GetBond(goCtx context.Context, req *types.QueryGetBondRequest) (*types.QueryGetBondResponse, error) {
+	if req == nil || strings.TrimSpace(req.ToolId) == "" {
+		return nil, status.Error(codes.InvalidArgument, "tool_id is required")
+	}
+	bond, found := q.k.GetBondRecord(sdk.UnwrapSDKContext(goCtx), req.ToolId)
+	if !found {
+		return nil, status.Errorf(codes.NotFound, "bond for tool %q not found", req.ToolId)
+	}
+	return &types.QueryGetBondResponse{Bond: bond}, nil
+}

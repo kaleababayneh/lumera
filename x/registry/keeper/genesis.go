@@ -7,8 +7,8 @@ import (
 )
 
 // InitGenesis initializes the registry state from genesis. This slice restores
-// params + tool cards; the remaining genesis collections (bonds, receipts,
-// challenges, ...) are restored as their keeper slices land.
+// params + tool cards + bond records; the remaining genesis collections
+// (receipts, challenges, ...) are restored as their keeper slices land.
 func (k Keeper) InitGenesis(ctx sdk.Context, gs *types.GenesisState) {
 	if gs == nil {
 		gs = types.DefaultGenesis()
@@ -28,6 +28,14 @@ func (k Keeper) InitGenesis(ctx sdk.Context, gs *types.GenesisState) {
 			panic(err)
 		}
 	}
+	for _, bond := range gs.BondRecords {
+		if bond == nil {
+			continue
+		}
+		if err := k.SetBondRecord(ctx, bond); err != nil {
+			panic(err)
+		}
+	}
 }
 
 // ExportGenesis exports the registry state. This slice exports params + tool
@@ -37,5 +45,6 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 	p := k.GetParams(ctx)
 	gs.Params = &p
 	gs.ToolCards = k.GetAllTools(ctx)
+	gs.BondRecords = k.GetAllBonds(ctx)
 	return gs
 }
