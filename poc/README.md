@@ -24,6 +24,34 @@ Boots a fresh local node and narrates the whole flywheel:
 7. **Reputation erodes** after the dispute (grace period, then downgrade).
 8. An **AI agent calls the tool over MCP** — discover → meter → prove → settle.
 
+## Web dashboard (drive the whole flywheel in the browser)
+
+`demo.sh` runs once and exits. The web dashboard (`poc/web/`) leaves a node
+running and lets you trigger every step from the browser instead.
+
+**Start from scratch** (from the repo root):
+
+```sh
+go build -o /tmp/lumerad ./cmd/lumera             # build the chain binary (if not already)
+bash poc/web/run-localnet.sh                      # boot a FRESH node (wipes /tmp/lumera-web, seeds the marketplace, builds the router)
+go build -o /tmp/lumera-poc-web ./poc/web         # build the dashboard server
+LUMERA_HOME=/tmp/lumera-web /tmp/lumera-poc-web   # serve on :8787 (Ctrl-C to stop)
+# then open http://localhost:8787
+```
+
+**Stop everything:**
+
+```sh
+pkill -f lumera-poc-web        # the dashboard server (:8787)
+pkill -f lumera-mcp-router     # the MCP router, if running
+pkill -f "lumerad start"       # all local lumera nodes
+```
+
+`run-localnet.sh` re-wipes `/tmp/lumera-web` on every run, so it always boots
+clean — but it only kills the node, **not** the `:8787` server. Kill
+`lumera-poc-web` yourself before restarting, or the old server keeps talking to
+the now-dead node.
+
 ## Components
 
 | Path | What it is |

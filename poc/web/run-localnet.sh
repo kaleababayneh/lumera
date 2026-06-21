@@ -93,5 +93,5 @@ echo "  publisher (pub):              $PUB"
 echo "  challenger (chl):             $CHL"
 for a in "${ACCTS[@]}"; do echo "  $a (test account):            $("$LD" keys show "$a" -a "${KR[@]}")"; done
 echo
-echo "Now start the web PoC:   LUMERA_HOME=$HM go run ./poc/web"
+echo "Now start the web PoC:   go build -o /tmp/lumera-poc-web ./poc/web && LUMERA_HOME=$HM /tmp/lumera-poc-web"
 echo "Then open:               http://localhost:8787"
