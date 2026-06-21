@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -255,6 +256,32 @@ func sanitizeBondCoins(amount sdk.Coins) (sdk.Coins, error) {
 		}
 	}
 	return amount, nil
+}
+
+// bumpToolStats records per-tool usage on the bond record (consumed by the
+// incentives reputation engine): successful Proof-of-Service receipts raise
+// reputation; upheld disputes erode it. No-op if the tool has no bond.
+func (k Keeper) bumpToolStats(ctx sdk.Context, toolID string, successDelta, disputeDelta uint64) {
+	bond, found := k.GetBondRecord(ctx, toolID)
+	if !found {
+		return
+	}
+	bond.SuccessfulCalls += successDelta
+	bond.DisputeCount += disputeDelta
+	bond.LastUpdatedAt = ctx.BlockTime()
+	if err := k.SetBondRecord(ctx, bond); err != nil {
+		k.Logger(ctx).Error("bump tool stats failed", "tool", toolID, "error", err)
+	}
+}
+
+// GetToolUsage returns a tool's cumulative (successful receipts, upheld disputes)
+// — the on-chain signal the incentives module folds into reputation scoring.
+func (k Keeper) GetToolUsage(ctx context.Context, toolID string) (uint64, uint64, error) {
+	bond, found := k.GetBondRecord(sdk.UnwrapSDKContext(ctx), toolID)
+	if !found {
+		return 0, 0, nil
+	}
+	return bond.SuccessfulCalls, bond.DisputeCount, nil
 }
 
 // maxBondRequirement returns the larger of two single-denom requirements.

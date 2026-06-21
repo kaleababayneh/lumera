@@ -184,6 +184,8 @@ func (k Keeper) UpholdChallenge(ctx sdk.Context, receiptID string) (*types.Chall
 	if err != nil {
 		return nil, nil, err
 	}
+	// Feed the reputation engine: an upheld dispute is proven bad service.
+	k.bumpToolStats(ctx, receipt.ToolId, 0, 1)
 
 	// The challenger was right — return their stake.
 	challengerAddr, err := sdk.AccAddressFromBech32(c.ChallengerAddress)

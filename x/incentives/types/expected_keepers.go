@@ -22,6 +22,9 @@ type AccountKeeper interface {
 type RegistryKeeper interface {
 	GetToolPublisher(ctx context.Context, toolID string) (sdk.AccAddress, error)
 	IsToolRegistered(ctx context.Context, toolID string) (bool, error)
+	// GetToolUsage returns a tool's cumulative (successful PoS receipts, upheld
+	// disputes) — the on-chain conduct signal folded into reputation scoring.
+	GetToolUsage(ctx context.Context, toolID string) (successful, disputed uint64, err error)
 }
 
 // RouterKeeper defines the expected interface for the router module.

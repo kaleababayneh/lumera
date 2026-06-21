@@ -135,6 +135,8 @@ func (k Keeper) SubmitReceipt(ctx sdk.Context, attestor string, receipt *types.U
 	if err := k.SetUsageReceipt(ctx, receipt); err != nil {
 		return err
 	}
+	// Feed the reputation engine: a fresh PoS receipt is a successful service.
+	k.bumpToolStats(ctx, receipt.ToolId, 1, 0)
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
 		"receipt_submitted",

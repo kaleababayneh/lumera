@@ -423,10 +423,16 @@ module** ported (not a slice): proto-gen + ~1,400-LOC keeper + module wiring, al
 - **Verified e2e**: node boots with incentives wired → `query incentives params` ok → seed a
   high-quality metric snapshot in genesis → register tool → `query incentives score` = **9607 →
   eligible PLATINUM** → publisher `request-evaluation` → **badge awarded `BADGE_TIER_PLATINUM`**.
-- **Phase 2 (the thesis self-feed):** feed `RecordMetrics` from PoS receipts + dispute outcomes so the
-  trust graph self-feeds without router (today the demo seeds metrics via genesis;
-  `RecordMetrics` is gov-authority-gated). `GetRoutingMultiplier`/`GetInsuranceDiscount`/`GetLACBonus`
-  are ready for router/insurance/credits to consume.
+- **Phase 2 — the thesis self-feed: DONE + VERIFIED (2026-06-21).** The trust graph now feeds itself
+  from real on-chain conduct, no genesis seeding, no router. registry tracks per-tool usage on its
+  bond record (`bumpToolStats`: +1 successful on each PoS `SubmitReceipt`, +1 dispute on each upheld
+  `UpholdChallenge`) and exposes it via `GetToolUsage`; incentives folds it into the metric snapshot's
+  invocation / receipt-validity / dispute dimensions (`refreshUsageMetrics`, called from
+  `RequestEvaluation`) before scoring, preserving the off-chain-reported dimensions. **Verified e2e:**
+  3 receipts → `request-evaluation` earns **PLATINUM (9607)**; a call disputed + upheld → re-evaluate
+  → grace period (tier held) → after grace → **GOLD (8837)**. Receipts raise reputation, upheld
+  disputes erode it. `GetRoutingMultiplier`/`GetInsuranceDiscount`/`GetLACBonus` remain ready for
+  router/insurance/credits to consume.
 
 ### HILT REACHED — the on-chain flywheel is complete (2026-06-21)
 After incentives, the on-chain core is done. The 5 thesis primitives are on-chain: Durable Memory

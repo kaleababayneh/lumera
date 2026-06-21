@@ -96,6 +96,10 @@ func (m msgServer) RequestEvaluation(ctx context.Context, msg *types.MsgRequestE
 		}
 	}
 
+	// Fold the tool's on-chain conduct (receipts + upheld disputes) into its
+	// metrics before scoring, so reputation reflects real behaviour.
+	keeper.refreshUsageMetrics(ctx, msg.ToolId)
+
 	previousTier := types.BadgeTier_BADGE_TIER_NONE
 	if prior, found := keeper.GetBadge(ctx, msg.ToolId); found {
 		previousTier = prior.Tier
