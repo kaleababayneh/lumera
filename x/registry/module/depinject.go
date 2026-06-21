@@ -11,6 +11,7 @@ import (
 	registry "github.com/LumeraProtocol/lumera/x/registry"
 	registrykeeper "github.com/LumeraProtocol/lumera/x/registry/keeper"
 	registrytypes "github.com/LumeraProtocol/lumera/x/registry/types"
+	sntypes "github.com/LumeraProtocol/lumera/x/supernode/v1/types"
 )
 
 // ----------------------------------------------------------------------------
@@ -31,8 +32,9 @@ type ModuleInputs struct {
 	Cdc          codec.Codec
 	Config       *Module
 
-	AccountKeeper registrytypes.AccountKeeper
-	BankKeeper    registrytypes.BankKeeper
+	AccountKeeper   registrytypes.AccountKeeper
+	BankKeeper      registrytypes.BankKeeper
+	SupernodeKeeper sntypes.SupernodeKeeper
 }
 
 type ModuleOutputs struct {
@@ -53,6 +55,7 @@ func ProvideModule(in ModuleInputs) ModuleOutputs {
 		in.StoreService,
 		in.AccountKeeper,
 		in.BankKeeper,
+		in.SupernodeKeeper,
 		authority,
 	)
 

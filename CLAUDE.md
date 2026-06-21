@@ -267,6 +267,18 @@ no mint/burn). Slash/lock/SLA/restitution are later slices. Verified e2e: regist
 ulume → top-up → partial withdraw → full-withdraw rejected (code 8, below minimum) → settlement loop
 still pays the publisher 543,200 ulac.
 
+**Proof-of-Service slice (Step 4 — Verifiable Execution, 2026-06-21):** settlement now requires a
+SuperNode-attested inference receipt. Design: `docs/STEP4_PROOF_OF_SERVICE.md`. `x/registry`
+implements `SubmitReceipt` (submitter must be an **active SuperNode** via the injected
+`sntypes.SupernodeKeeper`; `receipt_id = pos1<hex(BLAKE3(input,model,output))>` binds to `TraceHash`;
+idempotent; `ReceiptPrefix=0x03`) + `ValidateReceipt` + `GetReceipt` query + `submit-receipt`/
+`get-receipt` CLI (`lukechampine.com/blake3`) + genesis. `x/credits` `SettleCredits` gates on
+`registryKeeper.ValidateReceipt(receiptID, lockToolID)` (always-on; `receipt_verified` event).
+Verified e2e: register supernode → settle-without-receipt **rejected** → submit-receipt (active SN) →
+settle-with-receipt **pays 543,200 ulac** → submit-receipt from a non-supernode **rejected** (code 19).
+No `x/action`/`x/supernode` changes (read-only). SGX `EnclaveQuote` verification, dispute-window bond
+slashing, and a governance `ProofOfServiceRequired` toggle are Phase-2.
+
 ## Module 2: `x/insurance` — DONE (ported + wired + booting)
 Full module (keeper/msg-server/begin+end-blockers/JSON genesis) gogo-converted with the credits
 recipe (incl. the `collPtrValue` collections codec), `module/depinject.go` +

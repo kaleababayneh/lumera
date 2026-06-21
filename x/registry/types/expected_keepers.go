@@ -9,7 +9,17 @@ import (
 
 	"cosmossdk.io/core/address"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	sntypes "github.com/LumeraProtocol/lumera/x/supernode/v1/types"
 )
+
+// SupernodeKeeper is the read-only slice of the SuperNode keeper the registry
+// needs to verify that a Proof-of-Service receipt was attested by a legitimate,
+// currently-active SuperNode. (Satisfied by the full sntypes.SupernodeKeeper.)
+type SupernodeKeeper interface {
+	GetSuperNodeByAccount(ctx sdk.Context, supernodeAccount string) (sntypes.SuperNode, bool, error)
+	IsSuperNodeActive(ctx sdk.Context, valAddr sdk.ValAddress) bool
+}
 
 // AccountKeeper defines the expected account keeper
 type AccountKeeper interface {

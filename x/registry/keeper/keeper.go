@@ -22,13 +22,15 @@ type Keeper struct {
 	storeService store.KVStoreService
 	authority    string
 
-	accountKeeper types.AccountKeeper
-	bankKeeper    types.BankKeeper
+	accountKeeper   types.AccountKeeper
+	bankKeeper      types.BankKeeper
+	supernodeKeeper types.SupernodeKeeper
 
-	Schema      collections.Schema
-	params      collections.Item[*types.Params]
-	toolCards   collections.Map[string, *types.ToolCard]
-	bondRecords collections.Map[string, *types.BondRecord]
+	Schema        collections.Schema
+	params        collections.Item[*types.Params]
+	toolCards     collections.Map[string, *types.ToolCard]
+	bondRecords   collections.Map[string, *types.BondRecord]
+	usageReceipts collections.Map[string, *types.UsageReceipt]
 }
 
 // NewKeeper constructs the registry keeper using modern depinject wiring
@@ -39,15 +41,17 @@ func NewKeeper(
 	storeService store.KVStoreService,
 	accountKeeper types.AccountKeeper,
 	bankKeeper types.BankKeeper,
+	supernodeKeeper types.SupernodeKeeper,
 	authority string,
 ) Keeper {
 	sb := collections.NewSchemaBuilder(storeService)
 	k := Keeper{
-		cdc:           cdc,
-		storeService:  storeService,
-		authority:     authority,
-		accountKeeper: accountKeeper,
-		bankKeeper:    bankKeeper,
+		cdc:             cdc,
+		storeService:    storeService,
+		authority:       authority,
+		accountKeeper:   accountKeeper,
+		bankKeeper:      bankKeeper,
+		supernodeKeeper: supernodeKeeper,
 		params: collections.NewItem(
 			sb,
 			collections.NewPrefix(types.ParamsKey),
@@ -67,6 +71,13 @@ func NewKeeper(
 			"bond_records",
 			collections.StringKey,
 			collPtrValue[types.BondRecord](cdc),
+		),
+		usageReceipts: collections.NewMap(
+			sb,
+			collections.NewPrefix(types.ReceiptPrefix),
+			"usage_receipts",
+			collections.StringKey,
+			collPtrValue[types.UsageReceipt](cdc),
 		),
 	}
 	schema, err := sb.Build()

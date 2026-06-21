@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/spf13/cobra"
+	"lukechampine.com/blake3"
 
 	"github.com/LumeraProtocol/lumera/x/registry/types"
 )
@@ -25,6 +27,59 @@ func GetTxCmd() *cobra.Command {
 	cmd.AddCommand(CmdRegisterTool())
 	cmd.AddCommand(CmdCreateBond())
 	cmd.AddCommand(CmdWithdrawBond())
+	cmd.AddCommand(CmdSubmitReceipt())
+	return cmd
+}
+
+// CmdSubmitReceipt anchors a SuperNode-attested Proof-of-Service receipt. The
+// signer must be an active SuperNode account. The receipt_id is the
+// content-addressed digest pos1<hex(BLAKE3(BLAKE3(input)‖model‖BLAKE3(output)))>,
+// computed here client-side from --input/--model/--output.
+func CmdSubmitReceipt() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "submit-receipt [tool-id]",
+		Short: "Anchor a Proof-of-Service inference receipt (signer must be an active supernode)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientTxContext(cmd)
+			if err != nil {
+				return err
+			}
+			input, _ := cmd.Flags().GetString("input")
+			model, _ := cmd.Flags().GetString("model")
+			output, _ := cmd.Flags().GetString("result")
+			sessionID, _ := cmd.Flags().GetString("session-id")
+			lockID, _ := cmd.Flags().GetString("lock-id")
+			if strings.TrimSpace(model) == "" {
+				return fmt.Errorf("--model is required")
+			}
+
+			requestHash := blake3.Sum256([]byte(input))
+			outputHash := blake3.Sum256([]byte(output))
+			traceInput := append(append(append([]byte{}, requestHash[:]...), []byte(model)...), outputHash[:]...)
+			trace := blake3.Sum256(traceInput)
+			receiptID := "pos1" + hex.EncodeToString(trace[:])
+
+			msg := &types.MsgSubmitReceipt{
+				Router: clientCtx.GetFromAddress().String(),
+				Receipt: &types.UsageReceipt{
+					ReceiptId:   receiptID,
+					ToolId:      args[0],
+					RequestHash: requestHash[:],
+					TraceHash:   trace[:],
+					SessionId:   sessionID,
+					LockId:      lockID,
+				},
+			}
+			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
+		},
+	}
+	cmd.Flags().String("input", "", "canonical inference input (hashed client-side)")
+	cmd.Flags().String("model", "", "model identifier (required)")
+	cmd.Flags().String("result", "", "canonical inference output (hashed client-side)")
+	cmd.Flags().String("session-id", "", "optional session id to bind the receipt to")
+	cmd.Flags().String("lock-id", "", "optional credits lock id this receipt settles")
+	flags.AddTxFlagsToCmd(cmd)
 	return cmd
 }
 

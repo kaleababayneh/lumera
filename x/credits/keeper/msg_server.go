@@ -236,6 +236,22 @@ func (s *msgServer) SettleCredits(goCtx context.Context, msg *types.MsgSettleCre
 		}
 	}
 
+	// Proof-of-Service gate (Step 4 — Verifiable Execution). Settlement pays only
+	// against a verifiable, SuperNode-attested receipt anchored on-chain for this
+	// tool: receipt_id must resolve to a registry UsageReceipt whose tool matches
+	// the lock. This binds payment to proof of work actually performed.
+	if keeper.registryKeeper == nil {
+		return nil, fmt.Errorf("registry keeper unavailable: cannot verify proof-of-service")
+	}
+	if err := keeper.registryKeeper.ValidateReceipt(sdkCtx, receiptID, lockToolID); err != nil {
+		return nil, fmt.Errorf("proof-of-service verification failed for receipt %s: %w", receiptID, err)
+	}
+	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+		"receipt_verified",
+		sdk.NewAttribute("receipt_id", receiptID),
+		sdk.NewAttribute("tool_id", lockToolID),
+	))
+
 	routerAddr, err := sdk.AccAddressFromBech32(lock.Router)
 	if err != nil {
 		return nil, fmt.Errorf("invalid router address in lock %s: %w", lockID, err)

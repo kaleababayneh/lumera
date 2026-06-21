@@ -21,6 +21,30 @@ func GetQueryCmd() *cobra.Command {
 	}
 	cmd.AddCommand(CmdGetTool())
 	cmd.AddCommand(CmdGetBond())
+	cmd.AddCommand(CmdGetReceipt())
+	return cmd
+}
+
+// CmdGetReceipt queries a Proof-of-Service usage receipt by id.
+func CmdGetReceipt() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-receipt [receipt-id]",
+		Short: "Query a Proof-of-Service inference receipt",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+			qc := types.NewQueryClient(clientCtx)
+			res, err := qc.GetReceipt(cmd.Context(), &types.QueryGetReceiptRequest{ReceiptId: args[0]})
+			if err != nil {
+				return err
+			}
+			return clientCtx.PrintProto(res)
+		},
+	}
+	flags.AddQueryFlagsToCmd(cmd)
 	return cmd
 }
 

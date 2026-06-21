@@ -50,3 +50,15 @@ func (q queryServer) GetBond(goCtx context.Context, req *types.QueryGetBondReque
 	}
 	return &types.QueryGetBondResponse{Bond: bond}, nil
 }
+
+// GetReceipt returns a stored Proof-of-Service usage receipt by id.
+func (q queryServer) GetReceipt(goCtx context.Context, req *types.QueryGetReceiptRequest) (*types.QueryGetReceiptResponse, error) {
+	if req == nil || strings.TrimSpace(req.ReceiptId) == "" {
+		return nil, status.Error(codes.InvalidArgument, "receipt_id is required")
+	}
+	receipt, found := q.k.GetUsageReceipt(sdk.UnwrapSDKContext(goCtx), req.ReceiptId)
+	if !found {
+		return nil, status.Errorf(codes.NotFound, "receipt %q not found", req.ReceiptId)
+	}
+	return &types.QueryGetReceiptResponse{Receipt: receipt, Status: receipt.Status}, nil
+}

@@ -345,6 +345,32 @@ them now; go straight to the trust + Proof-of-Service primitives.** Verdicts:
 primitive). Step 4 = **SuperNode Proof-of-Service inference receipts** (the catalyst). Then revisit
 `incentives` (trust graph) and `router` (integration surface) on top of that signal.
 
+### Step 4 — SuperNode Proof-of-Service: BUILT + WIRED + VERIFIED (2026-06-21)
+The thesis #1 primitive (*Verifiable Execution*) wired to *Economic Coordination*. Design doc:
+`docs/STEP4_PROOF_OF_SERVICE.md`. A SuperNode that ran an inference anchors a `UsageReceipt` whose
+`receipt_id` is the content-addressed digest `pos1<hex(BLAKE3(BLAKE3(input)‖model‖BLAKE3(output)))>`;
+`x/credits` `SettleCredits` now **refuses to pay** unless that `receipt_id` resolves to a stored
+receipt whose tool matches the lock. Grounded in Lumera's real architecture (no `x/action`/`x/supernode`
+changes — read-only consumption):
+- **`x/registry`**: implemented `SubmitReceipt` (was no-op) — validates tool exists, the submitter is a
+  **currently-active SuperNode** (`supernodeKeeper.GetSuperNodeByAccount` + `IsSuperNodeActive`), and
+  `receipt_id` binds to `TraceHash`; idempotent; stores under `ReceiptPrefix=0x03`; emits
+  `receipt_submitted`. Added `ValidateReceipt(ctx, receiptID, toolID)`, `GetReceipt` query, CLI
+  `submit-receipt`/`get-receipt` (the digest is computed client-side with `lukechampine.com/blake3`),
+  genesis import/export of `Receipts`. Wired the supernode keeper into the registry keeper via
+  depinject (`sntypes.SupernodeKeeper`).
+- **`x/credits`**: extended the `RegistryKeeper` interface with `ValidateReceipt`; added the
+  proof-of-service gate in `SettleCredits` (after the replay check, before payout) + a
+  `receipt_verified` event. **Enforcement is always-on** (deterministic, no proto regen); a governance
+  `ProofOfServiceRequired` toggle for staged rollout is Phase-2 (next registry proto pass).
+- **Verified e2e** on a fresh localnet: register `val` as an active SuperNode → settle with a
+  never-submitted id **rejected** (publisher unpaid) → `submit-receipt` (active SN) →
+  `get-receipt`=attested → settle with the verified id **pays the publisher 543,200 ulac**
+  (`receipt_verified` emitted) → `submit-receipt` from a non-supernode **rejected** (code 19).
+- Deferred (fields exist, later slices): embedded SGX `EnclaveQuote`/`AttestationProof` + publisher
+  co-sign verification, dispute-window enforcement + bond slashing (composes Step 3 ⊗ Step 4),
+  settlement records / bundle anchors, `x/action` `inference`-type validator-set consensus on the digest.
+
 ---
 
 ## 9. Open decisions & risks
@@ -371,7 +397,7 @@ Legend: ☐ todo · ◐ in progress · ☑ done (builds + boots + tx + tests + n
 | reserve | ☑ | ☑ | ☑ | ☑ | ☑ | ☑ (commitment ✓) | ☐ | n/a | ◐ |
 | nft | ☑ | ☑ | ☑ | ☑ | ☑ | ☑ (mint/royalty ✓) | ☐ | n/a | ◐ |
 | cac | ☑ | ☑ | — (types-only) | ☑ | ☑ | — | ☐ | — | ◐ |
-| registry | ☑ | ◐ (tool+bond slice) | ☑ | ☑ | ☑ | ☑ (register/bond/settle ✓) | ☐ | n/a | ◐ |
+| registry | ☑ | ◐ (tool+bond+receipt slice) | ☑ | ☑ | ☑ | ☑ (register/bond/receipt ✓) | ☐ | n/a | ◐ |
 | insurance | ☑ | ☑ | ☑ | ☑ | ☑ | ◐ | ☐ | n/a | ◐ |
 | router | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | DEFER (integration surface, post-PoS) |
 | payment_rails | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | DEFER (on-ramp/liquidity, Phase-2 IBC) |

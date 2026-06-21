@@ -36,6 +36,14 @@ func (k Keeper) InitGenesis(ctx sdk.Context, gs *types.GenesisState) {
 			panic(err)
 		}
 	}
+	for _, receipt := range gs.Receipts {
+		if receipt == nil {
+			continue
+		}
+		if err := k.SetUsageReceipt(ctx, receipt); err != nil {
+			panic(err)
+		}
+	}
 }
 
 // ExportGenesis exports the registry state. This slice exports params + tool
@@ -46,5 +54,6 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 	gs.Params = &p
 	gs.ToolCards = k.GetAllTools(ctx)
 	gs.BondRecords = k.GetAllBonds(ctx)
+	gs.Receipts = k.GetAllReceipts(ctx)
 	return gs
 }

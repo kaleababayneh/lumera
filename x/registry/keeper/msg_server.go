@@ -107,3 +107,19 @@ func (k msgServer) WithdrawBond(goCtx context.Context, msg *types.MsgWithdrawBon
 	}
 	return &types.MsgWithdrawBondResponse{}, nil
 }
+
+// SubmitReceipt anchors a SuperNode-attested Proof-of-Service receipt. The
+// signer (msg.Router) is the attesting SuperNode account.
+func (k msgServer) SubmitReceipt(goCtx context.Context, msg *types.MsgSubmitReceipt) (*types.MsgSubmitReceiptResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	if _, err := sdk.AccAddressFromBech32(msg.Router); err != nil {
+		return nil, fmt.Errorf("invalid submitter address: %w", err)
+	}
+	if msg.Receipt == nil {
+		return nil, fmt.Errorf("receipt is required")
+	}
+	if err := k.Keeper.SubmitReceipt(ctx, msg.Router, msg.Receipt); err != nil {
+		return nil, err
+	}
+	return &types.MsgSubmitReceiptResponse{ReceiptId: msg.Receipt.ReceiptId}, nil
+}

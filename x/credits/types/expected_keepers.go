@@ -34,6 +34,9 @@ type InsuranceKeeper interface {
 // RegistryKeeper defines the expected interface for the registry module
 type RegistryKeeper interface {
 	GetToolPublisher(ctx context.Context, toolID string) (sdk.AccAddress, error)
+	// ValidateReceipt gates settlement on a verifiable Proof-of-Service receipt:
+	// it returns nil iff a receipt with receiptID was anchored for toolID.
+	ValidateReceipt(ctx sdk.Context, receiptID, toolID string) error
 }
 
 // ReserveKeeper exposes reserve tier allocation to the credits module.
