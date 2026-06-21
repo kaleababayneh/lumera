@@ -123,3 +123,46 @@ func (k msgServer) SubmitReceipt(goCtx context.Context, msg *types.MsgSubmitRece
 	}
 	return &types.MsgSubmitReceiptResponse{ReceiptId: msg.Receipt.ReceiptId}, nil
 }
+
+// ChallengeReceipt opens a dispute against a Proof-of-Service receipt within its
+// dispute window: the challenger escrows a stake and an equal slice of the
+// publisher's bond is locked. The disputed receipt can no longer settle.
+func (k msgServer) ChallengeReceipt(goCtx context.Context, msg *types.MsgChallengeReceipt) (*types.MsgChallengeReceiptResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	challenger, err := sdk.AccAddressFromBech32(msg.Challenger)
+	if err != nil {
+		return nil, fmt.Errorf("invalid challenger address: %w", err)
+	}
+	if msg.Challenge == nil || strings.TrimSpace(msg.Challenge.ReceiptId) == "" {
+		return nil, fmt.Errorf("challenge.receipt_id is required")
+	}
+	c, err := k.Keeper.OpenChallenge(ctx, challenger, msg.Challenge.ReceiptId,
+		msg.Challenge.Reason, msg.Challenge.EvidenceHash, msg.Challenge.ChallengerStake)
+	if err != nil {
+		return nil, err
+	}
+	return &types.MsgChallengeReceiptResponse{ChallengeId: c.ChallengeId}, nil
+}
+
+// SettleReceipt adjudicates a disputed receipt by UPHOLDING the challenge: the
+// locked bond is slashed (restitution-routed), the challenger's stake refunded,
+// and the receipt invalidated. The adjudicator must be an active SuperNode (the
+// verification layer); production should use a disjoint quorum / governance, and
+// the reject-on-expiry path is a follow-up slice.
+func (k msgServer) SettleReceipt(goCtx context.Context, msg *types.MsgSettleReceipt) (*types.MsgSettleReceiptResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	if _, err := sdk.AccAddressFromBech32(msg.Settler); err != nil {
+		return nil, fmt.Errorf("invalid settler address: %w", err)
+	}
+	if strings.TrimSpace(msg.ReceiptId) == "" {
+		return nil, fmt.Errorf("receipt_id is required")
+	}
+	if err := k.Keeper.requireActiveSupernode(ctx, msg.Settler); err != nil {
+		return nil, err
+	}
+	c, _, err := k.Keeper.UpholdChallenge(ctx, msg.ReceiptId)
+	if err != nil {
+		return nil, err
+	}
+	return &types.MsgSettleReceiptResponse{SettlementId: c.ChallengeId}, nil
+}

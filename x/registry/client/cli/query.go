@@ -22,6 +22,30 @@ func GetQueryCmd() *cobra.Command {
 	cmd.AddCommand(CmdGetTool())
 	cmd.AddCommand(CmdGetBond())
 	cmd.AddCommand(CmdGetReceipt())
+	cmd.AddCommand(CmdGetChallenge())
+	return cmd
+}
+
+// CmdGetChallenge queries a receipt dispute by its challenge id.
+func CmdGetChallenge() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-challenge [challenge-id]",
+		Short: "Query a receipt dispute",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+			qc := types.NewQueryClient(clientCtx)
+			res, err := qc.GetChallenge(cmd.Context(), &types.QueryGetChallengeRequest{ChallengeId: args[0]})
+			if err != nil {
+				return err
+			}
+			return clientCtx.PrintProto(res)
+		},
+	}
+	flags.AddQueryFlagsToCmd(cmd)
 	return cmd
 }
 

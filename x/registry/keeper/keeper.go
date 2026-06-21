@@ -26,11 +26,13 @@ type Keeper struct {
 	bankKeeper      types.BankKeeper
 	supernodeKeeper types.SupernodeKeeper
 
-	Schema        collections.Schema
-	params        collections.Item[*types.Params]
-	toolCards     collections.Map[string, *types.ToolCard]
-	bondRecords   collections.Map[string, *types.BondRecord]
-	usageReceipts collections.Map[string, *types.UsageReceipt]
+	Schema             collections.Schema
+	params             collections.Item[*types.Params]
+	toolCards          collections.Map[string, *types.ToolCard]
+	bondRecords        collections.Map[string, *types.BondRecord]
+	usageReceipts      collections.Map[string, *types.UsageReceipt]
+	challenges         collections.Map[string, *types.Challenge]
+	challengeByReceipt collections.Map[string, string]
 }
 
 // NewKeeper constructs the registry keeper using modern depinject wiring
@@ -78,6 +80,20 @@ func NewKeeper(
 			"usage_receipts",
 			collections.StringKey,
 			collPtrValue[types.UsageReceipt](cdc),
+		),
+		challenges: collections.NewMap(
+			sb,
+			collections.NewPrefix(types.ChallengePrefix),
+			"challenges",
+			collections.StringKey,
+			collPtrValue[types.Challenge](cdc),
+		),
+		challengeByReceipt: collections.NewMap(
+			sb,
+			collections.NewPrefix(types.ChallengeReceiptIndexPrefix),
+			"challenge_by_receipt",
+			collections.StringKey,
+			collections.StringValue,
 		),
 	}
 	schema, err := sb.Build()

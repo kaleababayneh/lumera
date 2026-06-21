@@ -8,7 +8,16 @@ import (
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	insurancetypes "github.com/LumeraProtocol/lumera/x/insurance/types"
 	"github.com/LumeraProtocol/lumera/x/registry/types"
+)
+
+// Slash restitution destinations. String literals (not module-name imports)
+// keep this from pulling auth/insurance keeper deps; the names are stable
+// contracts established in app/app_config.go.
+const (
+	slashInsuranceModuleName = "insurance"
+	slashTreasuryModuleName  = "fee_collector"
 )
 
 // Bond slice — publisher skin-in-the-game.
@@ -279,4 +288,155 @@ func (k Keeper) emitBondEvent(ctx sdk.Context, evtType, toolID string, owner sdk
 		sdk.NewAttribute("amount", delta.String()),
 		sdk.NewAttribute("bonded_total", total.String()),
 	))
+}
+
+// --- dispute primitives (Step 3 ⊗ Step 4): lock during a dispute, then either
+// unlock (challenge rejected) or slash (challenge upheld). ---
+
+// LockBond reserves part of a tool's available bond so it cannot be withdrawn
+// while a dispute is open. Locked funds remain bonded until unlocked or slashed.
+func (k Keeper) LockBond(ctx sdk.Context, toolID string, amount sdk.Coins) error {
+	bond, found := k.GetBondRecord(ctx, toolID)
+	if !found {
+		return types.ErrBondNotFound.Wrapf("bond for tool %s not found", toolID)
+	}
+	clean, err := sanitizeBondCoins(amount)
+	if err != nil {
+		return err
+	}
+	current, locked := bond.BondedAmount, bond.LockedAmount
+	if !current.IsAllGTE(locked) {
+		return types.ErrInvalidState.Wrap("locked amount exceeds bonded amount")
+	}
+	if !current.Sub(locked...).IsAllGTE(clean) {
+		return types.ErrInsufficientBond.Wrapf("insufficient available bond to lock for %s", toolID)
+	}
+	bond.LockedAmount = locked.Add(clean...)
+	bond.LastUpdatedAt = ctx.BlockTime()
+	if err := k.SetBondRecord(ctx, bond); err != nil {
+		return err
+	}
+	ctx.EventManager().EmitEvent(sdk.NewEvent(
+		types.EventTypeBondLocked,
+		sdk.NewAttribute("tool_id", toolID),
+		sdk.NewAttribute("amount", clean.String()),
+	))
+	return nil
+}
+
+// UnlockBond releases previously locked bond back to the available balance.
+func (k Keeper) UnlockBond(ctx sdk.Context, toolID string, amount sdk.Coins) error {
+	bond, found := k.GetBondRecord(ctx, toolID)
+	if !found {
+		return types.ErrBondNotFound.Wrapf("bond for tool %s not found", toolID)
+	}
+	clean, err := sanitizeBondCoins(amount)
+	if err != nil {
+		return err
+	}
+	if !bond.LockedAmount.IsAllGTE(clean) {
+		return types.ErrInvalidState.Wrap("insufficient locked amount to unlock")
+	}
+	bond.LockedAmount = bond.LockedAmount.Sub(clean...)
+	bond.LastUpdatedAt = ctx.BlockTime()
+	if err := k.SetBondRecord(ctx, bond); err != nil {
+		return err
+	}
+	ctx.EventManager().EmitEvent(sdk.NewEvent(
+		types.EventTypeBondUnlocked,
+		sdk.NewAttribute("tool_id", toolID),
+		sdk.NewAttribute("amount", clean.String()),
+	))
+	return nil
+}
+
+// SlashBond removes coins from a tool's bond and routes them per the restitution
+// policy: 5% burned (immutable), 10% to treasury, 85% to the insurance module
+// (reserve replenishment + impacted-user credit). Returns the amount slashed
+// (capped by the available, non-locked bond). Callers that locked the at-risk
+// amount during a dispute should UnlockBond it first so it becomes slashable.
+func (k Keeper) SlashBond(ctx sdk.Context, toolID string, amount sdk.Coins, reason, evidence string) (sdk.Coins, error) {
+	bond, found := k.GetBondRecord(ctx, toolID)
+	if !found {
+		return nil, types.ErrBondNotFound.Wrapf("bond for tool %s not found", toolID)
+	}
+	clean, err := sanitizeBondCoins(amount)
+	if err != nil {
+		return nil, err
+	}
+	current, locked := bond.BondedAmount, bond.LockedAmount
+	available := current
+	if current.IsAllGTE(locked) {
+		available = current.Sub(locked...)
+	}
+	if !available.IsAllGTE(clean) {
+		clean = available // cap to what is actually slashable
+	}
+	if clean.IsZero() {
+		return sdk.NewCoins(), nil
+	}
+
+	bond.BondedAmount = current.Sub(clean...)
+	bond.TotalSlashed = bond.TotalSlashed.Add(clean...)
+	bond.LastSlashEpoch = ctx.BlockHeight()
+	bond.LastUpdatedAt = ctx.BlockTime()
+	if err := k.SetBondRecord(ctx, bond); err != nil {
+		return nil, err
+	}
+
+	burn, insurance, treasury := splitSlashCoins(clean)
+	ctx.EventManager().EmitEvent(sdk.NewEvent(
+		types.EventTypeSlash,
+		sdk.NewAttribute("tool_id", toolID),
+		sdk.NewAttribute("amount", clean.String()),
+		sdk.NewAttribute("reason", reason),
+		sdk.NewAttribute("evidence", evidence),
+		sdk.NewAttribute("burned", burn.String()),
+		sdk.NewAttribute("insurance", insurance.String()),
+		sdk.NewAttribute("treasury", treasury.String()),
+	))
+
+	if !burn.IsZero() {
+		if err := k.bankKeeper.BurnCoins(ctx, types.ModuleName, burn); err != nil {
+			return nil, err
+		}
+	}
+	if !insurance.IsZero() {
+		if err := k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, slashInsuranceModuleName, insurance); err != nil {
+			return nil, err
+		}
+	}
+	if !treasury.IsZero() {
+		if err := k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, slashTreasuryModuleName, treasury); err != nil {
+			return nil, err
+		}
+	}
+	return clean, nil
+}
+
+// splitSlashCoins partitions a slash into (burn 5%, insurance 85%, treasury 10%)
+// using the immutable restitution bps from x/insurance. Insurance absorbs the
+// per-denom rounding residual (it carries the reserve + user-credit share), so
+// the immutable 5% burn is never inflated by rounding.
+func splitSlashCoins(amount sdk.Coins) (burn, insurance, treasury sdk.Coins) {
+	burn, insurance, treasury = sdk.NewCoins(), sdk.NewCoins(), sdk.NewCoins()
+	total := int64(insurancetypes.RestitutionTotalBps)
+	for _, c := range amount {
+		if !c.Amount.IsPositive() {
+			continue
+		}
+		b := c.Amount.MulRaw(int64(insurancetypes.RestitutionBurnBps)).QuoRaw(total)
+		t := c.Amount.MulRaw(int64(insurancetypes.RestitutionTreasuryBps)).QuoRaw(total)
+		ins := c.Amount.Sub(b).Sub(t) // reserve (25%) + user-credit (60%) + residual
+		if b.IsPositive() {
+			burn = burn.Add(sdk.NewCoin(c.Denom, b))
+		}
+		if ins.IsPositive() {
+			insurance = insurance.Add(sdk.NewCoin(c.Denom, ins))
+		}
+		if t.IsPositive() {
+			treasury = treasury.Add(sdk.NewCoin(c.Denom, t))
+		}
+	}
+	return burn, insurance, treasury
 }

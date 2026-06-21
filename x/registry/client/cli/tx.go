@@ -28,6 +28,65 @@ func GetTxCmd() *cobra.Command {
 	cmd.AddCommand(CmdCreateBond())
 	cmd.AddCommand(CmdWithdrawBond())
 	cmd.AddCommand(CmdSubmitReceipt())
+	cmd.AddCommand(CmdChallengeReceipt())
+	cmd.AddCommand(CmdResolveDispute())
+	return cmd
+}
+
+// CmdChallengeReceipt opens a dispute against a Proof-of-Service receipt,
+// escrowing the challenger's stake and locking an equal slice of the bond.
+func CmdChallengeReceipt() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "challenge-receipt [receipt-id] [stake]",
+		Short: "Dispute a receipt within its window (escrows a stake, locks the publisher bond)",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientTxContext(cmd)
+			if err != nil {
+				return err
+			}
+			stake, err := sdk.ParseCoinsNormalized(args[1])
+			if err != nil {
+				return fmt.Errorf("invalid stake: %w", err)
+			}
+			reason, _ := cmd.Flags().GetString("reason")
+			msg := &types.MsgChallengeReceipt{
+				Challenger: clientCtx.GetFromAddress().String(),
+				Challenge: &types.Challenge{
+					ReceiptId:         args[0],
+					ChallengerAddress: clientCtx.GetFromAddress().String(),
+					ChallengerStake:   stake,
+					Reason:            reason,
+				},
+			}
+			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
+		},
+	}
+	cmd.Flags().String("reason", "disputed output", "human-readable dispute reason")
+	flags.AddTxFlagsToCmd(cmd)
+	return cmd
+}
+
+// CmdResolveDispute UPHOLDS a disputed receipt's challenge (slash the bond).
+// The signer must be an active SuperNode adjudicator.
+func CmdResolveDispute() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "resolve-dispute [receipt-id]",
+		Short: "Uphold a receipt dispute — slash the publisher bond (signer must be an active supernode)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientTxContext(cmd)
+			if err != nil {
+				return err
+			}
+			msg := &types.MsgSettleReceipt{
+				Settler:   clientCtx.GetFromAddress().String(),
+				ReceiptId: args[0],
+			}
+			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
+		},
+	}
+	flags.AddTxFlagsToCmd(cmd)
 	return cmd
 }
 

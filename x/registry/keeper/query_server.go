@@ -51,6 +51,18 @@ func (q queryServer) GetBond(goCtx context.Context, req *types.QueryGetBondReque
 	return &types.QueryGetBondResponse{Bond: bond}, nil
 }
 
+// GetChallenge returns a receipt dispute by its challenge id.
+func (q queryServer) GetChallenge(goCtx context.Context, req *types.QueryGetChallengeRequest) (*types.QueryGetChallengeResponse, error) {
+	if req == nil || strings.TrimSpace(req.ChallengeId) == "" {
+		return nil, status.Error(codes.InvalidArgument, "challenge_id is required")
+	}
+	c, found := q.k.GetChallenge(sdk.UnwrapSDKContext(goCtx), req.ChallengeId)
+	if !found {
+		return nil, status.Errorf(codes.NotFound, "challenge %q not found", req.ChallengeId)
+	}
+	return &types.QueryGetChallengeResponse{Challenge: c}, nil
+}
+
 // GetReceipt returns a stored Proof-of-Service usage receipt by id.
 func (q queryServer) GetReceipt(goCtx context.Context, req *types.QueryGetReceiptRequest) (*types.QueryGetReceiptResponse, error) {
 	if req == nil || strings.TrimSpace(req.ReceiptId) == "" {

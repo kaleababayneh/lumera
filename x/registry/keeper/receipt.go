@@ -156,6 +156,14 @@ func (k Keeper) ValidateReceipt(ctx sdk.Context, receiptID, toolID string) error
 	if receipt.ToolId != toolID {
 		return types.ErrUnauthorized.Wrapf("receipt %s is for tool %s, not %s", receiptID, receipt.ToolId, toolID)
 	}
+	// A receipt under dispute, or already invalidated by an upheld challenge,
+	// must not settle — payment is blocked until the dispute clears.
+	switch receipt.Status {
+	case "disputed":
+		return types.ErrDisputeActive.Wrapf("receipt %s is under dispute", receiptID)
+	case "invalid":
+		return types.ErrInvalidState.Wrapf("receipt %s was invalidated by an upheld challenge", receiptID)
+	}
 	return nil
 }
 

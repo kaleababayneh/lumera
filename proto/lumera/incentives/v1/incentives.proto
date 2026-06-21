@@ -1,0 +1,203 @@
+syntax = "proto3";
+package lumera.incentives.v1;
+
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "google/protobuf/timestamp.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "x/incentives/types";
+
+// Params defines the module parameters for the incentives module.
+message Params {
+  // evaluation_interval_blocks is the number of blocks between badge
+  // evaluations
+  uint32 evaluation_interval_blocks = 1;
+  // grace_period_blocks is the number of blocks before a badge downgrade takes
+  // effect
+  uint32 grace_period_blocks = 2;
+  // min_invocations_for_scoring is the minimum number of invocations required
+  // before scoring
+  uint32 min_invocations_for_scoring = 3;
+  // scoring_window_blocks is the number of blocks to consider for scoring
+  uint32 scoring_window_blocks = 4;
+}
+
+// BadgeTier represents the verification badge tier levels.
+enum BadgeTier {
+  BADGE_TIER_UNSPECIFIED = 0;
+  BADGE_TIER_NONE = 1;
+  BADGE_TIER_BRONZE = 2;
+  BADGE_TIER_SILVER = 3;
+  BADGE_TIER_GOLD = 4;
+  BADGE_TIER_PLATINUM = 5;
+}
+
+// TierConfig defines the configuration for a specific badge tier.
+message TierConfig {
+  BadgeTier tier = 1;
+  string name = 2;
+  // minimum_score is the minimum composite score required for this tier (0-100)
+  uint32 minimum_score = 3;
+  // routing_weight_multiplier_bps is the routing priority multiplier in basis
+  // points e.g., 11000 = 1.1x, 20000 = 2.0x
+  uint32 routing_weight_multiplier_bps = 4;
+  // insurance_discount_bps is the insurance premium discount in basis points
+  uint32 insurance_discount_bps = 5;
+  // lac_bonus_bps is the LAC rebate from router share in basis points
+  uint32 lac_bonus_bps = 6;
+  // validity_period_blocks is how long the badge remains valid
+  uint32 validity_period_blocks = 7;
+  // cache_priority indicates if the tier has cache priority
+  bool cache_priority = 8;
+  // featured_placement indicates if the tier has marketplace featured placement
+  bool featured_placement = 9;
+}
+
+// Badge represents an active badge held by a tool.
+message Badge {
+  string tool_id = 1;
+  string publisher_id = 2;
+  BadgeTier tier = 3;
+  // composite_score is the current score (0-100 scaled to uint32, so 0-10000
+  // for 2 decimal precision)
+  uint32 composite_score = 4;
+  google.protobuf.Timestamp awarded_at = 5
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  google.protobuf.Timestamp expires_at = 6
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  google.protobuf.Timestamp last_evaluated_at = 7
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  // component_scores stores individual scoring component values (0-10000 each)
+  ComponentScores component_scores = 8;
+  // consecutive_periods tracks how many evaluation periods the badge has been
+  // maintained
+  uint32 consecutive_periods = 9;
+  // grace_period_active indicates if the tool is in a grace period before
+  // downgrade
+  bool grace_period_active = 10;
+  google.protobuf.Timestamp grace_period_ends_at = 11
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+}
+
+// ComponentScores stores individual scoring components (all values 0-10000 for
+// 2 decimal precision).
+message ComponentScores {
+  uint32 reliability = 1; // 35% weight: uptime, latency, success rate
+  uint32 economic = 2;    // 25% weight: quote accuracy, receipt validity
+  uint32 security = 3;    // 20% weight: SBOM, SLSA, vulnerabilities
+  uint32 performance = 4; // 20% weight: throughput, efficiency
+  uint32 governance = 5;  // Bonus: dispute rate, participation
+}
+
+// MetricSnapshot captures point-in-time metrics for a tool.
+message MetricSnapshot {
+  string tool_id = 1;
+  int64 block_height = 2;
+  google.protobuf.Timestamp timestamp = 3
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  // Reliability metrics
+  uint32 uptime_bps = 4;       // Uptime in basis points (10000 = 100%)
+  uint32 success_rate_bps = 5; // Success rate in basis points
+  uint32 p95_latency_ms = 6;   // P95 latency in milliseconds
+  uint32 latency_variance = 7; // Latency variance (lower is better)
+  // Economic metrics
+  int32 quote_deviation_bps =
+      8; // Quote deviation (-negative = underquote, +positive = overquote)
+  uint32 receipt_validity_bps = 9; // Receipt validity rate in basis points
+  uint32 settlement_accuracy_bps = 10;
+  // Security metrics
+  uint32 sbom_age_hours = 11;
+  uint32 slsa_level = 12; // 0-3
+  uint32 critical_vulnerabilities = 13;
+  uint32 high_vulnerabilities = 14;
+  // Performance metrics
+  uint32 requests_per_second = 15;
+  uint32 declared_capacity = 16;
+  uint32 cache_hit_rate_bps = 17;
+  // Governance metrics
+  uint32 dispute_rate_bps = 18;
+  uint32 governance_participation_bps = 19;
+  // Counters
+  uint64 total_invocations = 20;
+  uint64 successful_invocations = 21;
+  uint64 failed_invocations = 22;
+}
+
+// BadgeEvent represents a badge-related event for audit trail.
+message BadgeEvent {
+  string tool_id = 1;
+  string event_type =
+      2; // "awarded", "upgraded", "downgraded", "expired", "revoked"
+  BadgeTier previous_tier = 3;
+  BadgeTier new_tier = 4;
+  uint32 score = 5;
+  google.protobuf.Timestamp timestamp = 6
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  string reason = 7;
+}
+
+// GenesisState defines the incentives module's genesis state.
+message GenesisState {
+  Params params = 1;
+  repeated TierConfig tier_configs = 2;
+  repeated Badge badges = 3;
+  repeated MetricSnapshot metric_snapshots = 4;
+  // badge_events preserves the award/upgrade/downgrade/revocation audit
+  // trail across chain exports; store keys are reconstructed from each
+  // event's tool_id, timestamp, event_type, and tier transition.
+  repeated BadgeEvent badge_events = 5;
+}
+
+// QueryParamsRequest is the request type for the Query/Params RPC method.
+message QueryParamsRequest {}
+
+// QueryParamsResponse is the response type for the Query/Params RPC method.
+message QueryParamsResponse { Params params = 1; }
+
+// QueryBadgeRequest is the request type for the Query/Badge RPC method.
+message QueryBadgeRequest { string tool_id = 1; }
+
+// QueryBadgeResponse is the response type for the Query/Badge RPC method.
+message QueryBadgeResponse { Badge badge = 1; }
+
+// QueryBadgesRequest is the request type for the Query/Badges RPC method.
+message QueryBadgesRequest {
+  BadgeTier tier = 1;
+  string publisher_id = 2;
+  cosmos.base.query.v1beta1.PageRequest pagination = 3;
+}
+
+// QueryBadgesResponse is the response type for the Query/Badges RPC method.
+message QueryBadgesResponse {
+  repeated Badge badges = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryTierConfigRequest is the request type for the Query/TierConfig RPC
+// method.
+message QueryTierConfigRequest { BadgeTier tier = 1; }
+
+// QueryTierConfigResponse is the response type for the Query/TierConfig RPC
+// method.
+message QueryTierConfigResponse { TierConfig config = 1; }
+
+// QueryScoreRequest is the request type for the Query/Score RPC method.
+message QueryScoreRequest { string tool_id = 1; }
+
+// QueryScoreResponse is the response type for the Query/Score RPC method.
+message QueryScoreResponse {
+  string tool_id = 1;
+  uint32 composite_score = 2;
+  ComponentScores component_scores = 3;
+  BadgeTier eligible_tier = 4;
+  BadgeTier current_tier = 5;
+}
+
+// Query defines the gRPC query service for the incentives module.
+service Query {
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse);
+  rpc Badge(QueryBadgeRequest) returns (QueryBadgeResponse);
+  rpc Badges(QueryBadgesRequest) returns (QueryBadgesResponse);
+  rpc TierConfig(QueryTierConfigRequest) returns (QueryTierConfigResponse);
+  rpc Score(QueryScoreRequest) returns (QueryScoreResponse);
+}

@@ -1,0 +1,105 @@
+syntax = "proto3";
+package lumera.incentives.v1;
+
+import "cosmos_proto/cosmos.proto";
+import "cosmos/msg/v1/msg.proto";
+import "lumera/incentives/v1/incentives.proto";
+
+option go_package = "x/incentives/types";
+
+// Msg defines the incentives Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // RecordMetrics records tool performance metrics for badge scoring.
+  rpc RecordMetrics(MsgRecordMetrics) returns (MsgRecordMetricsResponse);
+
+  // RequestEvaluation requests an immediate badge evaluation for a tool.
+  rpc RequestEvaluation(MsgRequestEvaluation)
+      returns (MsgRequestEvaluationResponse);
+
+  // UpdateTierConfig updates the configuration for a badge tier (governance
+  // only).
+  rpc UpdateTierConfig(MsgUpdateTierConfig)
+      returns (MsgUpdateTierConfigResponse);
+
+  // UpdateParams updates module parameters (governance only).
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+
+  // RevokeBadge revokes a badge from a tool (governance only).
+  rpc RevokeBadge(MsgRevokeBadge) returns (MsgRevokeBadgeResponse);
+}
+
+// MsgRecordMetrics records performance metrics for a tool.
+message MsgRecordMetrics {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // authority is the address authorized to record metrics (typically router or
+  // oracle)
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  // tool_id is the identifier of the tool
+  string tool_id = 2;
+  // metrics is the performance snapshot to record
+  MetricSnapshot metrics = 3;
+}
+
+// MsgRecordMetricsResponse is the response type for MsgRecordMetrics.
+message MsgRecordMetricsResponse { bool accepted = 1; }
+
+// MsgRequestEvaluation requests an immediate badge evaluation.
+message MsgRequestEvaluation {
+  option (cosmos.msg.v1.signer) = "publisher";
+
+  // publisher is the tool publisher requesting evaluation
+  string publisher = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  // tool_id is the identifier of the tool to evaluate
+  string tool_id = 2;
+}
+
+// MsgRequestEvaluationResponse is the response type for MsgRequestEvaluation.
+message MsgRequestEvaluationResponse {
+  BadgeTier previous_tier = 1;
+  BadgeTier new_tier = 2;
+  uint32 composite_score = 3;
+}
+
+// MsgUpdateTierConfig updates a tier configuration.
+message MsgUpdateTierConfig {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // authority is the governance address
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  // config is the new tier configuration
+  TierConfig config = 2;
+}
+
+// MsgUpdateTierConfigResponse is the response type for MsgUpdateTierConfig.
+message MsgUpdateTierConfigResponse {}
+
+// MsgUpdateParams updates module parameters.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // authority is the governance address
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  // params is the new parameters
+  Params params = 2;
+}
+
+// MsgUpdateParamsResponse is the response type for MsgUpdateParams.
+message MsgUpdateParamsResponse {}
+
+// MsgRevokeBadge revokes a badge from a tool.
+message MsgRevokeBadge {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // authority is the governance address
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  // tool_id is the identifier of the tool
+  string tool_id = 2;
+  // reason is the reason for revocation
+  string reason = 3;
+}
+
+// MsgRevokeBadgeResponse is the response type for MsgRevokeBadge.
+message MsgRevokeBadgeResponse { BadgeTier previous_tier = 1; }

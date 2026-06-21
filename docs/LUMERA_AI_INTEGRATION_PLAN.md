@@ -368,8 +368,40 @@ changes — read-only consumption):
   `get-receipt`=attested → settle with the verified id **pays the publisher 543,200 ulac**
   (`receipt_verified` emitted) → `submit-receipt` from a non-supernode **rejected** (code 19).
 - Deferred (fields exist, later slices): embedded SGX `EnclaveQuote`/`AttestationProof` + publisher
-  co-sign verification, dispute-window enforcement + bond slashing (composes Step 3 ⊗ Step 4),
-  settlement records / bundle anchors, `x/action` `inference`-type validator-set consensus on the digest.
+  co-sign verification, settlement records / bundle anchors, `x/action` `inference`-type validator-set
+  consensus on the digest.
+
+### Step 3 ⊗ Step 4 — dispute → slash: BUILT + WIRED + VERIFIED (2026-06-21)
+The full trust loop: **bond → proof → dispute → slash → restitution**. No proto regen — the gogo
+`Challenge`/`MsgChallengeReceipt`/`MsgSettleReceipt`/`PendingSlash` types, `ChallengePrefix=0x10`, the
+dispute-window params, and the `BondRecord.LockedAmount`/`TotalSlashed` fields were all already
+generated. Added (all in `x/registry`):
+- **bond.go**: `LockBond`/`UnlockBond`/`SlashBond` + `splitSlashCoins` — the restitution split imports
+  the immutable bps from `x/insurance/types` (5% burn / 25% reserve + 60% user-credit → 85% insurance /
+  10% `fee_collector` treasury). Routed via `BurnCoins` + `SendCoinsFromModuleToModule`.
+- **challenge.go**: `Challenge` CRUD (+ receipt index), `OpenChallenge` (escrow challenger stake, lock
+  an equal bond slice, receipt→`disputed`), `UpholdChallenge` (unlock→slash, refund stake,
+  receipt→`invalid`, challenge→`upheld`), deterministic challenge ids.
+- **msg_server.go**: `ChallengeReceipt` (anyone, within the receipt's dispute window) +
+  `SettleReceipt` = adjudicate-uphold (gated to an **active SuperNode**; production = disjoint quorum /
+  governance). `ValidateReceipt` now refuses `disputed`/`invalid` receipts, so a disputed receipt
+  cannot settle.
+- **app wiring**: registry maccPerms gains `Burner` (the 5% slash burn). CLI `challenge-receipt` /
+  `resolve-dispute` / `get-challenge`; genesis import/export of `Challenges`.
+- **Verified e2e** (fresh localnet, challenger/publisher/supernode keys): challenge → receipt
+  `disputed` + bond `locked=500000` → settle **blocked** → supernode uphold → slash event
+  `burned=25000 insurance=425000 treasury=50000`, `bonded 2,000,000→1,500,000`, `total_slashed=500000`,
+  receipt `invalid`, challenge `upheld`, challenger stake refunded, insurance reserve **+425,000**,
+  settlement still blocked. **Deferred (next slice):** reject-on-expiry (registry EndBlocker
+  `ProcessExpiredChallenges`), the challenger bonus, and a disjoint-quorum adjudicator.
+
+### Next: `incentives` (trust-graph reputation engine) — port queued
+Grounded assessment done: modern KVStoreService keeper; hard deps (registry/bank/account) all ported;
+the `router` dep is **soft** (stored, never invoked in the badge path → pass nil). Focused slice =
+the badge engine (RecordMetrics → RequestEvaluation → tiered badges → GetRoutingMultiplier/
+InsuranceDiscount/LACBonus) + EndBlocker ProcessExpiredBadges. Metrics can be fed by the PoS receipts /
+dispute outcomes (so the trust graph self-feeds without router). Then continue until `router` = the
+**maximum-pivot** point → build the web PoC (`poc/web/` is already scaffolded + parked).
 
 ---
 
@@ -397,11 +429,11 @@ Legend: ☐ todo · ◐ in progress · ☑ done (builds + boots + tx + tests + n
 | reserve | ☑ | ☑ | ☑ | ☑ | ☑ | ☑ (commitment ✓) | ☐ | n/a | ◐ |
 | nft | ☑ | ☑ | ☑ | ☑ | ☑ | ☑ (mint/royalty ✓) | ☐ | n/a | ◐ |
 | cac | ☑ | ☑ | — (types-only) | ☑ | ☑ | — | ☐ | — | ◐ |
-| registry | ☑ | ◐ (tool+bond+receipt slice) | ☑ | ☑ | ☑ | ☑ (register/bond/receipt ✓) | ☐ | n/a | ◐ |
+| registry | ☑ | ◐ (tool+bond+receipt+dispute) | ☑ | ☑ | ☑ | ☑ (register/bond/receipt/slash ✓) | ☐ | n/a | ◐ |
 | insurance | ☑ | ☑ | ☑ | ☑ | ☑ | ◐ | ☐ | n/a | ◐ |
 | router | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | DEFER (integration surface, post-PoS) |
 | payment_rails | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | DEFER (on-ramp/liquidity, Phase-2 IBC) |
-| incentives | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | DEFER (trust-graph engine; next after Step 3) |
+| incentives | ☑ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ◐ PORTING — gogo types generated + compile (keeper next) |
 | auction | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | DEFER (blocked on priority) |
 | challenges | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | DEFER (no real trust signal today) |
 | oracle | ☑ | ☑ | ☑ | ☑ | ☑ | ☑ (query ✓) | ☐ | n/a | ◐ |

@@ -268,8 +268,9 @@ var (
 		{Account: erc20types.ModuleName, Permissions: []string{authtypes.Minter, authtypes.Burner}},
 		{Account: creditstypes.ModuleName, Permissions: []string{authtypes.Minter, authtypes.Burner}},
 		{Account: insurancetypes.ModuleName, Permissions: []string{authtypes.Burner}},
-		// registry holds escrowed publisher bonds — no mint/burn, just custody.
-		{Account: registrytypes.ModuleName},
+		// registry holds escrowed publisher bonds + challenger stakes, and burns the
+		// 5% restitution share when an upheld dispute slashes a bond (Burner).
+		{Account: registrytypes.ModuleName, Permissions: []string{authtypes.Burner}},
 		// this line is used by starport scaffolding # stargate/app/maccPerms
 	}
 

@@ -276,8 +276,19 @@ idempotent; `ReceiptPrefix=0x03`) + `ValidateReceipt` + `GetReceipt` query + `su
 `registryKeeper.ValidateReceipt(receiptID, lockToolID)` (always-on; `receipt_verified` event).
 Verified e2e: register supernode → settle-without-receipt **rejected** → submit-receipt (active SN) →
 settle-with-receipt **pays 543,200 ulac** → submit-receipt from a non-supernode **rejected** (code 19).
-No `x/action`/`x/supernode` changes (read-only). SGX `EnclaveQuote` verification, dispute-window bond
-slashing, and a governance `ProofOfServiceRequired` toggle are Phase-2.
+No `x/action`/`x/supernode` changes (read-only). SGX `EnclaveQuote` verification and a governance
+`ProofOfServiceRequired` toggle are Phase-2.
+
+**Dispute → slash slice (Step 3 ⊗ Step 4, 2026-06-21):** the full trust loop bond→proof→dispute→slash.
+No proto regen (Challenge/MsgChallengeReceipt/MsgSettleReceipt/PendingSlash + ChallengePrefix already
+generated). `x/registry/keeper/bond.go` gains `LockBond`/`UnlockBond`/`SlashBond` + `splitSlashCoins`
+(restitution: 5% burn / 85% insurance / 10% fee_collector, bps imported from `x/insurance/types`).
+`keeper/challenge.go`: `OpenChallenge` (escrow stake + lock equal bond + receipt→disputed),
+`UpholdChallenge` (unlock→slash→refund stake→receipt invalid). `ChallengeReceipt` (anyone, in window) +
+`SettleReceipt`=adjudicate-uphold (active-supernode-gated). `ValidateReceipt` refuses disputed/invalid
+receipts. registry maccPerms += Burner. CLI challenge-receipt/resolve-dispute/get-challenge. Verified
+e2e: challenge→disputed+locked→settle blocked→uphold slashes 500,000 (burn 25k/ins 425k/treasury 50k),
+bond 2M→1.5M, receipt invalid, stake refunded, insurance +425k. Reject-on-expiry EndBlocker = next.
 
 ## Module 2: `x/insurance` — DONE (ported + wired + booting)
 Full module (keeper/msg-server/begin+end-blockers/JSON genesis) gogo-converted with the credits
