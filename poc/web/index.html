@@ -1,397 +1,497 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Lumera AI — Economic Flywheel PoC</title>
+<title>Lumera AI — the agentic economy, on-chain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0b0e14; --panel:#131823; --panel2:#1a2030; --line:#222a3a;
-    --txt:#e6ebf5; --muted:#8b97ad; --acc:#5db0ff; --good:#37d39b; --bad:#ff6b6b; --warn:#ffce6b;
-    --burn:#ff6b6b; --ins:#5db0ff; --treas:#ffce6b;
+    --bg:#000; --fg:#fff;
+    --line:rgba(255,255,255,.10); --line-2:rgba(255,255,255,.18);
+    --muted:rgba(255,255,255,.52); --dim:rgba(255,255,255,.34);
+    --panel:#070707; --panel-2:#0c0c0c; --hover:rgba(255,255,255,.05);
+    --live:#3fb950; --danger:#f0524d; --preview:#e0a93f; --acc:#fff;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
   }
-  *{box-sizing:border-box}
-  body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-       background:var(--bg);color:var(--txt)}
-  header{padding:18px 24px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
-  header h1{margin:0;font-size:18px;font-weight:650}
-  header .sub{color:var(--muted);font-size:12px}
-  .wrap{display:grid;grid-template-columns:1.35fr 1fr;gap:18px;padding:18px 24px;max-width:1240px;margin:0 auto}
-  @media(max-width:900px){.wrap{grid-template-columns:1fr}}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:18px}
-  .card h2{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
-  .actors{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-  @media(max-width:520px){.actors{grid-template-columns:1fr}}
-  .actor{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px}
-  .actor .role{font-weight:650;font-size:12.5px}
-  .actor .addr{color:var(--muted);font-size:10.5px;word-break:break-all;margin-top:2px}
-  .bal{display:flex;justify-content:space-between;margin-top:8px;font-variant-numeric:tabular-nums;font-size:12.5px}
-  .bal b{color:var(--acc)}
-  .step{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}
-  .step:first-of-type{border-top:none}
-  .num{flex:0 0 26px;height:26px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);
-       display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
-  .step.done .num{background:rgba(55,211,155,.15);border-color:#2c6b56;color:var(--good)}
-  .step .body{flex:1}
-  .step .title{font-weight:600}
-  .step .desc{color:var(--muted);font-size:12.5px;margin:2px 0 8px}
-  button{background:var(--acc);color:#04111f;border:none;border-radius:8px;padding:8px 14px;font-weight:650;cursor:pointer}
-  button:hover{filter:brightness(1.08)}
-  button:disabled{opacity:.45;cursor:not-allowed}
-  button.ghost{background:transparent;color:var(--txt);border:1px solid var(--line)}
-  button.danger{background:transparent;color:var(--bad);border:1px solid #50313a}
-  button.big{background:linear-gradient(90deg,#5db0ff,#37d39b);color:#04111f;font-size:13.5px;padding:10px 18px}
-  .kv{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px dashed var(--line);font-size:12.5px}
+  *{box-sizing:border-box;border-radius:0}
+  html,body{margin:0;background:var(--bg);color:var(--fg)}
+  body{font:14px/1.55 "Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+       -webkit-font-smoothing:antialiased;font-feature-settings:"rlig" 1,"calt" 1}
+  ::selection{background:rgba(255,255,255,.22)}
+  a{color:inherit;text-decoration:none}
+  code,.mono{font-family:var(--mono)}
+  .up{text-transform:uppercase;letter-spacing:.14em}
+  .wrap{max-width:1200px;margin:0 auto;padding:0 28px}
+  /* ambient glow */
+  .glow{position:fixed;inset:0 0 auto 0;height:620px;pointer-events:none;z-index:0;
+        background:radial-gradient(ellipse 70% 100% at 50% -10%,rgba(255,255,255,.09),transparent 70%)}
+  .grid-bg{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.35;
+        background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+        background-size:64px 64px;mask-image:radial-gradient(ellipse 60% 50% at 50% 0%,#000,transparent 75%)}
+  main{position:relative;z-index:1}
+
+  /* nav */
+  nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);background:rgba(0,0,0,.62);border-bottom:1px solid var(--line)}
+  nav .wrap{display:flex;align-items:center;justify-content:space-between;height:62px}
+  .brand{display:flex;align-items:center;gap:11px;font-weight:700}
+  .brand .mark{width:26px;height:26px;border:1px solid var(--line-2);display:grid;place-items:center;position:relative;overflow:hidden}
+  .brand .mark::before{content:"";position:absolute;inset:4px;background:conic-gradient(from 0deg,#fff,rgba(255,255,255,.15),#fff);animation:spin 8s linear infinite}
+  .brand .mark::after{content:"";position:absolute;inset:8px;background:#000}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .brand b{font-size:15px;letter-spacing:.02em}
+  .brand span{color:var(--dim);font-size:11px;font-weight:500}
+  .nav-right{display:flex;align-items:center;gap:10px}
+  .chip{display:flex;align-items:center;gap:8px;border:1px solid var(--line);padding:7px 12px;font-size:12px;color:var(--muted)}
+  .chip b{color:var(--fg);font-weight:600}
+  .dot{width:7px;height:7px;background:var(--live);box-shadow:0 0 0 0 rgba(63,185,80,.6);animation:pulse 2s infinite;border-radius:50%}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(63,185,80,.5)}70%{box-shadow:0 0 0 6px rgba(63,185,80,0)}100%{box-shadow:0 0 0 0 rgba(63,185,80,0)}}
+
+  /* hero */
+  .hero{padding:70px 0 30px;text-align:center}
+  .kicker{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);padding:6px 12px;font-size:11px;color:var(--muted);margin-bottom:22px}
+  .hero h1{font-size:clamp(30px,5vw,52px);line-height:1.05;font-weight:800;letter-spacing:-.02em;margin:0 0 14px}
+  .hero h1 .fade{background:linear-gradient(90deg,#fff,rgba(255,255,255,.45));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{color:var(--muted);font-size:16px;max-width:620px;margin:0 auto 30px}
+  .hero .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+
+  /* buttons */
+  button,.btn{font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid var(--line-2);background:transparent;color:var(--fg);padding:11px 18px;transition:.15s;letter-spacing:.04em}
+  button:hover,.btn:hover{background:var(--hover);border-color:rgba(255,255,255,.34)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .btn-primary{background:#fff;color:#000;border-color:#fff}
+  .btn-primary:hover{background:rgba(255,255,255,.85);color:#000}
+  .btn-sm{padding:8px 13px;font-size:11.5px}
+  .btn-danger{border-color:rgba(240,82,77,.4);color:#ff8a86}
+  .btn-danger:hover{background:rgba(240,82,77,.1)}
+
+  /* stat strip */
+  .stats{display:grid;grid-template-columns:repeat(6,1fr);border:1px solid var(--line);margin-top:14px}
+  @media(max-width:860px){.stats{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:520px){.stats{grid-template-columns:repeat(2,1fr)}}
+  .stat{padding:18px 16px;border-right:1px solid var(--line);position:relative}
+  .stat:last-child{border-right:none}
+  .stat .v{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .stat .l{font-size:10.5px;color:var(--dim);margin-top:5px}
+  .tag{position:absolute;top:10px;right:10px;font-size:8.5px;font-weight:700;letter-spacing:.1em;padding:2px 5px;border:1px solid}
+  .tag.live{color:var(--live);border-color:rgba(63,185,80,.4)}
+  .tag.soon{color:var(--preview);border-color:rgba(224,169,63,.4)}
+
+  /* sections */
+  section{padding:46px 0}
+  .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px;flex-wrap:wrap}
+  .sec-head h2{font-size:22px;font-weight:700;letter-spacing:-.01em;margin:0}
+  .sec-head .desc{color:var(--muted);font-size:13.5px}
+  .badge-live,.badge-soon{font-size:10px;font-weight:700;letter-spacing:.12em;padding:4px 8px;border:1px solid;display:inline-flex;align-items:center;gap:6px}
+  .badge-live{color:var(--live);border-color:rgba(63,185,80,.4)}
+  .badge-soon{color:var(--preview);border-color:rgba(224,169,63,.4)}
+
+  /* cards / panels */
+  .panel{border:1px solid var(--line);background:var(--panel)}
+  .panel .ph{padding:13px 16px;border-bottom:1px solid var(--line);font-size:11px;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+  .panel .pb{padding:16px}
+  .fly-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:18px}
+  @media(max-width:920px){.fly-grid{grid-template-columns:1fr}}
+
+  /* steps */
+  .step{display:flex;gap:13px;padding:13px 0;border-top:1px solid var(--line)}
+  .step:first-child{border-top:none}
+  .num{flex:0 0 28px;height:28px;border:1px solid var(--line-2);display:grid;place-items:center;font-weight:700;font-size:12px;color:var(--muted)}
+  .step.done .num{background:var(--live);color:#000;border-color:var(--live)}
+  .step .t{font-weight:600;font-size:13.5px}
+  .step .d{color:var(--muted);font-size:12px;margin:3px 0 9px}
+  .step .d code{color:var(--fg);background:var(--panel-2);padding:1px 5px;font-size:11px}
+  .step-btns{display:flex;gap:8px;flex-wrap:wrap}
+
+  /* actors */
+  .actors{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border:1px solid var(--line)}
+  .actor{padding:13px;border-right:1px solid var(--line)}
+  .actor:last-child{border-right:none}
+  .actor .role{font-weight:600;font-size:11.5px}
+  .actor .addr{color:var(--dim);font-size:10px;margin-top:3px;font-family:var(--mono);word-break:break-all}
+  .actor .b{display:flex;justify-content:space-between;font-size:11.5px;margin-top:7px;font-variant-numeric:tabular-nums}
+  .actor .b span{color:var(--muted)} .actor .b b{font-weight:600}
+
+  .kv{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:12px}
   .kv:first-child{border-top:none}
-  .kv .k{color:var(--muted)} .kv .v{font-variant-numeric:tabular-nums;word-break:break-all;text-align:right}
-  .pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:650}
-  .pill.ok{background:rgba(55,211,155,.15);color:var(--good)}
-  .pill.no{background:rgba(255,107,107,.15);color:var(--bad)}
-  .pill.warn{background:rgba(255,206,107,.15);color:var(--warn)}
-  .pill.idle{background:rgba(139,151,173,.15);color:var(--muted)}
-  #log{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:#0a0d13;border:1px solid var(--line);
-       border-radius:10px;padding:12px;max-height:340px;overflow:auto;white-space:pre-wrap}
-  .logline{padding:2px 0}
-  .logline.ok{color:var(--good)} .logline.bad{color:var(--bad)} .logline.info{color:var(--muted)} .logline.head{color:var(--txt);font-weight:650}
-  .flywheel{color:var(--muted);font-size:12.5px;margin-top:6px}
-  .flywheel b{color:var(--txt)}
+  .kv .k{color:var(--muted)} .kv .v{text-align:right;word-break:break-all;font-variant-numeric:tabular-nums}
+  .kv .v.mono{font-family:var(--mono);font-size:11px}
+
+  /* pills */
+  .pill{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;font-size:10.5px;font-weight:600;border:1px solid var(--line-2)}
+  .pill.ok{color:var(--live);border-color:rgba(63,185,80,.4)}
+  .pill.warn{color:var(--preview);border-color:rgba(224,169,63,.4)}
+  .pill.no{color:var(--danger);border-color:rgba(240,82,77,.4)}
+  .pill.idle{color:var(--dim)}
+
   /* bond gauge */
-  .gauge{height:14px;border-radius:7px;background:var(--panel2);overflow:hidden;display:flex;margin:6px 0 4px;border:1px solid var(--line)}
-  .gauge .bonded{background:var(--good)} .gauge .slashed{background:var(--bad)}
-  .split{display:flex;gap:6px;margin-top:8px}
-  .split .seg{flex:1;text-align:center;border-radius:7px;padding:6px 4px;font-size:11px;border:1px solid var(--line);background:var(--panel2)}
-  .split .seg b{display:block;font-size:12.5px;font-variant-numeric:tabular-nums}
-  .split .burn b{color:var(--burn)} .split .ins b{color:var(--ins)} .split .treas b{color:var(--treas)}
-  .seg .lbl{color:var(--muted)}
+  .gauge{height:16px;border:1px solid var(--line);display:flex;margin:4px 0 10px}
+  .gauge .bonded{background:linear-gradient(90deg,rgba(255,255,255,.85),rgba(255,255,255,.55))}
+  .gauge .slashed{background:repeating-linear-gradient(45deg,var(--danger),var(--danger) 4px,rgba(240,82,77,.6) 4px,rgba(240,82,77,.6) 8px)}
+  .split{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px}
+  .split .seg{border:1px solid var(--line);padding:8px;text-align:center}
+  .split .seg .sl{font-size:9.5px;color:var(--dim);letter-spacing:.06em}
+  .split .seg b{display:block;font-size:13px;margin-top:3px;font-variant-numeric:tabular-nums}
+  .split .burn b{color:var(--danger)} .split .ins b{color:#fff} .split .treas b{color:var(--preview)}
+
+  /* log */
+  #log{font-family:var(--mono);font-size:11.5px;background:#000;border:1px solid var(--line);padding:12px;max-height:300px;overflow:auto;white-space:pre-wrap}
+  .logline{padding:2px 0}
+  .logline.ok{color:var(--live)} .logline.bad{color:var(--danger)} .logline.info{color:var(--dim)} .logline.head{color:#fff;font-weight:600}
+
+  /* marketplace */
+  .tools{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:920px){.tools{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:600px){.tools{grid-template-columns:1fr}}
+  .tool{border:1px solid var(--line);background:var(--panel);padding:16px;transition:.15s;position:relative;overflow:hidden}
+  .tool:hover{border-color:var(--line-2);background:var(--panel-2);transform:translateY(-2px)}
+  .tool.preview{opacity:.92}
+  .tool .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+  .tool .ic{width:34px;height:34px;border:1px solid var(--line-2);display:grid;place-items:center;font-size:16px}
+  .tool h3{font-size:14.5px;font-weight:650;margin:11px 0 2px}
+  .tool .pub{font-size:10.5px;color:var(--dim);font-family:var(--mono)}
+  .tool .cat{font-size:11.5px;color:var(--muted);margin:8px 0 12px;min-height:32px}
+  .tool .foot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:11px}
+  .tool .price{font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
+  .tool .price span{color:var(--dim);font-weight:400;font-size:10px}
+
+  /* reputation tier chips */
+  .tier{font-size:9.5px;font-weight:700;letter-spacing:.08em;padding:3px 7px;border:1px solid}
+  .tier.PLATINUM{color:#e6e6fa;border-color:rgba(230,230,250,.5)}
+  .tier.GOLD{color:#e8c46b;border-color:rgba(232,196,107,.5)}
+  .tier.SILVER{color:#cbd5e1;border-color:rgba(203,213,225,.5)}
+  .tier.BRONZE{color:#c08457;border-color:rgba(192,132,87,.5)}
+  .tier.NONE{color:var(--dim);border-color:var(--line)}
+
+  /* vision grid */
+  .vision{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:920px){.vision{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:600px){.vision{grid-template-columns:1fr}}
+  .vcard{border:1px solid var(--line);background:linear-gradient(180deg,var(--panel),#000);padding:18px;position:relative;min-height:160px}
+  .vcard .vh{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+  .vcard .vic{font-size:20px}
+  .vcard h3{font-size:15px;font-weight:650;margin:0 0 7px}
+  .vcard p{color:var(--muted);font-size:12.5px;margin:0}
+  .vcard .mod{margin-top:12px;font-size:10px;color:var(--dim);font-family:var(--mono)}
+
+  footer{border-top:1px solid var(--line);padding:30px 0;color:var(--dim);font-size:12px}
+  footer .wrap{display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap}
+  footer a{color:var(--muted)} footer a:hover{color:#fff}
+  .what{border:1px solid var(--line);background:var(--panel);padding:16px;margin-top:18px;color:var(--muted);font-size:12.5px;line-height:1.6}
+  .what b{color:#fff}
 </style>
 </head>
 <body>
-<header>
-  <h1>Lumera AI — Economic Flywheel <span class="pill ok">live local node</span></h1>
-  <div class="sub" id="cfg">connecting…</div>
-</header>
+<div class="glow"></div>
+<div class="grid-bg"></div>
 
-<div class="wrap">
-  <!-- LEFT: the loop -->
-  <div>
-    <div class="card">
-      <h2>The flywheel</h2>
-      <div class="flywheel">
-        <b>Agent</b> buys credits → <b>Publisher</b> lists a tool with a bond →
-        <b>Router</b> locks payment → <b>SuperNode</b> proves the work
-        (<code>BLAKE3(input,model,output)</code>) → <b>Settlement</b> pays the publisher
-        <i>only against that proof</i> → reputation is <b>earned</b> from real receipts →
-        a bad call is <b>disputed</b>, the bond is <b>slashed</b>, reputation <b>erodes</b>.
-      </div>
-      <div style="margin-top:12px">
-        <button class="big" onclick="runAll(this)">▶ Run the whole flywheel</button>
-        <span class="sub" style="margin-left:8px">drives every step against the live chain</span>
-      </div>
+<nav>
+  <div class="wrap">
+    <div class="brand">
+      <div class="mark"></div>
+      <div><b>LUMERA<span style="color:var(--dim)">·</span>AI</b> <span id="cfg" style="margin-left:6px">connecting…</span></div>
     </div>
-
-    <div class="card">
-      <h2>Run the loop · step by step</h2>
-
-      <div class="step" id="s-swap">
-        <div class="num">1</div>
-        <div class="body">
-          <div class="title">Agent buys credits — swap LUME → LAC</div>
-          <div class="desc">The agent converts the native LUME token into LAC spending credits.</div>
-          <button onclick="act('swap',this)">Swap 5,000,000 ulume</button>
-        </div>
-      </div>
-
-      <div class="step" id="s-register">
-        <div class="num">2</div>
-        <div class="body">
-          <div class="title">Publisher lists a tool — register + bond</div>
-          <div class="desc">Registers <code id="toolName">pubtool</code> and escrows a 2,000,000 ulume bond (skin-in-the-game).</div>
-          <button onclick="act('register',this)">Register tool + bond</button>
-        </div>
-      </div>
-
-      <div class="step" id="s-lock">
-        <div class="num">3</div>
-        <div class="body">
-          <div class="title">Router locks payment — quote → lock</div>
-          <div class="desc">Locks 1,000,000 LAC for one call; returns a <code>lock_id</code>.</div>
-          <button onclick="act('lock',this)">Lock credits</button>
-        </div>
-      </div>
-
-      <div class="step" id="s-submit-receipt">
-        <div class="num">4</div>
-        <div class="body">
-          <div class="title">SuperNode proves the work — Proof-of-Service</div>
-          <div class="desc">An active SuperNode anchors <code>receipt_id = pos1&lt;BLAKE3(input,model,output)&gt;</code> on-chain.</div>
-          <button onclick="act('submit-receipt',this)">Submit PoS receipt</button>
-        </div>
-      </div>
-
-      <div class="step" id="s-settle">
-        <div class="num">5</div>
-        <div class="body">
-          <div class="title">Settlement — gated on the proof</div>
-          <div class="desc">Pays the publisher <b>only if</b> the receipt verifies for this tool &amp; lock.</div>
-          <button onclick="act('settle',this)">Settle (verified) → pay publisher</button>
-          <button class="danger" onclick="act('settle-noproof',this)" title="Demonstrates the gate">Try settle without proof ✗</button>
-        </div>
-      </div>
-
-      <div class="step" id="s-request-badge">
-        <div class="num">6</div>
-        <div class="body">
-          <div class="title">Reputation — earn a verification badge</div>
-          <div class="desc">The tool is scored from its on-chain metrics into a tiered badge (incentives).</div>
-          <button onclick="act('request-badge',this)">Request badge evaluation</button>
-        </div>
-      </div>
-
-      <div class="step" id="s-challenge">
-        <div class="num">7</div>
-        <div class="body">
-          <div class="title">A bad call is disputed — challenge the receipt</div>
-          <div class="desc">The <b>challenger</b> escrows a stake and locks an equal slice of the publisher's bond. Settlement freezes.</div>
-          <button onclick="act('challenge',this)">Challenge receipt</button>
-        </div>
-      </div>
-
-      <div class="step" id="s-resolve">
-        <div class="num">8</div>
-        <div class="body">
-          <div class="title">Dispute upheld — the bond is slashed</div>
-          <div class="desc">An adjudicator (active SuperNode, disjoint from both parties) upholds it → bond slashed, restitution-routed (5% burn / 85% insurance / 10% treasury). Re-run step 6 to watch reputation erode.</div>
-          <button onclick="act('resolve',this)">Uphold → slash bond</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Activity log</h2>
-      <div id="log"><div class="logline info">Ready. Hit “Run the whole flywheel”, or click steps in order.</div></div>
+    <div class="nav-right">
+      <div class="chip"><span class="dot"></span><span id="netStatus">local node</span></div>
+      <div class="chip">Agent <b id="walletLac">—</b> LAC</div>
     </div>
   </div>
+</nav>
 
-  <!-- RIGHT: live state -->
-  <div>
-    <div class="card">
-      <h2>Actors &amp; balances</h2>
-      <div class="actors">
-        <div class="actor">
-          <div class="role">Agent / Router / SuperNode</div>
-          <div class="addr" id="agentAddr">…</div>
-          <div class="bal"><span>LUME</span><b id="agentLume">—</b></div>
-          <div class="bal"><span>LAC</span><b id="agentLac">—</b></div>
+<main>
+  <!-- HERO -->
+  <section class="hero">
+    <div class="wrap">
+      <div class="kicker up"><span class="dot"></span> discover · meter · prove · settle</div>
+      <h1>The agentic economy,<br><span class="fade">verifiable and on-chain.</span></h1>
+      <p>AI agents discover tools, the chain meters &amp; executes &amp; <b style="color:#fff">proves</b> &amp; settles every call,
+         and a self-reinforcing trust graph — bonds, disputes, reputation — governs it all.</p>
+      <div class="cta">
+        <button class="btn-primary" onclick="runAll(this);scrollToFly()">▶ Run the whole flywheel</button>
+        <a class="btn" href="#marketplace">Explore the marketplace</a>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><span class="tag live">LIVE</span><div class="v" id="statTools">—</div><div class="l up">Tools on-chain</div></div>
+        <div class="stat"><span class="tag live">LIVE</span><div class="v" id="statSettled">—</div><div class="l up">Settled to publishers</div></div>
+        <div class="stat"><span class="tag live">LIVE</span><div class="v" id="statInsurance">—</div><div class="l up">Insurance pool</div></div>
+        <div class="stat"><span class="tag soon">SOON</span><div class="v">128.4k</div><div class="l up">Calls metered</div></div>
+        <div class="stat"><span class="tag soon">SOON</span><div class="v">42<span style="font-size:13px;color:var(--dim)">ms</span></div><div class="l up">p95 latency</div></div>
+        <div class="stat"><span class="tag soon">SOON</span><div class="v">100<span style="font-size:13px;color:var(--dim)">%</span></div><div class="l up">TEE-attested</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FLYWHEEL (LIVE) -->
+  <section id="flywheel">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2>The flywheel</h2>
+        <span class="badge-live"><span class="dot"></span> LIVE ON-CHAIN</span>
+        <span class="desc">Every button below broadcasts a real transaction to the local Lumera node.</span>
+      </div>
+      <div class="fly-grid">
+        <!-- steps + log -->
+        <div>
+          <div class="panel">
+            <div class="ph"><span class="up">Run the loop · step by step</span><span id="toolName" class="mono" style="color:var(--dim)">pubtool</span></div>
+            <div class="pb" style="padding-top:4px">
+              <div class="step" id="s-swap"><div class="num">1</div><div><div class="t">Agent buys credits — swap LUME → LAC</div><div class="d">Converts the native token into spendable credits.</div><div class="step-btns"><button class="btn-sm" onclick="act('swap',this)">Swap 5,000,000 ulume</button></div></div></div>
+              <div class="step" id="s-register"><div class="num">2</div><div><div class="t">Publisher lists a tool — register + bond</div><div class="d">Registers <code id="tn2">pubtool</code> and escrows a 2,000,000 ulume bond (skin-in-the-game).</div><div class="step-btns"><button class="btn-sm" onclick="act('register',this)">Register + bond</button></div></div></div>
+              <div class="step" id="s-lock"><div class="num">3</div><div><div class="t">Router locks payment — quote → lock</div><div class="d">Escrows 1,000,000 LAC for one call; returns a <code>lock_id</code>.</div><div class="step-btns"><button class="btn-sm" onclick="act('lock',this)">Lock credits</button></div></div></div>
+              <div class="step" id="s-submit-receipt"><div class="num">4</div><div><div class="t">SuperNode proves the work — Proof-of-Service</div><div class="d">Anchors <code>pos1&lt;BLAKE3(input,model,output)&gt;</code> on-chain.</div><div class="step-btns"><button class="btn-sm" onclick="act('submit-receipt',this)">Submit PoS receipt</button></div></div></div>
+              <div class="step" id="s-settle"><div class="num">5</div><div><div class="t">Settlement — gated on the proof</div><div class="d">Pays the publisher <b>only if</b> the receipt verifies for this tool &amp; lock.</div><div class="step-btns"><button class="btn-sm" onclick="act('settle',this)">Settle → pay publisher</button><button class="btn-sm btn-danger" onclick="act('settle-noproof',this)">Settle without proof ✗</button></div></div></div>
+              <div class="step" id="s-request-badge"><div class="num">6</div><div><div class="t">Reputation — earn a verification badge</div><div class="d">Scored from the tool's on-chain metrics into a tiered badge.</div><div class="step-btns"><button class="btn-sm" onclick="act('request-badge',this)">Request evaluation</button></div></div></div>
+              <div class="step" id="s-challenge"><div class="num">7</div><div><div class="t">A bad call is disputed — challenge the receipt</div><div class="d">The challenger stakes and locks an equal slice of the bond. Settlement freezes.</div><div class="step-btns"><button class="btn-sm" onclick="act('challenge',this)">Challenge receipt</button></div></div></div>
+              <div class="step" id="s-resolve"><div class="num">8</div><div><div class="t">Dispute upheld — the bond is slashed</div><div class="d">Restitution-routed: 5% burn / 85% insurance / 10% treasury. Re-run step 6 to watch reputation erode.</div><div class="step-btns"><button class="btn-sm" onclick="act('resolve',this)">Uphold → slash bond</button></div></div></div>
+            </div>
+          </div>
+          <div class="panel" style="margin-top:18px">
+            <div class="ph"><span class="up">Activity log</span></div>
+            <div class="pb"><div id="log"><div class="logline info">Ready. Hit “Run the whole flywheel”, or click steps in order.</div></div></div>
+          </div>
         </div>
-        <div class="actor">
-          <div class="role">Publisher</div>
-          <div class="addr" id="pubAddr">…</div>
-          <div class="bal"><span>LUME</span><b id="pubLume">—</b></div>
-          <div class="bal"><span>LAC earned</span><b id="pubLac">—</b></div>
-        </div>
-        <div class="actor">
-          <div class="role">Challenger</div>
-          <div class="addr" id="chlAddr">…</div>
-          <div class="bal"><span>LUME</span><b id="chlLume">—</b></div>
+
+        <!-- live state -->
+        <div>
+          <div class="panel">
+            <div class="ph"><span class="up">Actors</span></div>
+            <div class="actors">
+              <div class="actor"><div class="role">Agent / SuperNode</div><div class="addr" id="agentAddr">…</div><div class="b"><span>LUME</span><b id="agentLume">—</b></div><div class="b"><span>LAC</span><b id="agentLac">—</b></div></div>
+              <div class="actor"><div class="role">Publisher</div><div class="addr" id="pubAddr">…</div><div class="b"><span>LUME</span><b id="pubLume">—</b></div><div class="b"><span>LAC</span><b id="pubLac">—</b></div></div>
+              <div class="actor"><div class="role">Challenger</div><div class="addr" id="chlAddr">…</div><div class="b"><span>LUME</span><b id="chlLume">—</b></div></div>
+            </div>
+          </div>
+          <div class="panel" style="margin-top:18px">
+            <div class="ph"><span class="up">Publisher bond — skin in the game</span></div>
+            <div class="pb">
+              <div class="gauge"><div class="bonded" id="gBonded" style="width:100%"></div><div class="slashed" id="gSlashed" style="width:0%"></div></div>
+              <div class="kv"><span class="k">Bonded (at risk)</span><span class="v" id="bondBonded">—</span></div>
+              <div class="kv"><span class="k">Cumulatively slashed</span><span class="v" id="bondSlashed">—</span></div>
+              <div id="slashSplit" style="display:none"><div class="split">
+                <div class="seg burn"><span class="sl up">Burn 5%</span><b id="sBurn">—</b></div>
+                <div class="seg ins"><span class="sl up">Insurance 85%</span><b id="sIns">—</b></div>
+                <div class="seg treas"><span class="sl up">Treasury 10%</span><b id="sTreas">—</b></div>
+              </div></div>
+            </div>
+          </div>
+          <div class="panel" style="margin-top:18px">
+            <div class="ph"><span class="up">On-chain state</span></div>
+            <div class="pb">
+              <div class="kv"><span class="k">Tool owner</span><span class="v mono" id="toolOwner">—</span></div>
+              <div class="kv"><span class="k">Active lock</span><span class="v mono" id="lockId">—</span></div>
+              <div class="kv"><span class="k">Receipt</span><span class="v mono" id="receiptId">—</span></div>
+              <div class="kv"><span class="k">Receipt status</span><span class="v" id="receiptStatus"><span class="pill idle">none</span></span></div>
+              <div class="kv"><span class="k">Reputation</span><span class="v" id="badge"><span class="pill idle">none</span></span></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
+  </section>
 
-    <div class="card">
-      <h2>Publisher bond — skin in the game</h2>
-      <div class="gauge"><div class="bonded" id="gBonded" style="width:100%"></div><div class="slashed" id="gSlashed" style="width:0%"></div></div>
-      <div class="kv"><span class="k">Bonded (at risk)</span><span class="v" id="bondBonded">—</span></div>
-      <div class="kv"><span class="k">Cumulatively slashed</span><span class="v" id="bondSlashed">—</span></div>
-      <div id="slashSplit" style="display:none">
-        <div class="split">
-          <div class="seg burn"><span class="lbl">burn 5%</span><b id="sBurn">—</b></div>
-          <div class="seg ins"><span class="lbl">insurance 85%</span><b id="sIns">—</b></div>
-          <div class="seg treas"><span class="lbl">treasury 10%</span><b id="sTreas">—</b></div>
-        </div>
+  <!-- MARKETPLACE -->
+  <section id="marketplace">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2>Tool marketplace</h2>
+        <span class="desc">Agents discover tools by verifiable on-chain reputation — no platform owner, no gatekeeper.</span>
+      </div>
+      <div class="tools" id="toolGrid"></div>
+    </div>
+  </section>
+
+  <!-- VISION -->
+  <section id="vision">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2>The full vision</h2>
+        <span class="badge-soon">PREVIEW</span>
+        <span class="desc">What Lumera AI becomes as the remaining modules land — each maps to real on-chain primitives.</span>
+      </div>
+      <div class="vision" id="visionGrid"></div>
+      <div class="what">
+        <b>What's real today vs. preview.</b> The <b>flywheel</b> above and the <b>insurance pool</b> / <b>tool count</b> stats are
+        100% live on the local chain — every click is a real transaction. The marketplace shows one <b>live</b> tool (<code>pubtool</code>,
+        with its real reputation) alongside <b>preview</b> listings, and the cards in this section preview capabilities backed by
+        modules already in the repo (<code>action</code>, <code>lumeraid</code>, <code>insurance</code>, <code>workflows</code>) plus the Phase-2 SGX attestation track.
       </div>
     </div>
+  </section>
+</main>
 
-    <div class="card">
-      <h2>On-chain state</h2>
-      <div class="kv"><span class="k">Tool owner</span><span class="v" id="toolOwner">—</span></div>
-      <div class="kv"><span class="k">Active lock</span><span class="v" id="lockId">—</span></div>
-      <div class="kv"><span class="k">Receipt</span><span class="v" id="receiptId">—</span></div>
-      <div class="kv"><span class="k">Receipt status</span><span class="v" id="receiptStatus"><span class="pill idle">none</span></span></div>
-      <div class="kv"><span class="k">Reputation badge</span><span class="v" id="badge"><span class="pill idle">none</span></span></div>
-    </div>
-
-    <div class="card">
-      <h2>What this proves</h2>
-      <div class="flywheel">
-        <b>Verifiable Execution → Economic Coordination.</b> Settlement is contingent on a
-        SuperNode-attested proof bound to the exact lock, so the agent only ever pays for
-        <b>verified</b> work — and a receipt can't be replayed against another lock.
-        <br><br>The trust graph then <b>self-reinforces</b>: real receipts raise reputation
-        (a tiered badge), while an upheld dispute slashes the publisher's bond
-        (restitution-routed) and erodes that reputation. Every primitive here is real and on-chain.
-      </div>
+<footer>
+  <div class="wrap">
+    <div>Lumera AI · agentic economy PoC · <span id="cfg2"></span></div>
+    <div style="display:flex;gap:18px">
+      <a href="#flywheel">Flywheel</a><a href="#marketplace">Marketplace</a><a href="#vision">Vision</a>
+      <span style="color:var(--dim)">discover → meter → prove → settle</span>
     </div>
   </div>
-</div>
+</footer>
 
 <script>
 const $ = id => document.getElementById(id);
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
-function logLine(msg, cls){
-  const d = document.createElement('div');
-  d.className = 'logline ' + (cls||'');
-  d.textContent = msg;
-  $('log').prepend(d);
+const scrollToFly = () => $('flywheel').scrollIntoView({behavior:'smooth'});
+function logLine(msg, cls){ const d=document.createElement('div'); d.className='logline '+(cls||''); d.textContent=msg; $('log').prepend(d); }
+function fmtAmt(v){ if(v==null||v==='?') return '—'; const n=Number(String(v).replace(/[^0-9.-]/g,'')); return isNaN(n)?v:n.toLocaleString(); }
+function fmtShort(v){ const n=Number(v||0); if(n>=1e6) return (n/1e6).toFixed(2).replace(/\.00$/,'')+'M'; if(n>=1e3) return (n/1e3).toFixed(1).replace(/\.0$/,'')+'k'; return n.toLocaleString(); }
+function shortAddr(a){ return a&&a.length>16?a.slice(0,10)+'…'+a.slice(-5):(a||'—'); }
+function shortId(a){ return a&&a.length>22?a.slice(0,12)+'…'+a.slice(-6):(a||'—'); }
+
+const TIERS=['NONE','BRONZE','SILVER','GOLD','PLATINUM'];
+let peakTier=null;
+
+// ---- mock data (the "full vision") ------------------------------------------
+const MOCK_TOOLS = [
+  {id:'atlas-7b',     ic:'◆', cat:'Open LLM inference — chat, tools, structured output.', tier:'PLATINUM', price:'1.2', unit:'/ call'},
+  {id:'vision-diffuse',ic:'❖', cat:'Text-to-image diffusion, 1024² and upscaling.',        tier:'GOLD',     price:'4.0', unit:'/ image'},
+  {id:'web-retriever', ic:'◈', cat:'Live web search + clean extraction for agents.',        tier:'SILVER',   price:'0.5', unit:'/ query'},
+  {id:'gpu-render',    ic:'▣', cat:'A100 GPU compute jobs, proven via x/action.',           tier:'GOLD',     price:'12',  unit:'/ min'},
+  {id:'oracle-feed',   ic:'◉', cat:'Real-time market + on-chain data feeds.',               tier:'PLATINUM', price:'0.2', unit:'/ tick'},
+];
+const VISION = [
+  {ic:'🛡️', t:'SGX hardware attestation', d:'Every Proof-of-Service receipt backed by a TEE enclave quote — tamper-proof execution, not just a signature.', mod:'Phase-2 · EnclaveQuote'},
+  {ic:'🔗', t:'Composable workflows', d:'Chain tools into verifiable multi-step pipelines and settle the whole DAG atomically.', mod:'x/workflows'},
+  {ic:'⛑️', t:'Insurance & claims', d:'Slashed bonds fund an insurance pool; harmed users file on-chain claims for automatic restitution.', mod:'x/insurance'},
+  {ic:'🌉', t:'Cross-chain calls (IBC)', d:'Discover and call tools on any IBC-connected chain; settle in your home asset.', mod:'IBC v10 · ibc_action'},
+  {ic:'🪪', t:'Agent identity', d:'Portable agent IDs + scoped session keys with spend limits and policy-gated tool access.', mod:'x/lumeraid'},
+  {ic:'📊', t:'Analytics & billing', d:'Per-tool revenue, call volume, latency SLOs and usage-based invoicing for publishers.', mod:'metrics · receipts'},
+];
+
+function tierChip(t){ const c=(t||'NONE').replace('BADGE_TIER_',''); return `<span class="tier ${TIERS.includes(c)?c:'NONE'}">${c}</span>`; }
+
+function renderMarketplace(live){
+  const cards=[];
+  // live tool first
+  const lt = live || {};
+  cards.push(`<div class="tool" title="callable now over MCP + the flywheel above">
+    <div class="top"><div class="ic">⬡</div><span class="pill ok"><span class="dot"></span>LIVE</span></div>
+    <h3>${lt.tool||'pubtool'}</h3><div class="pub">${lt.owner?shortAddr(lt.owner):'—'}</div>
+    <div class="cat">Demo tool on the local chain — metered, proven (BLAKE3 PoS), and settled on every call.</div>
+    <div class="foot"><div class="price">${lt.price||'0.8'} LAC <span>/ call</span></div>${tierChip(lt.tier)}</div>
+  </div>`);
+  for(const m of MOCK_TOOLS){
+    cards.push(`<div class="tool preview">
+      <div class="top"><div class="ic">${m.ic}</div><span class="pill warn">PREVIEW</span></div>
+      <h3>${m.id}</h3><div class="pub">lumera1…publisher</div>
+      <div class="cat">${m.cat}</div>
+      <div class="foot"><div class="price">${m.price} LAC <span>${m.unit}</span></div>${tierChip(m.tier)}</div>
+    </div>`);
+  }
+  $('toolGrid').innerHTML = cards.join('');
 }
-function fmtAmt(v){ if(v==null||v==='?') return '—'; const n=Number(String(v).replace(/[^0-9.-]/g,'')); return isNaN(n)? v : n.toLocaleString(); }
-function shortAddr(a){ return a && a.length>16 ? a.slice(0,12)+'…'+a.slice(-6) : (a||'—'); }
-function shortId(a){ return a && a.length>22 ? a.slice(0,14)+'…'+a.slice(-6) : (a||'—'); }
+function renderVision(){
+  $('visionGrid').innerHTML = VISION.map(v=>`<div class="vcard">
+    <div class="vh"><div class="vic">${v.ic}</div><span class="badge-soon">SOON</span></div>
+    <h3>${v.t}</h3><p>${v.d}</p><div class="mod up">${v.mod}</div>
+  </div>`).join('');
+}
 
-// tiers, to detect reputation erosion across evaluations
-const TIERS = ['NONE','BRONZE','SILVER','GOLD','PLATINUM'];
-let peakTier = null; // highest tier seen, so the "eroded from" hint is sticky
-
+// ---- live wiring ------------------------------------------------------------
+let liveTool = {tool:'pubtool'};
 async function loadConfig(){
   try{
-    const c = await (await fetch('/api/config')).json();
-    $('cfg').textContent = `chain ${c.chainId} · node ${c.node}`;
-    $('agentAddr').textContent = shortAddr(c.agent);
-    $('pubAddr').textContent = shortAddr(c.publisher);
-    $('chlAddr').textContent = shortAddr(c.challenger);
-    if(c.tool) $('toolName').textContent = c.tool;
-  }catch(e){ $('cfg').textContent = 'node unreachable — is lumerad running?'; }
+    const c=await (await fetch('/api/config')).json();
+    $('cfg').textContent=`${c.chainId}`;
+    $('cfg2').textContent=`${c.chainId} · ${c.node}`;
+    $('netStatus').textContent=c.chainId||'local node';
+    $('agentAddr').textContent=shortAddr(c.agent);
+    $('pubAddr').textContent=shortAddr(c.publisher);
+    $('chlAddr').textContent=shortAddr(c.challenger);
+    if(c.tool){ $('toolName').textContent=c.tool; $('tn2').textContent=c.tool; liveTool.tool=c.tool; }
+    liveTool.owner=c.publisher;
+    renderMarketplace(liveTool);
+  }catch(e){ $('cfg').textContent='node unreachable'; $('netStatus').textContent='offline'; }
 }
 
 async function refresh(){
   try{
-    const s = await (await fetch('/api/state')).json();
+    const s=await (await fetch('/api/state')).json();
     if(!s.ok) return;
-    $('agentLume').textContent = fmtAmt(s.agentLume);
-    $('agentLac').textContent  = fmtAmt(s.agentLac);
-    $('pubLume').textContent   = fmtAmt(s.publisherLume);
-    $('pubLac').textContent    = fmtAmt(s.publisherLac);
-    $('chlLume').textContent   = fmtAmt(s.challengerLume!=null?s.challengerLume:'');
-    $('toolOwner').textContent = s.toolOwner ? shortAddr(s.toolOwner) : '— (not registered)';
-    $('lockId').textContent    = s.lockId || '—';
-    $('receiptId').textContent = shortId(s.receiptId);
+    $('agentLume').textContent=fmtAmt(s.agentLume); $('agentLac').textContent=fmtAmt(s.agentLac);
+    $('pubLume').textContent=fmtAmt(s.publisherLume); $('pubLac').textContent=fmtAmt(s.publisherLac);
+    $('chlLume').textContent=fmtAmt(s.challengerLume);
+    $('walletLac').textContent=fmtShort(s.agentLac);
+    $('statTools').textContent=s.toolCount!=null?s.toolCount:'—';
+    $('statSettled').textContent=fmtShort(s.publisherLac);
+    $('statInsurance').textContent=fmtShort(s.insurancePool);
+    $('toolOwner').textContent=s.toolOwner?shortAddr(s.toolOwner):'— not registered';
 
-    // bond gauge
-    const bonded = Number(s.bondBonded||0), slashed = Number(s.bondSlashed||0);
-    const total = bonded+slashed || 1;
-    $('gBonded').style.width  = (100*bonded/total)+'%';
-    $('gSlashed').style.width = (100*slashed/total)+'%';
-    $('bondBonded').textContent  = fmtAmt(bonded)+' ulume';
-    $('bondSlashed').textContent = slashed>0 ? fmtAmt(slashed)+' ulume' : '0';
-    if(Number(s.slashAmount||0) > 0){
-      $('slashSplit').style.display='block';
-      $('sBurn').textContent  = fmtAmt(s.slashBurn);
-      $('sIns').textContent   = fmtAmt(s.slashInsurance);
-      $('sTreas').textContent = fmtAmt(s.slashTreasury);
-    }
+    $('lockId').textContent=s.lockId||'—';
+    $('receiptId').textContent=shortId(s.receiptId);
 
-    // receipt status pill
-    const rs = s.receiptStatus;
-    $('receiptStatus').innerHTML = rs
-      ? `<span class="pill ${rs==='attested'?'ok':(rs==='disputed'?'warn':'no')}">${rs}</span>`
-      : `<span class="pill idle">none</span>`;
+    const bonded=Number(s.bondBonded||0), slashed=Number(s.bondSlashed||0), total=bonded+slashed||1;
+    $('gBonded').style.width=(100*bonded/total)+'%'; $('gSlashed').style.width=(100*slashed/total)+'%';
+    $('bondBonded').textContent=fmtAmt(bonded)+' ulume';
+    $('bondSlashed').textContent=slashed>0?fmtAmt(slashed)+' ulume':'0';
+    if(Number(s.slashAmount||0)>0){ $('slashSplit').style.display='block';
+      $('sBurn').textContent=fmtAmt(s.slashBurn); $('sIns').textContent=fmtAmt(s.slashInsurance); $('sTreas').textContent=fmtAmt(s.slashTreasury); }
 
-    // reputation badge + sticky erosion hint (vs the highest tier ever earned)
-    const bt = (s.badgeTier||'').replace('BADGE_TIER_','');
-    if(bt && bt!=='NONE' && bt!=='UNSPECIFIED'){
-      const idx = TIERS.indexOf(bt);
-      if(peakTier===null || idx > TIERS.indexOf(peakTier)) peakTier = bt;
-      const hint = (idx >= 0 && idx < TIERS.indexOf(peakTier))
-        ? ` <span style="color:var(--bad)">↓ eroded from ${peakTier}</span>` : '';
-      $('badge').innerHTML = `<span class="pill ok">${bt}</span> <span style="color:var(--muted)">score ${s.badgeScore||''}</span>${hint}`;
-    } else {
-      $('badge').innerHTML = `<span class="pill idle">none</span>`;
-    }
+    const rs=s.receiptStatus;
+    $('receiptStatus').innerHTML=rs?`<span class="pill ${rs==='attested'?'ok':(rs==='disputed'?'warn':'no')}">${rs}</span>`:'<span class="pill idle">none</span>';
+
+    const bt=(s.badgeTier||'').replace('BADGE_TIER_','');
+    if(bt&&bt!=='NONE'&&bt!=='UNSPECIFIED'){
+      const idx=TIERS.indexOf(bt);
+      if(peakTier===null||idx>TIERS.indexOf(peakTier)) peakTier=bt;
+      const hint=(idx>=0&&idx<TIERS.indexOf(peakTier))?` <span style="color:var(--danger)">↓ from ${peakTier}</span>`:'';
+      $('badge').innerHTML=`${tierChip(bt)} <span style="color:var(--dim)">score ${s.badgeScore||''}</span>${hint}`;
+      liveTool.tier=s.badgeTier; renderMarketplace(liveTool);
+    } else { $('badge').innerHTML='<span class="pill idle">none</span>'; }
   }catch(e){}
 }
 
-function markDone(step){ const el = $('s-'+step); if(el) el.classList.add('done'); }
-
-// runOne POSTs a step and returns the parsed result; logs nothing itself.
-async function runOne(step){
-  const r = await (await fetch('/api/'+step, {method:'POST'})).json();
-  return r;
-}
-
-function logResult(step, r){
-  if(r.error){ logLine('✗ '+step+': '+r.error, 'bad'); return false; }
-  const tx = r.tx || {};
-  if(step === 'settle-noproof'){
-    logLine((r.rejected? '✓ rejected as expected — ':'⚠ NOT rejected — ') + (r.note||''), r.rejected?'ok':'bad');
-    if(tx.raw_log) logLine('   chain: '+tx.raw_log, 'info');
-    return r.rejected;
-  }
+function markDone(step){ const el=$('s-'+step); if(el) el.classList.add('done'); }
+async function runOne(step){ return await (await fetch('/api/'+step,{method:'POST'})).json(); }
+function logResult(step,r){
+  if(r.error){ logLine('✗ '+step+': '+r.error,'bad'); return false; }
+  const tx=r.tx||{};
+  if(step==='settle-noproof'){ logLine((r.rejected?'✓ rejected as expected — ':'⚠ NOT rejected — ')+(r.note||''),r.rejected?'ok':'bad'); if(tx.raw_log) logLine('   chain: '+tx.raw_log,'info'); return r.rejected; }
   if(r.ok){
-    logLine('✓ '+step+' (code 0) '+(r.note||''), 'ok');
+    logLine('✓ '+step+' (code 0) '+(r.note||''),'ok');
     if(r.lockId) logLine('   lock_id='+r.lockId,'info');
     if(r.receiptId) logLine('   receipt_id='+r.receiptId,'info');
-    if(step==='resolve' && r.slashAmount) logLine('   slashed '+fmtAmt(r.slashAmount)+' → burn '+fmtAmt(r.slashBurn)+' / insurance '+fmtAmt(r.slashInsurance)+' / treasury '+fmtAmt(r.slashTreasury),'info');
+    if(step==='resolve'&&r.slashAmount) logLine('   slashed '+fmtAmt(r.slashAmount)+' → burn '+fmtAmt(r.slashBurn)+' / insurance '+fmtAmt(r.slashInsurance)+' / treasury '+fmtAmt(r.slashTreasury),'info');
     if(tx.txhash) logLine('   tx '+tx.txhash,'info');
-    markDone(step);
-    return true;
+    markDone(step); return true;
   }
-  logLine('✗ '+step+' (code '+tx.code+') '+(tx.raw_log||r.note||''),'bad');
-  return false;
+  logLine('✗ '+step+' (code '+tx.code+') '+(tx.raw_log||r.note||''),'bad'); return false;
 }
-
-async function act(step, btn){
-  const all = document.querySelectorAll('button');
-  all.forEach(b=>b.disabled=true);
-  const old = btn.textContent; btn.textContent = '…';
-  try{
-    const r = await runOne(step);
-    logResult(step, r);
-  }catch(e){ logLine('✗ '+step+': '+e,'bad'); }
-  finally{
-    btn.textContent = old;
-    all.forEach(b=>b.disabled=false);
-    refresh();
-  }
+async function act(step,btn){
+  const all=document.querySelectorAll('button'); all.forEach(b=>b.disabled=true);
+  const old=btn.textContent; btn.textContent='…';
+  try{ logResult(step, await runOne(step)); }catch(e){ logLine('✗ '+step+': '+e,'bad'); }
+  finally{ btn.textContent=old; all.forEach(b=>b.disabled=false); refresh(); }
 }
-
-// runAll drives the entire flywheel against the live chain, in order.
 async function runAll(btn){
-  const all = document.querySelectorAll('button');
-  all.forEach(b=>b.disabled=true);
-  const old = btn.textContent; btn.textContent = 'running…';
-  const plan = [
-    ['swap',           'Agent buys credits',                                900],
-    ['register',       'Publisher lists a tool + bond',                     900],
-    ['lock',           'Router locks payment',                              900],
-    ['submit-receipt', 'SuperNode proves the work',                         900],
-    ['settle',         'Settlement pays the publisher',                     900],
-    ['request-badge',  'Reputation earned from receipts',                  1400],
-    ['challenge',      'A bad call is disputed',                            1400],
-    ['resolve',        'Dispute upheld → bond slashed',                     1400],
-    ['request-badge',  'Reputation re-evaluated — downgrade enters grace', 2500],
-    ['request-badge',  'Grace expired → reputation downgraded',            1400],
+  const all=document.querySelectorAll('button'); all.forEach(b=>b.disabled=true);
+  const old=btn.textContent; btn.textContent='running…';
+  const plan=[
+    ['swap','Agent buys credits',900],['register','Publisher lists a tool + bond',900],
+    ['lock','Router locks payment',900],['submit-receipt','SuperNode proves the work',900],
+    ['settle','Settlement pays the publisher',900],['request-badge','Reputation earned from receipts',1400],
+    ['challenge','A bad call is disputed',1400],['resolve','Dispute upheld → bond slashed',1400],
+    ['request-badge','Reputation re-evaluated — downgrade enters grace',2500],
+    ['request-badge','Grace expired → reputation downgraded',1400],
   ];
   logLine('━━ running the whole flywheel ━━','head');
   for(const [step,label,wait] of plan){
     logLine('▶ '+label,'head');
-    try{
-      const r = await runOne(step);
-      const okStep = logResult(step, r);
-      // 'register' may fail on a re-run (tool already exists) — keep going.
-      if(!okStep && step!=='register' && step!=='settle-noproof'){
-        logLine('   (continuing despite the above)','info');
-      }
+    try{ const r=await runOne(step); const ok=logResult(step,r);
+      if(!ok&&step!=='register'&&step!=='settle-noproof') logLine('   (continuing despite the above)','info');
     }catch(e){ logLine('✗ '+step+': '+e,'bad'); }
-    await refresh();
-    await sleep(wait);
+    await refresh(); await sleep(wait);
   }
-  logLine('━━ flywheel complete: discover → meter → prove → settle, with a self-reinforcing trust graph ━━','head');
-  btn.textContent = old;
-  all.forEach(b=>b.disabled=false);
+  logLine('━━ flywheel complete: discover → meter → prove → settle ━━','head');
+  btn.textContent=old; all.forEach(b=>b.disabled=false);
 }
 
-loadConfig();
-refresh();
-setInterval(refresh, 3000);
+renderMarketplace(liveTool); renderVision(); loadConfig(); refresh();
+setInterval(refresh,3000);
 </script>
 </body>
 </html>

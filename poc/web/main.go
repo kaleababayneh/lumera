@@ -314,6 +314,17 @@ func bondAmounts(tool string) (bonded, slashed string) {
 	return pick("bonded_amount"), pick("total_slashed")
 }
 
+// toolCount returns the number of tools registered on-chain (the live
+// marketplace size).
+func toolCount() int {
+	m, err := query("registry", "list-tools")
+	if err != nil {
+		return 0
+	}
+	tools, _ := m["tools"].([]any)
+	return len(tools)
+}
+
 func moduleAddr(name string) string {
 	m, err := query("auth", "module-account", name)
 	if err != nil {
@@ -393,6 +404,10 @@ func main() {
 		session.Unlock()
 		// publisher bond: bonded vs cumulatively slashed (skin-in-the-game gauge).
 		st["bondBonded"], st["bondSlashed"] = bondAmounts(cfg.Tool)
+		// network stats (real): the insurance pool grows as slashes route into it,
+		// and the on-chain tool count is the live marketplace size.
+		st["insurancePool"] = balance(moduleAddr("insurance"), cfg.LumeDenom)
+		st["toolCount"] = toolCount()
 		// tool + receipt status (best-effort)
 		if m, err := query("registry", "get-tool", cfg.Tool); err == nil {
 			if t, ok := m["tool"].(map[string]any); ok {
