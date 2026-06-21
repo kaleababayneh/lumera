@@ -3,495 +3,611 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Lumera AI — the agentic economy, on-chain</title>
+<title>Lumera AI — Console</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#000; --fg:#fff;
-    --line:rgba(255,255,255,.10); --line-2:rgba(255,255,255,.18);
+    --line:rgba(255,255,255,.10); --line-2:rgba(255,255,255,.20);
     --muted:rgba(255,255,255,.52); --dim:rgba(255,255,255,.34);
     --panel:#070707; --panel-2:#0c0c0c; --hover:rgba(255,255,255,.05);
-    --live:#3fb950; --danger:#f0524d; --preview:#e0a93f; --acc:#fff;
+    --live:#3fb950; --danger:#f0524d; --preview:#e0a93f; --info:#5aa6ff;
     --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
   }
   *{box-sizing:border-box;border-radius:0}
   html,body{margin:0;background:var(--bg);color:var(--fg)}
-  body{font:14px/1.55 "Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-       -webkit-font-smoothing:antialiased;font-feature-settings:"rlig" 1,"calt" 1}
+  body{font:14px/1.55 "Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;font-feature-settings:"rlig" 1,"calt" 1}
   ::selection{background:rgba(255,255,255,.22)}
   a{color:inherit;text-decoration:none}
   code,.mono{font-family:var(--mono)}
-  .up{text-transform:uppercase;letter-spacing:.14em}
-  .wrap{max-width:1200px;margin:0 auto;padding:0 28px}
-  /* ambient glow */
-  .glow{position:fixed;inset:0 0 auto 0;height:620px;pointer-events:none;z-index:0;
-        background:radial-gradient(ellipse 70% 100% at 50% -10%,rgba(255,255,255,.09),transparent 70%)}
-  .grid-bg{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.35;
-        background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
-        background-size:64px 64px;mask-image:radial-gradient(ellipse 60% 50% at 50% 0%,#000,transparent 75%)}
-  main{position:relative;z-index:1}
+  .up{text-transform:uppercase;letter-spacing:.13em}
+  ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.16)}::-webkit-scrollbar-track{background:transparent}
 
-  /* nav */
-  nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);background:rgba(0,0,0,.62);border-bottom:1px solid var(--line)}
-  nav .wrap{display:flex;align-items:center;justify-content:space-between;height:62px}
-  .brand{display:flex;align-items:center;gap:11px;font-weight:700}
-  .brand .mark{width:26px;height:26px;border:1px solid var(--line-2);display:grid;place-items:center;position:relative;overflow:hidden}
-  .brand .mark::before{content:"";position:absolute;inset:4px;background:conic-gradient(from 0deg,#fff,rgba(255,255,255,.15),#fff);animation:spin 8s linear infinite}
+  /* layout */
+  .app{display:grid;grid-template-columns:250px 1fr;min-height:100vh}
+  @media(max-width:780px){.app{grid-template-columns:1fr}.sidebar{display:none}}
+
+  /* sidebar */
+  .sidebar{border-right:1px solid var(--line);background:#020202;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+  .brand{display:flex;align-items:center;gap:11px;padding:20px 20px;border-bottom:1px solid var(--line)}
+  .brand .mark{width:28px;height:28px;border:1px solid var(--line-2);display:grid;place-items:center;position:relative;overflow:hidden;flex:0 0 28px}
+  .brand .mark::before{content:"";position:absolute;inset:4px;background:conic-gradient(from 0deg,#fff,rgba(255,255,255,.12),#fff);animation:spin 9s linear infinite}
   .brand .mark::after{content:"";position:absolute;inset:8px;background:#000}
   @keyframes spin{to{transform:rotate(360deg)}}
-  .brand b{font-size:15px;letter-spacing:.02em}
-  .brand span{color:var(--dim);font-size:11px;font-weight:500}
-  .nav-right{display:flex;align-items:center;gap:10px}
-  .chip{display:flex;align-items:center;gap:8px;border:1px solid var(--line);padding:7px 12px;font-size:12px;color:var(--muted)}
-  .chip b{color:var(--fg);font-weight:600}
-  .dot{width:7px;height:7px;background:var(--live);box-shadow:0 0 0 0 rgba(63,185,80,.6);animation:pulse 2s infinite;border-radius:50%}
+  .brand b{font-size:15px;letter-spacing:.02em;font-weight:700}
+  .brand small{display:block;color:var(--dim);font-size:10px;font-weight:500;letter-spacing:.12em}
+  .nav{padding:12px 12px;flex:1;overflow:auto}
+  .nav .grp{font-size:9.5px;color:var(--dim);letter-spacing:.16em;padding:14px 10px 7px}
+  .nav a{display:flex;align-items:center;gap:11px;padding:9px 11px;color:var(--muted);font-size:13px;font-weight:500;border:1px solid transparent;margin-bottom:2px}
+  .nav a:hover{background:var(--hover);color:#fff}
+  .nav a.active{background:var(--panel-2);color:#fff;border-color:var(--line)}
+  .nav a .ic{width:17px;text-align:center;opacity:.85}
+  .nav a .ct{margin-left:auto;font-size:10px;color:var(--dim);border:1px solid var(--line);padding:1px 6px;font-variant-numeric:tabular-nums}
+  .sidefoot{border-top:1px solid var(--line);padding:14px 18px;font-size:11px;color:var(--muted)}
+  .sidefoot .row{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+  .dot{width:7px;height:7px;background:var(--live);border-radius:50%;animation:pulse 2s infinite}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(63,185,80,.5)}70%{box-shadow:0 0 0 6px rgba(63,185,80,0)}100%{box-shadow:0 0 0 0 rgba(63,185,80,0)}}
 
-  /* hero */
-  .hero{padding:70px 0 30px;text-align:center}
-  .kicker{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);padding:6px 12px;font-size:11px;color:var(--muted);margin-bottom:22px}
-  .hero h1{font-size:clamp(30px,5vw,52px);line-height:1.05;font-weight:800;letter-spacing:-.02em;margin:0 0 14px}
-  .hero h1 .fade{background:linear-gradient(90deg,#fff,rgba(255,255,255,.45));-webkit-background-clip:text;background-clip:text;color:transparent}
-  .hero p{color:var(--muted);font-size:16px;max-width:620px;margin:0 auto 30px}
-  .hero .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  /* topbar */
+  .topbar{height:60px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 26px;position:sticky;top:0;background:rgba(0,0,0,.7);backdrop-filter:blur(12px);z-index:30}
+  .topbar h1{font-size:16px;font-weight:650;margin:0;letter-spacing:-.01em}
+  .topbar .crumb{color:var(--dim);font-size:12px;margin-top:1px}
+  .topbar .right{display:flex;align-items:center;gap:10px}
+  .chip{display:flex;align-items:center;gap:8px;border:1px solid var(--line);padding:7px 12px;font-size:12px;color:var(--muted)}
+  .chip b{color:#fff;font-weight:600;font-variant-numeric:tabular-nums}
 
-  /* buttons */
-  button,.btn{font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid var(--line-2);background:transparent;color:var(--fg);padding:11px 18px;transition:.15s;letter-spacing:.04em}
-  button:hover,.btn:hover{background:var(--hover);border-color:rgba(255,255,255,.34)}
+  .content{min-width:0;background:radial-gradient(ellipse 60% 36% at 60% -8%,rgba(255,255,255,.05),transparent 70%)}
+  main{padding:26px;max-width:1180px}
+
+  /* primitives */
+  .card{border:1px solid var(--line);background:var(--panel)}
+  .card .h{padding:13px 16px;border-bottom:1px solid var(--line);font-size:11px;color:var(--muted);display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .card .b{padding:16px}
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:900px){.g3,.g4{grid-template-columns:repeat(2,1fr)}.g2{grid-template-columns:1fr}}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .spread{display:flex;justify-content:space-between;align-items:center;gap:12px}
+
+  button,.btn{font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid var(--line-2);background:transparent;color:#fff;padding:10px 16px;transition:.14s;letter-spacing:.03em;white-space:nowrap}
+  button:hover,.btn:hover{background:var(--hover);border-color:rgba(255,255,255,.36)}
   button:disabled{opacity:.4;cursor:not-allowed}
-  .btn-primary{background:#fff;color:#000;border-color:#fff}
-  .btn-primary:hover{background:rgba(255,255,255,.85);color:#000}
-  .btn-sm{padding:8px 13px;font-size:11.5px}
-  .btn-danger{border-color:rgba(240,82,77,.4);color:#ff8a86}
-  .btn-danger:hover{background:rgba(240,82,77,.1)}
+  .btn-primary{background:#fff;color:#000;border-color:#fff}.btn-primary:hover{background:rgba(255,255,255,.86);color:#000}
+  .btn-sm{padding:8px 12px;font-size:11.5px}
+  .btn-danger{border-color:rgba(240,82,77,.45);color:#ff8a86}.btn-danger:hover{background:rgba(240,82,77,.1)}
 
-  /* stat strip */
-  .stats{display:grid;grid-template-columns:repeat(6,1fr);border:1px solid var(--line);margin-top:14px}
-  @media(max-width:860px){.stats{grid-template-columns:repeat(3,1fr)}}
-  @media(max-width:520px){.stats{grid-template-columns:repeat(2,1fr)}}
-  .stat{padding:18px 16px;border-right:1px solid var(--line);position:relative}
-  .stat:last-child{border-right:none}
-  .stat .v{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
-  .stat .l{font-size:10.5px;color:var(--dim);margin-top:5px}
-  .tag{position:absolute;top:10px;right:10px;font-size:8.5px;font-weight:700;letter-spacing:.1em;padding:2px 5px;border:1px solid}
+  input,select,textarea{font-family:inherit;font-size:13px;background:#000;color:#fff;border:1px solid var(--line-2);padding:10px 12px;width:100%}
+  input:focus,select,textarea:focus{outline:none;border-color:rgba(255,255,255,.4)}
+  label{font-size:11px;color:var(--muted);display:block;margin-bottom:6px}
+  .field{margin-bottom:14px}
+
+  /* kpi */
+  .kpi{border:1px solid var(--line);background:var(--panel);padding:16px;position:relative}
+  .kpi .v{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .kpi .v small{font-size:13px;color:var(--dim);font-weight:500}
+  .kpi .l{font-size:10.5px;color:var(--dim);margin-top:6px}
+  .tag{position:absolute;top:11px;right:11px;font-size:8px;font-weight:700;letter-spacing:.1em;padding:2px 5px;border:1px solid}
   .tag.live{color:var(--live);border-color:rgba(63,185,80,.4)}
   .tag.soon{color:var(--preview);border-color:rgba(224,169,63,.4)}
 
-  /* sections */
-  section{padding:46px 0}
-  .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px;flex-wrap:wrap}
-  .sec-head h2{font-size:22px;font-weight:700;letter-spacing:-.01em;margin:0}
-  .sec-head .desc{color:var(--muted);font-size:13.5px}
-  .badge-live,.badge-soon{font-size:10px;font-weight:700;letter-spacing:.12em;padding:4px 8px;border:1px solid;display:inline-flex;align-items:center;gap:6px}
-  .badge-live{color:var(--live);border-color:rgba(63,185,80,.4)}
-  .badge-soon{color:var(--preview);border-color:rgba(224,169,63,.4)}
-
-  /* cards / panels */
-  .panel{border:1px solid var(--line);background:var(--panel)}
-  .panel .ph{padding:13px 16px;border-bottom:1px solid var(--line);font-size:11px;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
-  .panel .pb{padding:16px}
-  .fly-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:18px}
-  @media(max-width:920px){.fly-grid{grid-template-columns:1fr}}
-
-  /* steps */
-  .step{display:flex;gap:13px;padding:13px 0;border-top:1px solid var(--line)}
-  .step:first-child{border-top:none}
-  .num{flex:0 0 28px;height:28px;border:1px solid var(--line-2);display:grid;place-items:center;font-weight:700;font-size:12px;color:var(--muted)}
-  .step.done .num{background:var(--live);color:#000;border-color:var(--live)}
-  .step .t{font-weight:600;font-size:13.5px}
-  .step .d{color:var(--muted);font-size:12px;margin:3px 0 9px}
-  .step .d code{color:var(--fg);background:var(--panel-2);padding:1px 5px;font-size:11px}
-  .step-btns{display:flex;gap:8px;flex-wrap:wrap}
-
-  /* actors */
-  .actors{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border:1px solid var(--line)}
-  .actor{padding:13px;border-right:1px solid var(--line)}
-  .actor:last-child{border-right:none}
-  .actor .role{font-weight:600;font-size:11.5px}
-  .actor .addr{color:var(--dim);font-size:10px;margin-top:3px;font-family:var(--mono);word-break:break-all}
-  .actor .b{display:flex;justify-content:space-between;font-size:11.5px;margin-top:7px;font-variant-numeric:tabular-nums}
-  .actor .b span{color:var(--muted)} .actor .b b{font-weight:600}
-
-  .kv{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:12px}
-  .kv:first-child{border-top:none}
-  .kv .k{color:var(--muted)} .kv .v{text-align:right;word-break:break-all;font-variant-numeric:tabular-nums}
-  .kv .v.mono{font-family:var(--mono);font-size:11px}
-
-  /* pills */
+  /* pills, tiers, badges */
   .pill{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;font-size:10.5px;font-weight:600;border:1px solid var(--line-2)}
   .pill.ok{color:var(--live);border-color:rgba(63,185,80,.4)}
   .pill.warn{color:var(--preview);border-color:rgba(224,169,63,.4)}
   .pill.no{color:var(--danger);border-color:rgba(240,82,77,.4)}
   .pill.idle{color:var(--dim)}
-
-  /* bond gauge */
-  .gauge{height:16px;border:1px solid var(--line);display:flex;margin:4px 0 10px}
-  .gauge .bonded{background:linear-gradient(90deg,rgba(255,255,255,.85),rgba(255,255,255,.55))}
-  .gauge .slashed{background:repeating-linear-gradient(45deg,var(--danger),var(--danger) 4px,rgba(240,82,77,.6) 4px,rgba(240,82,77,.6) 8px)}
-  .split{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px}
-  .split .seg{border:1px solid var(--line);padding:8px;text-align:center}
-  .split .seg .sl{font-size:9.5px;color:var(--dim);letter-spacing:.06em}
-  .split .seg b{display:block;font-size:13px;margin-top:3px;font-variant-numeric:tabular-nums}
-  .split .burn b{color:var(--danger)} .split .ins b{color:#fff} .split .treas b{color:var(--preview)}
-
-  /* log */
-  #log{font-family:var(--mono);font-size:11.5px;background:#000;border:1px solid var(--line);padding:12px;max-height:300px;overflow:auto;white-space:pre-wrap}
-  .logline{padding:2px 0}
-  .logline.ok{color:var(--live)} .logline.bad{color:var(--danger)} .logline.info{color:var(--dim)} .logline.head{color:#fff;font-weight:600}
-
-  /* marketplace */
-  .tools{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-  @media(max-width:920px){.tools{grid-template-columns:repeat(2,1fr)}}
-  @media(max-width:600px){.tools{grid-template-columns:1fr}}
-  .tool{border:1px solid var(--line);background:var(--panel);padding:16px;transition:.15s;position:relative;overflow:hidden}
-  .tool:hover{border-color:var(--line-2);background:var(--panel-2);transform:translateY(-2px)}
-  .tool.preview{opacity:.92}
-  .tool .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
-  .tool .ic{width:34px;height:34px;border:1px solid var(--line-2);display:grid;place-items:center;font-size:16px}
-  .tool h3{font-size:14.5px;font-weight:650;margin:11px 0 2px}
-  .tool .pub{font-size:10.5px;color:var(--dim);font-family:var(--mono)}
-  .tool .cat{font-size:11.5px;color:var(--muted);margin:8px 0 12px;min-height:32px}
-  .tool .foot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:11px}
-  .tool .price{font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
-  .tool .price span{color:var(--dim);font-weight:400;font-size:10px}
-
-  /* reputation tier chips */
-  .tier{font-size:9.5px;font-weight:700;letter-spacing:.08em;padding:3px 7px;border:1px solid}
-  .tier.PLATINUM{color:#e6e6fa;border-color:rgba(230,230,250,.5)}
-  .tier.GOLD{color:#e8c46b;border-color:rgba(232,196,107,.5)}
-  .tier.SILVER{color:#cbd5e1;border-color:rgba(203,213,225,.5)}
-  .tier.BRONZE{color:#c08457;border-color:rgba(192,132,87,.5)}
+  .badge-live{font-size:9.5px;font-weight:700;letter-spacing:.12em;padding:3px 8px;border:1px solid rgba(63,185,80,.4);color:var(--live);display:inline-flex;gap:6px;align-items:center}
+  .badge-soon{font-size:9.5px;font-weight:700;letter-spacing:.12em;padding:3px 8px;border:1px solid rgba(224,169,63,.4);color:var(--preview)}
+  .tier{font-size:9.5px;font-weight:700;letter-spacing:.07em;padding:3px 7px;border:1px solid;white-space:nowrap}
+  .tier.PLATINUM{color:#e6e6fa;border-color:rgba(230,230,250,.5)} .tier.GOLD{color:#e8c46b;border-color:rgba(232,196,107,.5)}
+  .tier.SILVER{color:#cbd5e1;border-color:rgba(203,213,225,.5)} .tier.BRONZE{color:#c08457;border-color:rgba(192,132,87,.5)}
   .tier.NONE{color:var(--dim);border-color:var(--line)}
 
-  /* vision grid */
-  .vision{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-  @media(max-width:920px){.vision{grid-template-columns:repeat(2,1fr)}}
-  @media(max-width:600px){.vision{grid-template-columns:1fr}}
-  .vcard{border:1px solid var(--line);background:linear-gradient(180deg,var(--panel),#000);padding:18px;position:relative;min-height:160px}
-  .vcard .vh{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
-  .vcard .vic{font-size:20px}
-  .vcard h3{font-size:15px;font-weight:650;margin:0 0 7px}
-  .vcard p{color:var(--muted);font-size:12.5px;margin:0}
-  .vcard .mod{margin-top:12px;font-size:10px;color:var(--dim);font-family:var(--mono)}
+  .kv{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:12.5px}
+  .kv:first-child{border-top:none}.kv .k{color:var(--muted)}.kv .v{text-align:right;word-break:break-all;font-variant-numeric:tabular-nums}
+  .kv .v.mono{font-family:var(--mono);font-size:11px}
+  .hint{color:var(--dim);font-size:11.5px;line-height:1.55}
 
-  footer{border-top:1px solid var(--line);padding:30px 0;color:var(--dim);font-size:12px}
-  footer .wrap{display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap}
-  footer a{color:var(--muted)} footer a:hover{color:#fff}
-  .what{border:1px solid var(--line);background:var(--panel);padding:16px;margin-top:18px;color:var(--muted);font-size:12.5px;line-height:1.6}
-  .what b{color:#fff}
+  /* gauge / split */
+  .gauge{height:16px;border:1px solid var(--line);display:flex;margin:6px 0 8px}
+  .gauge .bonded{background:linear-gradient(90deg,rgba(255,255,255,.85),rgba(255,255,255,.5))}
+  .gauge .slashed{background:repeating-linear-gradient(45deg,var(--danger),var(--danger) 4px,rgba(240,82,77,.55) 4px,rgba(240,82,77,.55) 8px)}
+  .split{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px}
+  .split .seg{border:1px solid var(--line);padding:9px;text-align:center}
+  .split .seg .sl{font-size:9px;color:var(--dim);letter-spacing:.05em}
+  .split .seg b{display:block;font-size:13px;margin-top:3px;font-variant-numeric:tabular-nums}
+  .split .burn b{color:var(--danger)}.split .ins b{color:#fff}.split .treas b{color:var(--preview)}
+
+  /* tool cards */
+  .tools{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:900px){.tools{grid-template-columns:repeat(2,1fr)}}@media(max-width:560px){.tools{grid-template-columns:1fr}}
+  .tool{border:1px solid var(--line);background:var(--panel);padding:16px;transition:.14s;cursor:pointer;display:flex;flex-direction:column}
+  .tool:hover{border-color:var(--line-2);background:var(--panel-2);transform:translateY(-2px)}
+  .tool .top{display:flex;justify-content:space-between;align-items:flex-start}
+  .tool .ic{width:34px;height:34px;border:1px solid var(--line-2);display:grid;place-items:center;font-size:16px}
+  .tool h3{font-size:14.5px;font-weight:650;margin:11px 0 2px}
+  .tool .pub{font-size:10px;color:var(--dim);font-family:var(--mono)}
+  .tool .desc{font-size:11.5px;color:var(--muted);margin:9px 0 12px;flex:1}
+  .tool .foot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:11px}
+  .tool .price{font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}.tool .price span{color:var(--dim);font-weight:400;font-size:10px}
+  .cat-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+  .cat{font-size:11.5px;padding:6px 12px;border:1px solid var(--line);color:var(--muted);cursor:pointer}
+  .cat:hover{border-color:var(--line-2);color:#fff}.cat.on{background:#fff;color:#000;border-color:#fff}
+
+  /* table */
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;color:var(--dim);font-weight:600;font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:10px 12px;border-bottom:1px solid var(--line)}
+  td{padding:12px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+  tr:hover td{background:var(--hover)}
+  .rank{color:var(--dim);font-family:var(--mono)}
+
+  /* feed */
+  .feed .it{display:flex;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+  .feed .it:first-child{border-top:none}
+  .feed .fic{width:30px;height:30px;border:1px solid var(--line);display:grid;place-items:center;font-size:14px;flex:0 0 30px}
+  .feed .ft{font-size:12.5px;font-weight:550}.feed .fs{font-size:11px;color:var(--dim);font-family:var(--mono);margin-top:2px;word-break:break-all}
+  .feed .fm{margin-left:auto;font-size:10.5px;color:var(--dim);white-space:nowrap}
+
+  /* vision cards */
+  .vcard{border:1px solid var(--line);background:linear-gradient(180deg,var(--panel),#000);padding:18px;min-height:150px}
+  .vcard .vh{display:flex;justify-content:space-between;margin-bottom:11px}.vcard .vic{font-size:20px}
+  .vcard h3{font-size:14.5px;margin:0 0 7px}.vcard p{color:var(--muted);font-size:12px;margin:0}
+  .vcard .mod{margin-top:11px;font-size:10px;color:var(--dim);font-family:var(--mono)}
+
+  /* playground result */
+  .result{border:1px solid var(--line);background:#000;padding:14px;font-family:var(--mono);font-size:12px;margin-top:12px;white-space:pre-wrap;word-break:break-all}
+  .result .ok{color:var(--live)}
+
+  /* toasts */
+  #toasts{position:fixed;right:20px;bottom:20px;z-index:200;display:flex;flex-direction:column;gap:9px;max-width:380px}
+  .toast{border:1px solid var(--line-2);background:#0a0a0a;padding:12px 14px;font-size:12.5px;animation:slidein .2s ease;display:flex;gap:10px}
+  .toast.ok{border-color:rgba(63,185,80,.45)}.toast.bad{border-color:rgba(240,82,77,.45)}.toast.info{border-color:var(--line-2)}
+  .toast .ti{font-weight:600}.toast .ts{color:var(--muted);font-size:11px;margin-top:2px;font-family:var(--mono);word-break:break-all}
+  @keyframes slidein{from{transform:translateX(20px);opacity:0}to{transform:none;opacity:1}}
+  .empty{color:var(--dim);font-size:12.5px;padding:24px;text-align:center;border:1px dashed var(--line)}
+  .sub{color:var(--muted);font-size:12.5px;margin:-4px 0 18px}
+  .banner{border:1px solid rgba(224,169,63,.4);background:rgba(224,169,63,.06);color:#f0d196;padding:12px 14px;font-size:12.5px;margin-bottom:16px}
 </style>
 </head>
 <body>
-<div class="glow"></div>
-<div class="grid-bg"></div>
-
-<nav>
-  <div class="wrap">
+<div class="app">
+  <aside class="sidebar">
     <div class="brand">
       <div class="mark"></div>
-      <div><b>LUMERA<span style="color:var(--dim)">·</span>AI</b> <span id="cfg" style="margin-left:6px">connecting…</span></div>
+      <div><b>LUMERA·AI</b><small>CONSOLE</small></div>
     </div>
-    <div class="nav-right">
-      <div class="chip"><span class="dot"></span><span id="netStatus">local node</span></div>
-      <div class="chip">Agent <b id="walletLac">—</b> LAC</div>
+    <nav class="nav" id="nav">
+      <div class="grp up">Agent</div>
+      <a data-route="" href="#/"><span class="ic">▦</span> Dashboard</a>
+      <a data-route="marketplace" href="#/marketplace"><span class="ic">◳</span> Marketplace <span class="ct" id="navTools">0</span></a>
+      <a data-route="wallet" href="#/wallet"><span class="ic">◇</span> Wallet</a>
+      <div class="grp up">Publisher</div>
+      <a data-route="publish" href="#/publish"><span class="ic">↑</span> Publish a tool</a>
+      <a data-route="reputation" href="#/reputation"><span class="ic">★</span> Reputation</a>
+      <div class="grp up">Network</div>
+      <a data-route="disputes" href="#/disputes"><span class="ic">⚖</span> Disputes</a>
+      <a data-route="activity" href="#/activity"><span class="ic">≡</span> Activity</a>
+      <a data-route="vision" href="#/vision"><span class="ic">◌</span> Roadmap</a>
+    </nav>
+    <div class="sidefoot">
+      <div class="row"><span class="dot" id="sideDot"></span> <span id="sideNet">connecting…</span></div>
+      <div class="row" style="color:var(--dim)">block <span id="sideBlock" style="margin-left:auto;font-family:var(--mono)">—</span></div>
     </div>
+  </aside>
+
+  <div class="content">
+    <header class="topbar">
+      <div><h1 id="pageTitle">Dashboard</h1><div class="crumb" id="crumb">overview</div></div>
+      <div class="right">
+        <a class="chip" href="#/wallet">Agent <b id="topLac">—</b> LAC</a>
+        <div class="chip"><span class="dot"></span><span id="topNet">local</span></div>
+      </div>
+    </header>
+    <main id="view"></main>
   </div>
-</nav>
-
-<main>
-  <!-- HERO -->
-  <section class="hero">
-    <div class="wrap">
-      <div class="kicker up"><span class="dot"></span> discover · meter · prove · settle</div>
-      <h1>The agentic economy,<br><span class="fade">verifiable and on-chain.</span></h1>
-      <p>AI agents discover tools, the chain meters &amp; executes &amp; <b style="color:#fff">proves</b> &amp; settles every call,
-         and a self-reinforcing trust graph — bonds, disputes, reputation — governs it all.</p>
-      <div class="cta">
-        <button class="btn-primary" onclick="runAll(this);scrollToFly()">▶ Run the whole flywheel</button>
-        <a class="btn" href="#marketplace">Explore the marketplace</a>
-      </div>
-
-      <div class="stats">
-        <div class="stat"><span class="tag live">LIVE</span><div class="v" id="statTools">—</div><div class="l up">Tools on-chain</div></div>
-        <div class="stat"><span class="tag live">LIVE</span><div class="v" id="statSettled">—</div><div class="l up">Settled to publishers</div></div>
-        <div class="stat"><span class="tag live">LIVE</span><div class="v" id="statInsurance">—</div><div class="l up">Insurance pool</div></div>
-        <div class="stat"><span class="tag soon">SOON</span><div class="v">128.4k</div><div class="l up">Calls metered</div></div>
-        <div class="stat"><span class="tag soon">SOON</span><div class="v">42<span style="font-size:13px;color:var(--dim)">ms</span></div><div class="l up">p95 latency</div></div>
-        <div class="stat"><span class="tag soon">SOON</span><div class="v">100<span style="font-size:13px;color:var(--dim)">%</span></div><div class="l up">TEE-attested</div></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- FLYWHEEL (LIVE) -->
-  <section id="flywheel">
-    <div class="wrap">
-      <div class="sec-head">
-        <h2>The flywheel</h2>
-        <span class="badge-live"><span class="dot"></span> LIVE ON-CHAIN</span>
-        <span class="desc">Every button below broadcasts a real transaction to the local Lumera node.</span>
-      </div>
-      <div class="fly-grid">
-        <!-- steps + log -->
-        <div>
-          <div class="panel">
-            <div class="ph"><span class="up">Run the loop · step by step</span><span id="toolName" class="mono" style="color:var(--dim)">pubtool</span></div>
-            <div class="pb" style="padding-top:4px">
-              <div class="step" id="s-swap"><div class="num">1</div><div><div class="t">Agent buys credits — swap LUME → LAC</div><div class="d">Converts the native token into spendable credits.</div><div class="step-btns"><button class="btn-sm" onclick="act('swap',this)">Swap 5,000,000 ulume</button></div></div></div>
-              <div class="step" id="s-register"><div class="num">2</div><div><div class="t">Publisher lists a tool — register + bond</div><div class="d">Registers <code id="tn2">pubtool</code> and escrows a 2,000,000 ulume bond (skin-in-the-game).</div><div class="step-btns"><button class="btn-sm" onclick="act('register',this)">Register + bond</button></div></div></div>
-              <div class="step" id="s-lock"><div class="num">3</div><div><div class="t">Router locks payment — quote → lock</div><div class="d">Escrows 1,000,000 LAC for one call; returns a <code>lock_id</code>.</div><div class="step-btns"><button class="btn-sm" onclick="act('lock',this)">Lock credits</button></div></div></div>
-              <div class="step" id="s-submit-receipt"><div class="num">4</div><div><div class="t">SuperNode proves the work — Proof-of-Service</div><div class="d">Anchors <code>pos1&lt;BLAKE3(input,model,output)&gt;</code> on-chain.</div><div class="step-btns"><button class="btn-sm" onclick="act('submit-receipt',this)">Submit PoS receipt</button></div></div></div>
-              <div class="step" id="s-settle"><div class="num">5</div><div><div class="t">Settlement — gated on the proof</div><div class="d">Pays the publisher <b>only if</b> the receipt verifies for this tool &amp; lock.</div><div class="step-btns"><button class="btn-sm" onclick="act('settle',this)">Settle → pay publisher</button><button class="btn-sm btn-danger" onclick="act('settle-noproof',this)">Settle without proof ✗</button></div></div></div>
-              <div class="step" id="s-request-badge"><div class="num">6</div><div><div class="t">Reputation — earn a verification badge</div><div class="d">Scored from the tool's on-chain metrics into a tiered badge.</div><div class="step-btns"><button class="btn-sm" onclick="act('request-badge',this)">Request evaluation</button></div></div></div>
-              <div class="step" id="s-challenge"><div class="num">7</div><div><div class="t">A bad call is disputed — challenge the receipt</div><div class="d">The challenger stakes and locks an equal slice of the bond. Settlement freezes.</div><div class="step-btns"><button class="btn-sm" onclick="act('challenge',this)">Challenge receipt</button></div></div></div>
-              <div class="step" id="s-resolve"><div class="num">8</div><div><div class="t">Dispute upheld — the bond is slashed</div><div class="d">Restitution-routed: 5% burn / 85% insurance / 10% treasury. Re-run step 6 to watch reputation erode.</div><div class="step-btns"><button class="btn-sm" onclick="act('resolve',this)">Uphold → slash bond</button></div></div></div>
-            </div>
-          </div>
-          <div class="panel" style="margin-top:18px">
-            <div class="ph"><span class="up">Activity log</span></div>
-            <div class="pb"><div id="log"><div class="logline info">Ready. Hit “Run the whole flywheel”, or click steps in order.</div></div></div>
-          </div>
-        </div>
-
-        <!-- live state -->
-        <div>
-          <div class="panel">
-            <div class="ph"><span class="up">Actors</span></div>
-            <div class="actors">
-              <div class="actor"><div class="role">Agent / SuperNode</div><div class="addr" id="agentAddr">…</div><div class="b"><span>LUME</span><b id="agentLume">—</b></div><div class="b"><span>LAC</span><b id="agentLac">—</b></div></div>
-              <div class="actor"><div class="role">Publisher</div><div class="addr" id="pubAddr">…</div><div class="b"><span>LUME</span><b id="pubLume">—</b></div><div class="b"><span>LAC</span><b id="pubLac">—</b></div></div>
-              <div class="actor"><div class="role">Challenger</div><div class="addr" id="chlAddr">…</div><div class="b"><span>LUME</span><b id="chlLume">—</b></div></div>
-            </div>
-          </div>
-          <div class="panel" style="margin-top:18px">
-            <div class="ph"><span class="up">Publisher bond — skin in the game</span></div>
-            <div class="pb">
-              <div class="gauge"><div class="bonded" id="gBonded" style="width:100%"></div><div class="slashed" id="gSlashed" style="width:0%"></div></div>
-              <div class="kv"><span class="k">Bonded (at risk)</span><span class="v" id="bondBonded">—</span></div>
-              <div class="kv"><span class="k">Cumulatively slashed</span><span class="v" id="bondSlashed">—</span></div>
-              <div id="slashSplit" style="display:none"><div class="split">
-                <div class="seg burn"><span class="sl up">Burn 5%</span><b id="sBurn">—</b></div>
-                <div class="seg ins"><span class="sl up">Insurance 85%</span><b id="sIns">—</b></div>
-                <div class="seg treas"><span class="sl up">Treasury 10%</span><b id="sTreas">—</b></div>
-              </div></div>
-            </div>
-          </div>
-          <div class="panel" style="margin-top:18px">
-            <div class="ph"><span class="up">On-chain state</span></div>
-            <div class="pb">
-              <div class="kv"><span class="k">Tool owner</span><span class="v mono" id="toolOwner">—</span></div>
-              <div class="kv"><span class="k">Active lock</span><span class="v mono" id="lockId">—</span></div>
-              <div class="kv"><span class="k">Receipt</span><span class="v mono" id="receiptId">—</span></div>
-              <div class="kv"><span class="k">Receipt status</span><span class="v" id="receiptStatus"><span class="pill idle">none</span></span></div>
-              <div class="kv"><span class="k">Reputation</span><span class="v" id="badge"><span class="pill idle">none</span></span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- MARKETPLACE -->
-  <section id="marketplace">
-    <div class="wrap">
-      <div class="sec-head">
-        <h2>Tool marketplace</h2>
-        <span class="desc">Agents discover tools by verifiable on-chain reputation — no platform owner, no gatekeeper.</span>
-      </div>
-      <div class="tools" id="toolGrid"></div>
-    </div>
-  </section>
-
-  <!-- VISION -->
-  <section id="vision">
-    <div class="wrap">
-      <div class="sec-head">
-        <h2>The full vision</h2>
-        <span class="badge-soon">PREVIEW</span>
-        <span class="desc">What Lumera AI becomes as the remaining modules land — each maps to real on-chain primitives.</span>
-      </div>
-      <div class="vision" id="visionGrid"></div>
-      <div class="what">
-        <b>What's real today vs. preview.</b> The <b>flywheel</b> above and the <b>insurance pool</b> / <b>tool count</b> stats are
-        100% live on the local chain — every click is a real transaction. The marketplace shows one <b>live</b> tool (<code>pubtool</code>,
-        with its real reputation) alongside <b>preview</b> listings, and the cards in this section preview capabilities backed by
-        modules already in the repo (<code>action</code>, <code>lumeraid</code>, <code>insurance</code>, <code>workflows</code>) plus the Phase-2 SGX attestation track.
-      </div>
-    </div>
-  </section>
-</main>
-
-<footer>
-  <div class="wrap">
-    <div>Lumera AI · agentic economy PoC · <span id="cfg2"></span></div>
-    <div style="display:flex;gap:18px">
-      <a href="#flywheel">Flywheel</a><a href="#marketplace">Marketplace</a><a href="#vision">Vision</a>
-      <span style="color:var(--dim)">discover → meter → prove → settle</span>
-    </div>
-  </div>
-</footer>
+</div>
+<div id="toasts"></div>
 
 <script>
-const $ = id => document.getElementById(id);
-const sleep = ms => new Promise(r=>setTimeout(r,ms));
-const scrollToFly = () => $('flywheel').scrollIntoView({behavior:'smooth'});
-function logLine(msg, cls){ const d=document.createElement('div'); d.className='logline '+(cls||''); d.textContent=msg; $('log').prepend(d); }
-function fmtAmt(v){ if(v==null||v==='?') return '—'; const n=Number(String(v).replace(/[^0-9.-]/g,'')); return isNaN(n)?v:n.toLocaleString(); }
-function fmtShort(v){ const n=Number(v||0); if(n>=1e6) return (n/1e6).toFixed(2).replace(/\.00$/,'')+'M'; if(n>=1e3) return (n/1e3).toFixed(1).replace(/\.0$/,'')+'k'; return n.toLocaleString(); }
-function shortAddr(a){ return a&&a.length>16?a.slice(0,10)+'…'+a.slice(-5):(a||'—'); }
-function shortId(a){ return a&&a.length>22?a.slice(0,12)+'…'+a.slice(-6):(a||'—'); }
-
+const $=s=>document.querySelector(s);
+const el=id=>document.getElementById(id);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function fmt(v){if(v==null||v==='?')return '—';const n=Number(String(v).replace(/[^0-9.-]/g,''));return isNaN(n)?v:n.toLocaleString();}
+function fmtS(v){const n=Number(v||0);if(n>=1e6)return (n/1e6).toFixed(2).replace(/\.?0+$/,'')+'M';if(n>=1e3)return (n/1e3).toFixed(1).replace(/\.0$/,'')+'k';return n.toLocaleString();}
+function shortA(a){return a&&a.length>16?a.slice(0,10)+'…'+a.slice(-5):(a||'—');}
+function shortId(a){return a&&a.length>22?a.slice(0,12)+'…'+a.slice(-6):(a||'—');}
 const TIERS=['NONE','BRONZE','SILVER','GOLD','PLATINUM'];
-let peakTier=null;
+function tierName(t){return (t||'NONE').replace('BADGE_TIER_','');}
+function tierChip(t){const c=tierName(t);return `<span class="tier ${TIERS.includes(c)?c:'NONE'}">${c}</span>`;}
 
-// ---- mock data (the "full vision") ------------------------------------------
-const MOCK_TOOLS = [
-  {id:'atlas-7b',     ic:'◆', cat:'Open LLM inference — chat, tools, structured output.', tier:'PLATINUM', price:'1.2', unit:'/ call'},
-  {id:'vision-diffuse',ic:'❖', cat:'Text-to-image diffusion, 1024² and upscaling.',        tier:'GOLD',     price:'4.0', unit:'/ image'},
-  {id:'web-retriever', ic:'◈', cat:'Live web search + clean extraction for agents.',        tier:'SILVER',   price:'0.5', unit:'/ query'},
-  {id:'gpu-render',    ic:'▣', cat:'A100 GPU compute jobs, proven via x/action.',           tier:'GOLD',     price:'12',  unit:'/ min'},
-  {id:'oracle-feed',   ic:'◉', cat:'Real-time market + on-chain data feeds.',               tier:'PLATINUM', price:'0.2', unit:'/ tick'},
+// ---- global state ----
+let S={}, C={}, peakTier=null;
+let activity=[
+  {ic:'⬡',k:'ok',t:'Tool published',s:'pubtool · bond 2,000,000 ulume',m:'seed'},
+  {ic:'✦',k:'ok',t:'Call settled',s:'publisher paid 800,000 ulac',m:'seed'},
+  {ic:'★',k:'info',t:'Reputation evaluated',s:'pubtool → PLATINUM',m:'seed'},
 ];
-const VISION = [
-  {ic:'🛡️', t:'SGX hardware attestation', d:'Every Proof-of-Service receipt backed by a TEE enclave quote — tamper-proof execution, not just a signature.', mod:'Phase-2 · EnclaveQuote'},
-  {ic:'🔗', t:'Composable workflows', d:'Chain tools into verifiable multi-step pipelines and settle the whole DAG atomically.', mod:'x/workflows'},
-  {ic:'⛑️', t:'Insurance & claims', d:'Slashed bonds fund an insurance pool; harmed users file on-chain claims for automatic restitution.', mod:'x/insurance'},
-  {ic:'🌉', t:'Cross-chain calls (IBC)', d:'Discover and call tools on any IBC-connected chain; settle in your home asset.', mod:'IBC v10 · ibc_action'},
-  {ic:'🪪', t:'Agent identity', d:'Portable agent IDs + scoped session keys with spend limits and policy-gated tool access.', mod:'x/lumeraid'},
-  {ic:'📊', t:'Analytics & billing', d:'Per-tool revenue, call volume, latency SLOs and usage-based invoicing for publishers.', mod:'metrics · receipts'},
+function pushAct(a){a.m=a.m||'now';activity.unshift(a);if(activity.length>40)activity.pop();}
+
+// ---- mock catalog (the "full vision") ----
+const MOCK=[
+  {id:'atlas-7b',cat:'LLM',ic:'◆',desc:'Open 7B chat + tool-use model.',tier:'PLATINUM',score:9420,price:'1.2',unit:'call',calls:'48.2k',success:'99.6%'},
+  {id:'orion-70b',cat:'LLM',ic:'◆',desc:'Frontier 70B reasoning model.',tier:'GOLD',score:8810,price:'6.0',unit:'call',calls:'12.9k',success:'99.1%'},
+  {id:'vision-diffuse',cat:'Image',ic:'❖',desc:'Text-to-image diffusion, 1024² + upscale.',tier:'GOLD',score:8650,price:'4.0',unit:'image',calls:'30.1k',success:'98.7%'},
+  {id:'web-retriever',cat:'Search',ic:'◈',desc:'Live web search + clean extraction.',tier:'SILVER',score:7720,price:'0.5',unit:'query',calls:'88.4k',success:'97.9%'},
+  {id:'gpu-render',cat:'Compute',ic:'▣',desc:'A100 GPU jobs, proven via x/action.',tier:'GOLD',score:8990,price:'12',unit:'min',calls:'4.1k',success:'99.9%'},
+  {id:'oracle-feed',cat:'Data',ic:'◉',desc:'Real-time market + on-chain feeds.',tier:'PLATINUM',score:9510,price:'0.2',unit:'tick',calls:'210k',success:'99.99%'},
+  {id:'whisper-stt',cat:'Audio',ic:'◐',desc:'Speech-to-text, 90+ languages.',tier:'SILVER',score:7610,price:'0.3',unit:'min',calls:'19.7k',success:'98.2%'},
+  {id:'embed-lg',cat:'Data',ic:'⊞',desc:'High-dimensional text embeddings.',tier:'GOLD',score:8430,price:'0.05',unit:'1k tok',calls:'140k',success:'99.8%'},
+  {id:'code-fix',cat:'LLM',ic:'◆',desc:'Code review + patch generation.',tier:'BRONZE',score:6240,price:'2.0',unit:'call',calls:'6.3k',success:'95.4%'},
 ];
+const CATS=['All','Demo','LLM','Image','Search','Compute','Data','Audio'];
+const VISION=[
+  {ic:'🛡️',t:'SGX hardware attestation',d:'Every Proof-of-Service receipt backed by a TEE enclave quote — tamper-proof execution, not just a signature.',mod:'Phase-2 · EnclaveQuote'},
+  {ic:'🔗',t:'Composable workflows',d:'Chain tools into verifiable multi-step pipelines and settle the whole DAG atomically.',mod:'x/workflows'},
+  {ic:'⛑️',t:'Insurance & claims',d:'Slashed bonds fund an insurance pool; harmed users file on-chain claims for restitution.',mod:'x/insurance'},
+  {ic:'🌉',t:'Cross-chain calls (IBC)',d:'Discover and call tools on any IBC-connected chain; settle in your home asset.',mod:'IBC v10 · ibc_action'},
+  {ic:'🪪',t:'Agent identity',d:'Portable agent IDs + scoped session keys with spend limits and policy-gated access.',mod:'x/lumeraid'},
+  {ic:'📊',t:'Analytics & billing',d:'Per-tool revenue, call volume, latency SLOs and usage-based invoicing.',mod:'metrics · receipts'},
+];
+// the live, on-chain tool (merged with chain state at render time)
+function liveTool(){return {id:C.tool||'pubtool',cat:'Demo',ic:'⬡',desc:'Demo tool on the local chain — metered, proven (BLAKE3 PoS) and settled on every call.',tier:tierName(S.badgeTier),score:S.badgeScore||0,price:'0.8',unit:'call',calls:'live',success:'live',owner:S.toolOwner||C.publisher,live:true,registered:!!S.toolOwner};}
+function allTools(){return [liveTool(),...MOCK];}
 
-function tierChip(t){ const c=(t||'NONE').replace('BADGE_TIER_',''); return `<span class="tier ${TIERS.includes(c)?c:'NONE'}">${c}</span>`; }
+// ---- toasts ----
+function toast(title,sub,kind){const d=document.createElement('div');d.className='toast '+(kind||'info');
+  d.innerHTML=`<div><div class="ti">${esc(title)}</div>${sub?`<div class="ts">${esc(sub)}</div>`:''}</div>`;
+  el('toasts').appendChild(d);setTimeout(()=>{d.style.opacity='0';d.style.transition='.3s';setTimeout(()=>d.remove(),300);},4200);}
 
-function renderMarketplace(live){
-  const cards=[];
-  // live tool first
-  const lt = live || {};
-  cards.push(`<div class="tool" title="callable now over MCP + the flywheel above">
-    <div class="top"><div class="ic">⬡</div><span class="pill ok"><span class="dot"></span>LIVE</span></div>
-    <h3>${lt.tool||'pubtool'}</h3><div class="pub">${lt.owner?shortAddr(lt.owner):'—'}</div>
-    <div class="cat">Demo tool on the local chain — metered, proven (BLAKE3 PoS), and settled on every call.</div>
-    <div class="foot"><div class="price">${lt.price||'0.8'} LAC <span>/ call</span></div>${tierChip(lt.tier)}</div>
-  </div>`);
-  for(const m of MOCK_TOOLS){
-    cards.push(`<div class="tool preview">
-      <div class="top"><div class="ic">${m.ic}</div><span class="pill warn">PREVIEW</span></div>
-      <h3>${m.id}</h3><div class="pub">lumera1…publisher</div>
-      <div class="cat">${m.cat}</div>
-      <div class="foot"><div class="price">${m.price} LAC <span>${m.unit}</span></div>${tierChip(m.tier)}</div>
-    </div>`);
+// ---- api ----
+async function getJSON(u){return await (await fetch(u)).json();}
+async function post(step,qs){return await (await fetch('/api/'+step+(qs?('?'+qs):''),{method:'POST'})).json();}
+
+async function loadConfig(){try{C=await getJSON('/api/config');}catch(e){}}
+async function refresh(){try{const s=await getJSON('/api/state');if(s.ok){S=s;
+  const bt=tierName(S.badgeTier);if(bt!=='NONE'&&bt!=='UNSPECIFIED'){const i=TIERS.indexOf(bt);if(peakTier===null||i>TIERS.indexOf(peakTier))peakTier=bt;}
+}}catch(e){}}
+
+// ---- live (poll) — updates shell + present view elements without re-render ----
+function set(id,v){const e=el(id);if(e)e.textContent=v;}
+function setHTML(id,v){const e=el(id);if(e)e.innerHTML=v;}
+function updateLive(){
+  set('topLac',fmtS(S.agentLac));set('navTools',S.toolCount!=null?S.toolCount:'0');
+  set('sideNet',C.chainId||'offline');set('topNet',C.chainId||'local');set('sideBlock',S._block||'live');
+  // dashboard kpis
+  set('kpiTools',S.toolCount!=null?S.toolCount:'—');set('kpiSettled',fmtS(S.publisherLac));
+  set('kpiInsurance',fmtS(S.insurancePool));set('kpiLac',fmtS(S.agentLac));
+  // wallet
+  set('wAgentLume',fmt(S.agentLume));set('wAgentLac',fmt(S.agentLac));set('wPubLume',fmt(S.publisherLume));
+  set('wPubLac',fmt(S.publisherLac));set('wChlLume',fmt(S.challengerLume));set('wInsurance',fmt(S.insurancePool));
+  // tool-detail bond/badge (if mounted)
+  const b=el('tdBonded');if(b){const bonded=Number(S.bondBonded||0),sl=Number(S.bondSlashed||0),tot=bonded+sl||1;
+    el('tdgB').style.width=(100*bonded/tot)+'%';el('tdgS').style.width=(100*sl/tot)+'%';
+    set('tdBonded',fmt(bonded)+' ulume');set('tdSlashed',sl>0?fmt(sl)+' ulume':'0');
+    setHTML('tdBadge',bt2(S.badgeTier,S.badgeScore));}
+}
+function bt2(t,score){const c=tierName(t);if(c==='NONE'||c==='UNSPECIFIED'||!c)return '<span class="pill idle">unrated</span>';
+  let hint='';if(peakTier&&TIERS.indexOf(c)<TIERS.indexOf(peakTier))hint=` <span style="color:var(--danger)">↓ from ${peakTier}</span>`;
+  return `${tierChip(t)} <span style="color:var(--dim)">score ${score||''}</span>${hint}`;}
+
+// ================= VIEWS =================
+const TITLES={'':['Dashboard','overview'],marketplace:['Marketplace','discover on-chain tools'],tool:['Tool','detail & playground'],
+  publish:['Publish a tool','the publisher flow'],disputes:['Disputes','challenge & slash'],reputation:['Reputation','badges & leaderboard'],
+  wallet:['Wallet','credits & balances'],activity:['Activity','on-chain feed'],vision:['Roadmap','the full vision']};
+
+function vDashboard(){
+  return {html:`
+  <div class="grid g4">
+    <div class="kpi"><span class="tag live">LIVE</span><div class="v" id="kpiTools">—</div><div class="l up">Tools on-chain</div></div>
+    <div class="kpi"><span class="tag live">LIVE</span><div class="v" id="kpiSettled">—</div><div class="l up">Settled to publishers</div></div>
+    <div class="kpi"><span class="tag live">LIVE</span><div class="v" id="kpiInsurance">—</div><div class="l up">Insurance pool</div></div>
+    <div class="kpi"><span class="tag live">LIVE</span><div class="v" id="kpiLac">—</div><div class="l up">Your LAC credits</div></div>
+  </div>
+  <div class="grid g4" style="margin-top:16px">
+    <div class="kpi"><span class="tag soon">SOON</span><div class="v">128.4k</div><div class="l up">Calls · 24h</div></div>
+    <div class="kpi"><span class="tag soon">SOON</span><div class="v">42<small>ms</small></div><div class="l up">p95 latency</div></div>
+    <div class="kpi"><span class="tag soon">SOON</span><div class="v">99.7<small>%</small></div><div class="l up">Success rate</div></div>
+    <div class="kpi"><span class="tag soon">SOON</span><div class="v">100<small>%</small></div><div class="l up">TEE-attested</div></div>
+  </div>
+  <div class="grid g2" style="margin-top:16px">
+    <div class="card">
+      <div class="h"><span class="up">Quick call</span><span class="badge-live"><span class="dot"></span>LIVE</span></div>
+      <div class="b">
+        <div class="hint" style="margin-bottom:12px">Call the live tool as an agent would: one action runs lock → execute → Proof-of-Service → settle.</div>
+        <div class="field"><input id="qcInput" placeholder="ask the tool something…" value="summarize the Q3 report"></div>
+        <button class="btn-primary" onclick="doCall('qcInput','qcResult')">Call tool →</button>
+        <div id="qcResult"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="h"><span class="up">Recent activity</span><a href="#/activity" style="color:var(--muted)">view all →</a></div>
+      <div class="b"><div class="feed" id="dashFeed">${feedHTML(activity.slice(0,5))}</div></div>
+    </div>
+  </div>
+  <div class="spread" style="margin:26px 0 14px"><h2 style="font-size:16px;margin:0">Featured tools</h2><a href="#/marketplace" class="hint">browse marketplace →</a></div>
+  <div class="tools">${allTools().slice(0,3).map(toolCard).join('')}</div>
+  `,mount:()=>updateLive()};
+}
+
+function vMarketplace(param){
+  const cat=param||'All';
+  const list=allTools().filter(t=>cat==='All'||t.cat===cat);
+  return {html:`
+  <div class="sub">Agents discover tools by verifiable on-chain reputation — no platform owner, no gatekeeper.</div>
+  <div class="cat-row">${CATS.map(c=>`<div class="cat ${c===cat?'on':''}" onclick="go('marketplace/${c}')">${c}</div>`).join('')}</div>
+  <div class="tools">${list.map(toolCard).join('')}</div>`};
+}
+
+function toolCard(t){
+  const live=t.live;
+  return `<div class="tool" onclick="go('tool/${t.id}')">
+    <div class="top"><div class="ic">${t.ic}</div>${live?'<span class="pill ok"><span class="dot"></span>LIVE</span>':'<span class="pill warn">PREVIEW</span>'}</div>
+    <h3>${esc(t.id)}</h3><div class="pub">${live?(t.owner?shortA(t.owner):'—'):'lumera1…publisher'}</div>
+    <div class="desc">${esc(t.desc)}</div>
+    <div class="foot"><div class="price">${t.price} LAC <span>/ ${t.unit}</span></div>${tierChip(t.tier)}</div>
+  </div>`;
+}
+
+function vTool(id){
+  const t=allTools().find(x=>x.id===id)||liveTool();
+  if(t.live){
+    return {html:`
+    <div class="spread" style="margin-bottom:16px">
+      <div class="row"><div class="tool" style="cursor:default;width:46px;height:46px;padding:0;display:grid;place-items:center;font-size:20px">${t.ic}</div>
+        <div><div style="font-size:19px;font-weight:700">${esc(t.id)}</div><div class="hint mono">${esc(t.owner||'—')}</div></div></div>
+      <div class="row"><span class="badge-live"><span class="dot"></span>LIVE ON-CHAIN</span><span id="tdBadge">${bt2(S.badgeTier,S.badgeScore)}</span></div>
+    </div>
+    ${!t.registered?'<div class="banner">This tool isn\'t registered on the chain yet. Go to <a href="#/publish" style="color:#f0d196;text-decoration:underline">Publish a tool</a> to register it + post a bond, then come back to call it.</div>':''}
+    <div class="grid g2">
+      <div class="card">
+        <div class="h"><span class="up">Call this tool</span><span class="hint">lock → prove → settle</span></div>
+        <div class="b">
+          <div class="field"><label>Input</label><input id="tdInput" placeholder="ask the tool…" value="what is the capital of France?"></div>
+          <button class="btn-primary" onclick="doCall('tdInput','tdResult')" ${t.registered?'':'disabled'}>Call tool · 0.8 LAC</button>
+          <div id="tdResult"></div>
+        </div>
+      </div>
+      <div>
+        <div class="card"><div class="h"><span class="up">Publisher bond</span></div><div class="b">
+          <div class="gauge"><div class="bonded" id="tdgB" style="width:100%"></div><div class="slashed" id="tdgS" style="width:0%"></div></div>
+          <div class="kv"><span class="k">Bonded (at risk)</span><span class="v" id="tdBonded">—</span></div>
+          <div class="kv"><span class="k">Cumulatively slashed</span><span class="v" id="tdSlashed">—</span></div>
+        </div></div>
+        <div class="card" style="margin-top:16px"><div class="h"><span class="up">Details</span></div><div class="b">
+          <div class="kv"><span class="k">Category</span><span class="v">Demo</span></div>
+          <div class="kv"><span class="k">Price</span><span class="v">0.8 LAC / call</span></div>
+          <div class="kv"><span class="k">SLA · uptime</span><span class="v">99.9% <span class="badge-soon">SOON</span></span></div>
+          <div class="kv"><span class="k">Proof</span><span class="v">BLAKE3 PoS receipt</span></div>
+          <div class="kv"><span class="k">Reputation</span><span class="v"><a href="#/reputation" style="color:var(--muted)">view →</a></span></div>
+        </div></div>
+      </div>
+    </div>`,mount:()=>updateLive()};
   }
-  $('toolGrid').innerHTML = cards.join('');
-}
-function renderVision(){
-  $('visionGrid').innerHTML = VISION.map(v=>`<div class="vcard">
-    <div class="vh"><div class="vic">${v.ic}</div><span class="badge-soon">SOON</span></div>
-    <h3>${v.t}</h3><p>${v.d}</p><div class="mod up">${v.mod}</div>
-  </div>`).join('');
+  // preview (mock) tool
+  return {html:`
+  <div class="spread" style="margin-bottom:16px">
+    <div class="row"><div class="tool" style="cursor:default;width:46px;height:46px;padding:0;display:grid;place-items:center;font-size:20px">${t.ic}</div>
+      <div><div style="font-size:19px;font-weight:700">${esc(t.id)}</div><div class="hint">${esc(t.cat)} · lumera1…publisher</div></div></div>
+    <div class="row"><span class="badge-soon">PREVIEW</span>${tierChip(t.tier)}</div>
+  </div>
+  <div class="banner">Preview listing — illustrates the marketplace once publishers onboard. The <a href="#/tool/${C.tool||'pubtool'}" style="color:#f0d196;text-decoration:underline">live demo tool</a> is fully callable on-chain right now.</div>
+  <div class="grid g2">
+    <div class="card"><div class="h"><span class="up">About</span></div><div class="b"><div class="hint" style="line-height:1.7">${esc(t.desc)} Every call would be metered, executed, proven with a SuperNode Proof-of-Service receipt, and settled to the publisher — identical to the live demo tool.</div></div></div>
+    <div class="card"><div class="h"><span class="up">Metrics</span><span class="badge-soon">SAMPLE</span></div><div class="b">
+      <div class="kv"><span class="k">Reputation</span><span class="v">${tierChip(t.tier)} score ${t.score}</span></div>
+      <div class="kv"><span class="k">Price</span><span class="v">${t.price} LAC / ${t.unit}</span></div>
+      <div class="kv"><span class="k">Calls (30d)</span><span class="v">${t.calls}</span></div>
+      <div class="kv"><span class="k">Success rate</span><span class="v">${t.success}</span></div>
+    </div></div>
+  </div>`};
 }
 
-// ---- live wiring ------------------------------------------------------------
-let liveTool = {tool:'pubtool'};
-async function loadConfig(){
+function vPublish(){
+  const reg=!!S.toolOwner;
+  return {html:`
+  <div class="sub">The publisher flow — list a tool and stake a bond. Misbehaviour costs the bond, so quality is economically enforced.</div>
+  <div class="grid g2">
+    <div class="card"><div class="h"><span class="up">${reg?'Tool registered':'Register a tool'}</span>${reg?'<span class="badge-live"><span class="dot"></span>LIVE</span>':''}</div><div class="b">
+      ${reg?`
+        <div class="kv"><span class="k">Tool</span><span class="v mono">${esc(C.tool||'pubtool')}</span></div>
+        <div class="kv"><span class="k">Owner</span><span class="v mono">${shortA(S.toolOwner)}</span></div>
+        <div class="kv"><span class="k">Bond escrowed</span><span class="v">${fmt(S.bondBonded)} ulume</span></div>
+        <div class="kv"><span class="k">Reputation</span><span class="v">${bt2(S.badgeTier,S.badgeScore)}</span></div>
+        <div class="row" style="margin-top:14px"><button onclick="doAction('request-badge','Reputation evaluated','★','ok')">Request reputation evaluation</button>
+          <a class="btn" href="#/tool/${C.tool||'pubtool'}">Open tool →</a></div>
+      `:`
+        <div class="field"><label>Tool id</label><input value="${esc(C.tool||'pubtool')}" disabled></div>
+        <div class="row" style="gap:14px"><div class="field" style="flex:1"><label>Category</label>
+          <select><option>LLM</option><option>Image</option><option>Search</option><option>Compute</option><option>Data</option></select></div>
+          <div class="field" style="flex:1"><label>Price (LAC / call)</label><input value="0.8"></div></div>
+        <div class="field"><label>Bond (ulume) — your skin in the game</label><input value="2000000" disabled></div>
+        <button class="btn-primary" onclick="doAction('register','Tool published','⬡','ok')">Publish + post bond</button>
+        <div class="hint" style="margin-top:10px">This PoC registers the demo tool <code>${esc(C.tool||'pubtool')}</code>; category &amp; price are illustrative metadata.</div>
+      `}
+    </div></div>
+    <div class="card"><div class="h"><span class="up">How bonds work</span></div><div class="b">
+      <div class="hint" style="line-height:1.75">
+        <b style="color:#fff">Skin in the game.</b> A bond is collateral the publisher locks when listing a tool.
+        Honest service earns reputation and revenue; a proven-bad call can be <b style="color:#fff">disputed</b>, and an upheld
+        dispute <b style="color:var(--danger)">slashes</b> the bond — restitution-routed 5% burn / 85% insurance / 10% treasury.
+        <br><br>The minimum bond and dispute window are on-chain params. Excess bond above the minimum can be withdrawn while registered.
+      </div>
+    </div></div>
+  </div>`};
+}
+
+function vDisputes(){
+  const rid=S.receiptId, status=S.receiptStatus, open=S.challengeOpen, slashed=Number(S.slashAmount||0)>0;
+  return {html:`
+  <div class="sub">The challenge flow — anyone can dispute a Proof-of-Service receipt within its window. An upheld dispute slashes the bond.</div>
+  <div class="grid g2">
+    <div class="card"><div class="h"><span class="up">Active receipt</span>${status?`<span class="pill ${status==='attested'?'ok':status==='disputed'?'warn':'no'}">${status}</span>`:'<span class="pill idle">none</span>'}</div><div class="b">
+      ${rid?`
+        <div class="kv"><span class="k">Receipt</span><span class="v mono">${shortId(rid)}</span></div>
+        <div class="kv"><span class="k">Dispute window</span><span class="v">600s</span></div>
+        <div class="row" style="margin-top:14px">
+          <button class="btn-danger" onclick="doAction('challenge','Receipt disputed','⚖','warn')" ${open||status==='invalid'?'disabled':''}>Open dispute (stake 500k)</button>
+          <button class="btn-primary" onclick="doAction('resolve','Dispute upheld → slashed','✂','bad')" ${open?'':'disabled'}>Uphold → slash bond</button>
+        </div>
+        <div class="hint" style="margin-top:10px">Challenger stakes 500,000 ulume and freezes an equal slice of the bond; an active SuperNode (disjoint from both parties) adjudicates.</div>
+      `:`<div class="empty">No receipt to dispute yet. <a href="#/tool/${C.tool||'pubtool'}" style="color:var(--muted)">Call the tool</a> to produce one.</div>`}
+    </div></div>
+    <div class="card"><div class="h"><span class="up">Slash outcome</span></div><div class="b">
+      ${slashed?`
+        <div class="kv"><span class="k">Slashed</span><span class="v">${fmt(S.slashAmount)}</span></div>
+        <div class="split">
+          <div class="seg burn"><span class="sl up">Burn 5%</span><b>${fmt(S.slashBurn)}</b></div>
+          <div class="seg ins"><span class="sl up">Insurance 85%</span><b>${fmt(S.slashInsurance)}</b></div>
+          <div class="seg treas"><span class="sl up">Treasury 10%</span><b>${fmt(S.slashTreasury)}</b></div>
+        </div>
+        <div class="hint" style="margin-top:12px">The insurance share funds restitution for harmed users. Re-evaluate <a href="#/reputation" style="color:var(--muted)">reputation</a> to watch it erode.</div>
+      `:`<div class="hint" style="line-height:1.75">No slash yet. When a dispute is upheld, the bond is cut and restitution-routed:
+        <b style="color:var(--danger)">5% burned</b>, <b style="color:#fff">85% to the insurance pool</b>, <b style="color:var(--preview)">10% to treasury</b>.</div>`}
+    </div></div>
+  </div>
+  <div class="card" style="margin-top:16px"><div class="h"><span class="up">Settlement gate · security check</span></div><div class="b">
+    <div class="hint" style="margin-bottom:12px">Settlement is contingent on a valid, lock-bound proof. Try to settle without one — the chain must reject it.</div>
+    <button onclick="doNoProof()">Attempt settle without proof ✗</button><div id="npResult"></div>
+  </div></div>`,mount:()=>updateLive()};
+}
+
+function vReputation(){
+  const ranked=allTools().map(t=>({...t,score:t.live?(S.badgeScore||0):t.score,tier:t.live?tierName(S.badgeTier):t.tier}))
+    .sort((a,b)=>b.score-a.score);
+  return {html:`
+  <div class="sub">Reputation is earned from real on-chain conduct (receipts, disputes) plus reported metrics — a portable, tamper-proof track record.</div>
+  <div class="grid g2" style="margin-bottom:16px">
+    <div class="card"><div class="h"><span class="up">Your tool</span><span class="badge-live"><span class="dot"></span>LIVE</span></div><div class="b">
+      <div class="spread"><div style="font-size:15px;font-weight:600">${esc(C.tool||'pubtool')}</div><span id="repBadge">${bt2(S.badgeTier,S.badgeScore)}</span></div>
+      <div class="hint" style="margin:12px 0">Honest receipts raise the score; an upheld dispute moves a success into the disputed column and the tier drops after a one-block grace.</div>
+      <button onclick="doAction('request-badge','Reputation evaluated','★','ok')">Request evaluation</button>
+    </div></div>
+    <div class="card"><div class="h"><span class="up">Tiers</span></div><div class="b">
+      <div class="kv"><span class="k">${tierChip('PLATINUM')}</span><span class="v">flagship — lowest fees, top discovery</span></div>
+      <div class="kv"><span class="k">${tierChip('GOLD')}</span><span class="v">trusted</span></div>
+      <div class="kv"><span class="k">${tierChip('SILVER')}</span><span class="v">established</span></div>
+      <div class="kv"><span class="k">${tierChip('BRONZE')}</span><span class="v">new / recovering</span></div>
+    </div></div>
+  </div>
+  <div class="card"><div class="h"><span class="up">Leaderboard</span><span class="hint">live tool ranked among preview listings</span></div>
+    <table><thead><tr><th>#</th><th>Tool</th><th>Category</th><th>Tier</th><th>Score</th><th>Status</th></tr></thead><tbody>
+    ${ranked.map((t,i)=>`<tr onclick="go('tool/${t.id}')" style="cursor:pointer">
+      <td class="rank">${i+1}</td><td><b>${esc(t.id)}</b></td><td style="color:var(--muted)">${t.cat}</td>
+      <td>${tierChip(t.tier)}</td><td>${t.score||'—'}</td><td>${t.live?'<span class="pill ok">live</span>':'<span class="pill warn">preview</span>'}</td></tr>`).join('')}
+    </tbody></table>
+  </div>`,mount:()=>updateLive()};
+}
+
+function vWallet(){
+  return {html:`
+  <div class="sub">Agents hold LAC credits; publishers earn them. Credits are minted by swapping the native LUME token.</div>
+  <div class="grid g2">
+    <div class="card"><div class="h"><span class="up">Agent / SuperNode</span></div><div class="b">
+      <div class="kv"><span class="k">Address</span><span class="v mono">${shortA(C.agent)}</span></div>
+      <div class="kv"><span class="k">LUME</span><span class="v" id="wAgentLume">—</span></div>
+      <div class="kv"><span class="k">LAC credits</span><span class="v" id="wAgentLac">—</span></div>
+      <div class="row" style="margin-top:14px"><button class="btn-primary" onclick="doAction('swap','Swapped LUME → LAC','◇','ok')">Swap 5,000,000 LUME → LAC</button></div>
+    </div></div>
+    <div class="card"><div class="h"><span class="up">Counterparties</span></div><div class="b">
+      <div class="kv"><span class="k">Publisher</span><span class="v mono">${shortA(C.publisher)}</span></div>
+      <div class="kv"><span class="k">Publisher · LAC earned</span><span class="v" id="wPubLac">—</span></div>
+      <div class="kv"><span class="k">Publisher · LUME</span><span class="v" id="wPubLume">—</span></div>
+      <div class="kv"><span class="k">Challenger · LUME</span><span class="v" id="wChlLume">—</span></div>
+      <div class="kv"><span class="k">Insurance pool</span><span class="v" id="wInsurance">—</span></div>
+    </div></div>
+  </div>
+  <div class="card" style="margin-top:16px"><div class="h"><span class="up">About credits</span></div><div class="b">
+    <div class="hint" style="line-height:1.75"><b style="color:#fff">LUME</b> is the native staking/gas token; <b style="color:#fff">LAC</b> is the metered spending credit for tool calls.
+    Swapping is 1-way minting in this PoC. Each call locks LAC up front, then settles the actual cost to the publisher with the remainder returned.</div>
+  </div></div>`,mount:()=>updateLive()};
+}
+
+function vActivity(){
+  return {html:`<div class="sub">A live feed of on-chain actions in this session (plus seeded history).</div>
+  <div class="card"><div class="b"><div class="feed">${feedHTML(activity)}</div></div></div>`};
+}
+function feedHTML(items){
+  if(!items.length)return '<div class="empty">No activity yet.</div>';
+  return items.map(a=>`<div class="it"><div class="fic">${a.ic||'•'}</div>
+    <div><div class="ft">${esc(a.t)}</div><div class="fs">${esc(a.s||'')}</div></div>
+    <div class="fm">${esc(a.m||'')}</div></div>`).join('');
+}
+
+function vVision(){
+  return {html:`<div class="sub">Where Lumera AI is headed — each capability maps to a real module already in the repo.</div>
+  <div class="grid g3">${VISION.map(v=>`<div class="vcard"><div class="vh"><div class="vic">${v.ic}</div><span class="badge-soon">SOON</span></div>
+    <h3>${esc(v.t)}</h3><p>${esc(v.d)}</p><div class="mod up">${esc(v.mod)}</div></div>`).join('')}</div>`};
+}
+
+const VIEWS={'':vDashboard,marketplace:vMarketplace,tool:vTool,publish:vPublish,disputes:vDisputes,reputation:vReputation,wallet:vWallet,activity:vActivity,vision:vVision};
+
+// ================= router =================
+function parseHash(){const h=(location.hash||'#/').replace(/^#\/?/,'');const [route,...rest]=h.split('/');return [route,rest.join('/')];}
+function go(path){location.hash='#/'+path;}
+function renderView(){
+  const [route,param]=parseHash();
+  document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('active',a.dataset.route===route));
+  const [title,crumb]=TITLES[route]||TITLES[''];
+  el('pageTitle').textContent=title;el('crumb').textContent=param&&route==='tool'?param:crumb;
+  const v=(VIEWS[route]||vDashboard)(param);
+  el('view').innerHTML=typeof v==='string'?v:v.html;
+  if(v&&v.mount)v.mount();
+  updateLive();
+  el('view').scrollIntoView({block:'start'});
+}
+
+// ================= actions =================
+async function doCall(inputId,resultId){
+  const input=el(inputId)?el(inputId).value:'';
+  const r=el(resultId);if(r)r.innerHTML='<div class="result">calling… lock → execute → prove → settle</div>';
   try{
-    const c=await (await fetch('/api/config')).json();
-    $('cfg').textContent=`${c.chainId}`;
-    $('cfg2').textContent=`${c.chainId} · ${c.node}`;
-    $('netStatus').textContent=c.chainId||'local node';
-    $('agentAddr').textContent=shortAddr(c.agent);
-    $('pubAddr').textContent=shortAddr(c.publisher);
-    $('chlAddr').textContent=shortAddr(c.challenger);
-    if(c.tool){ $('toolName').textContent=c.tool; $('tn2').textContent=c.tool; liveTool.tool=c.tool; }
-    liveTool.owner=c.publisher;
-    renderMarketplace(liveTool);
-  }catch(e){ $('cfg').textContent='node unreachable'; $('netStatus').textContent='offline'; }
+    const d=await post('call','input='+encodeURIComponent(input));
+    if(d.ok){
+      if(r)r.innerHTML=`<div class="result"><span class="ok">✓ proven on-chain</span>
+output:   ${esc(d.output)}
+receipt:  ${esc(d.receiptId)}
+paid:     ${esc(d.cost)} → ${esc(shortA(d.publisher))}
+tx:       ${esc(d.txhash)}</div>`;
+      toast('Call settled','publisher paid '+d.cost,'ok');
+      pushAct({ic:'✦',k:'ok',t:'Call settled',s:'receipt '+shortId(d.receiptId)+' · paid '+d.cost});
+    }else{ if(r)r.innerHTML=`<div class="result" style="color:var(--danger)">✗ ${esc(d.error||'failed')}</div>`; toast('Call failed',d.error||'','bad'); }
+  }catch(e){ if(r)r.innerHTML=`<div class="result" style="color:var(--danger)">✗ ${esc(e)}</div>`; }
+  await refresh();updateLive();
 }
-
-async function refresh(){
+async function doAction(step,okTitle,icon,kind){
+  const btn=event&&event.target;const old=btn?btn.textContent:'';if(btn){btn.disabled=true;btn.textContent='…';}
   try{
-    const s=await (await fetch('/api/state')).json();
-    if(!s.ok) return;
-    $('agentLume').textContent=fmtAmt(s.agentLume); $('agentLac').textContent=fmtAmt(s.agentLac);
-    $('pubLume').textContent=fmtAmt(s.publisherLume); $('pubLac').textContent=fmtAmt(s.publisherLac);
-    $('chlLume').textContent=fmtAmt(s.challengerLume);
-    $('walletLac').textContent=fmtShort(s.agentLac);
-    $('statTools').textContent=s.toolCount!=null?s.toolCount:'—';
-    $('statSettled').textContent=fmtShort(s.publisherLac);
-    $('statInsurance').textContent=fmtShort(s.insurancePool);
-    $('toolOwner').textContent=s.toolOwner?shortAddr(s.toolOwner):'— not registered';
-
-    $('lockId').textContent=s.lockId||'—';
-    $('receiptId').textContent=shortId(s.receiptId);
-
-    const bonded=Number(s.bondBonded||0), slashed=Number(s.bondSlashed||0), total=bonded+slashed||1;
-    $('gBonded').style.width=(100*bonded/total)+'%'; $('gSlashed').style.width=(100*slashed/total)+'%';
-    $('bondBonded').textContent=fmtAmt(bonded)+' ulume';
-    $('bondSlashed').textContent=slashed>0?fmtAmt(slashed)+' ulume':'0';
-    if(Number(s.slashAmount||0)>0){ $('slashSplit').style.display='block';
-      $('sBurn').textContent=fmtAmt(s.slashBurn); $('sIns').textContent=fmtAmt(s.slashInsurance); $('sTreas').textContent=fmtAmt(s.slashTreasury); }
-
-    const rs=s.receiptStatus;
-    $('receiptStatus').innerHTML=rs?`<span class="pill ${rs==='attested'?'ok':(rs==='disputed'?'warn':'no')}">${rs}</span>`:'<span class="pill idle">none</span>';
-
-    const bt=(s.badgeTier||'').replace('BADGE_TIER_','');
-    if(bt&&bt!=='NONE'&&bt!=='UNSPECIFIED'){
-      const idx=TIERS.indexOf(bt);
-      if(peakTier===null||idx>TIERS.indexOf(peakTier)) peakTier=bt;
-      const hint=(idx>=0&&idx<TIERS.indexOf(peakTier))?` <span style="color:var(--danger)">↓ from ${peakTier}</span>`:'';
-      $('badge').innerHTML=`${tierChip(bt)} <span style="color:var(--dim)">score ${s.badgeScore||''}</span>${hint}`;
-      liveTool.tier=s.badgeTier; renderMarketplace(liveTool);
-    } else { $('badge').innerHTML='<span class="pill idle">none</span>'; }
-  }catch(e){}
+    const d=await post(step);
+    if(d.ok){ toast(okTitle,d.note||'','ok'); pushAct({ic:icon||'•',k:kind||'ok',t:okTitle,s:(d.note||'').slice(0,72)});
+      if(step==='resolve'&&d.slashAmount)pushAct({ic:'✂',k:'bad',t:'Bond slashed',s:fmt(d.slashAmount)+' → burn/insurance/treasury'});
+    } else { toast(step+' failed',(d.tx&&d.tx.raw_log)||d.error||d.note||'','bad'); }
+  }catch(e){ toast(step+' failed',String(e),'bad'); }
+  if(btn){btn.disabled=false;btn.textContent=old;}
+  await refresh();renderView();
+}
+async function doNoProof(){
+  const r=el('npResult');if(r)r.innerHTML='<div class="result">attempting…</div>';
+  // needs an active lock — create one first via a lock, then settle with a bogus receipt
+  try{
+    const lk=await post('lock');
+    const d=await post('settle-noproof');
+    if(d.rejected){ if(r)r.innerHTML='<div class="result"><span class="ok">✓ rejected by the chain</span> — '+esc((d.tx&&d.tx.raw_log)||'proof-of-service verification failed')+'</div>'; toast('Gate held','settlement without proof was rejected','ok'); }
+    else { if(r)r.innerHTML='<div class="result" style="color:var(--danger)">⚠ not rejected</div>'; }
+  }catch(e){ if(r)r.innerHTML='<div class="result" style="color:var(--danger)">✗ '+esc(e)+'</div>'; }
+  await refresh();updateLive();
 }
 
-function markDone(step){ const el=$('s-'+step); if(el) el.classList.add('done'); }
-async function runOne(step){ return await (await fetch('/api/'+step,{method:'POST'})).json(); }
-function logResult(step,r){
-  if(r.error){ logLine('✗ '+step+': '+r.error,'bad'); return false; }
-  const tx=r.tx||{};
-  if(step==='settle-noproof'){ logLine((r.rejected?'✓ rejected as expected — ':'⚠ NOT rejected — ')+(r.note||''),r.rejected?'ok':'bad'); if(tx.raw_log) logLine('   chain: '+tx.raw_log,'info'); return r.rejected; }
-  if(r.ok){
-    logLine('✓ '+step+' (code 0) '+(r.note||''),'ok');
-    if(r.lockId) logLine('   lock_id='+r.lockId,'info');
-    if(r.receiptId) logLine('   receipt_id='+r.receiptId,'info');
-    if(step==='resolve'&&r.slashAmount) logLine('   slashed '+fmtAmt(r.slashAmount)+' → burn '+fmtAmt(r.slashBurn)+' / insurance '+fmtAmt(r.slashInsurance)+' / treasury '+fmtAmt(r.slashTreasury),'info');
-    if(tx.txhash) logLine('   tx '+tx.txhash,'info');
-    markDone(step); return true;
-  }
-  logLine('✗ '+step+' (code '+tx.code+') '+(tx.raw_log||r.note||''),'bad'); return false;
+// ================= boot =================
+async function boot(){
+  await loadConfig();await refresh();
+  el('view'); renderView();
+  window.addEventListener('hashchange',renderView);
+  setInterval(async()=>{await refresh();updateLive();},3000);
 }
-async function act(step,btn){
-  const all=document.querySelectorAll('button'); all.forEach(b=>b.disabled=true);
-  const old=btn.textContent; btn.textContent='…';
-  try{ logResult(step, await runOne(step)); }catch(e){ logLine('✗ '+step+': '+e,'bad'); }
-  finally{ btn.textContent=old; all.forEach(b=>b.disabled=false); refresh(); }
-}
-async function runAll(btn){
-  const all=document.querySelectorAll('button'); all.forEach(b=>b.disabled=true);
-  const old=btn.textContent; btn.textContent='running…';
-  const plan=[
-    ['swap','Agent buys credits',900],['register','Publisher lists a tool + bond',900],
-    ['lock','Router locks payment',900],['submit-receipt','SuperNode proves the work',900],
-    ['settle','Settlement pays the publisher',900],['request-badge','Reputation earned from receipts',1400],
-    ['challenge','A bad call is disputed',1400],['resolve','Dispute upheld → bond slashed',1400],
-    ['request-badge','Reputation re-evaluated — downgrade enters grace',2500],
-    ['request-badge','Grace expired → reputation downgraded',1400],
-  ];
-  logLine('━━ running the whole flywheel ━━','head');
-  for(const [step,label,wait] of plan){
-    logLine('▶ '+label,'head');
-    try{ const r=await runOne(step); const ok=logResult(step,r);
-      if(!ok&&step!=='register'&&step!=='settle-noproof') logLine('   (continuing despite the above)','info');
-    }catch(e){ logLine('✗ '+step+': '+e,'bad'); }
-    await refresh(); await sleep(wait);
-  }
-  logLine('━━ flywheel complete: discover → meter → prove → settle ━━','head');
-  btn.textContent=old; all.forEach(b=>b.disabled=false);
-}
-
-renderMarketplace(liveTool); renderVision(); loadConfig(); refresh();
-setInterval(refresh,3000);
+boot();
 </script>
 </body>
 </html>

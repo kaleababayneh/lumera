@@ -325,6 +325,27 @@ func toolCount() int {
 	return len(tools)
 }
 
+// toolOwnerAddr returns the on-chain owner (publisher) address of a tool.
+func toolOwnerAddr(toolID string) string {
+	m, err := query("registry", "get-tool", toolID)
+	if err != nil {
+		return ""
+	}
+	if t, ok := m["tool"].(map[string]any); ok {
+		if o, _ := t["owner"].(string); o != "" {
+			return o
+		}
+	}
+	return ""
+}
+
+// balanceInt is balance() parsed to an integer (0 on any error).
+func balanceInt(addr, denom string) int64 {
+	var n int64
+	fmt.Sscan(balance(addr, denom), &n)
+	return n
+}
+
 func moduleAddr(name string) string {
 	m, err := query("auth", "module-account", name)
 	if err != nil {
@@ -558,6 +579,69 @@ func main() {
 		}
 		writeJSON(w, map[string]any{"ok": res.OK, "step": "settle", "tx": res,
 			"note": "Settlement verified the receipt and paid the publisher."})
+	})
+
+	// One-shot agent call: (auto top-up) → lock → execute → Proof-of-Service →
+	// settle, in a single action. This is the "an AI agent uses a tool" scenario
+	// (the same loop the MCP router runs), returning the result + its on-chain proof.
+	mux.HandleFunc("/api/call", func(w http.ResponseWriter, r *http.Request) {
+		input := strings.TrimSpace(r.URL.Query().Get("input"))
+		if input == "" {
+			input = "hello from a Lumera agent"
+		}
+		owner := toolOwnerAddr(cfg.Tool)
+		if owner == "" {
+			fail(w, errors.New("tool not registered yet — publish it first"))
+			return
+		}
+		// Auto top-up the agent's credits if it can't cover one lock.
+		agentAddr, _ := keyAddr(cfg.Agent)
+		if balanceInt(agentAddr, cfg.CreditDenom) < 1_000_000 {
+			if res, err := broadcast(cfg.Agent, "credits", "swap-lume-to-lac", "--amount", "5000000ulume", "--min-lac-out", "1"); err != nil || !res.OK {
+				fail(w, errors.New("auto top-up (LUME→LAC swap) failed"))
+				return
+			}
+		}
+		seq := nextSeq()
+		lr, err := broadcast(cfg.Agent, "credits", "lock-credits",
+			"--amount", "1000000ulac", "--session-id", "call-"+strconv.Itoa(seq),
+			"--tool-id", cfg.Tool, "--quote-id", "cq-"+strconv.Itoa(seq),
+			"--policy-version", "policy-v1", "--intent-hash", "ci-"+strconv.Itoa(seq))
+		if err != nil {
+			fail(w, fmt.Errorf("lock: %w", err))
+			return
+		}
+		lockID := anyEventValue(lr, "lock_id")
+		if !lr.OK || lockID == "" {
+			fail(w, errors.New("lock failed"))
+			return
+		}
+		model := cfg.Tool
+		output := strings.ToUpper(input)
+		rr, err := broadcast(cfg.Agent, "registry", "submit-receipt", cfg.Tool,
+			"--model", model, "--input", input, "--result", output, "--session-id", "call", "--lock-id", lockID)
+		if err != nil || !rr.OK {
+			fail(w, errors.New("proof-of-service submission failed"))
+			return
+		}
+		rid := eventValue(rr, "receipt_submitted", "receipt_id")
+		if rid == "" {
+			rid = anyEventValue(rr, "receipt_id")
+		}
+		sr, err := broadcast(cfg.Agent, "credits", "settle-credits",
+			"--lock-id", lockID, "--actual-cost", "800000ulac",
+			"--publisher", owner, "--receipt-id", rid, "--tool-id", cfg.Tool)
+		if err != nil || !sr.OK {
+			fail(w, errors.New("settlement failed"))
+			return
+		}
+		session.Lock()
+		session.ReceiptID, session.LockID, session.ChallengeOpen = rid, "", false
+		session.Unlock()
+		writeJSON(w, map[string]any{"ok": true, "step": "call",
+			"input": input, "output": output, "model": model, "receiptId": rid,
+			"lockId": lockID, "publisher": owner, "cost": "800000ulac", "txhash": sr.TxHash,
+			"note": "Metered → executed → proven (BLAKE3 PoS) → settled. Publisher paid 800,000 ulac."})
 	})
 
 	// Reputation — the publisher requests a badge evaluation (incentives).
