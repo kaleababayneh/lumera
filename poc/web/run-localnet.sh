@@ -48,6 +48,14 @@ def snap(tool,q):
     return s
 FLEET=[('pubtool','P'),('atlas-7b','P'),('orion-70b','P'),('oracle-feed','P'),('vision-diffuse','G'),('gpu-render','G'),('embed-lg','G'),('web-retriever','S'),('whisper-stt','S'),('code-fix','B')]
 inc['metric_snapshots']=[snap(t,q) for t,q in FLEET]
+# Keep the SuperNode active for the whole demo: by default it is POSTPONED after
+# ~500 blocks (metrics_update_interval 400 + grace 100) unless it reports metrics,
+# which makes submit-receipt fail with "supernode is not active". Widen the
+# staleness window to effectively-never so a long demo session never trips it.
+sn=d['app_state']['supernode']['params']
+sn['metrics_update_interval_blocks']="1000000000"
+sn['metrics_grace_period_blocks']="1000000000"
+sn['metrics_freshness_max_blocks']="1000000000"
 json.dump(d,open(p,'w'),indent=1)
 PY
 "$LD" genesis add-genesis-account "$VAL" 100000000000000ulume "${KR[@]}" >/dev/null 2>&1
