@@ -119,6 +119,15 @@
           <button class="danger" onclick="act('settle-noproof',this)" title="Demonstrates the gate">Try settle without proof ✗</button>
         </div>
       </div>
+
+      <div class="step">
+        <div class="num">6</div>
+        <div class="body">
+          <div class="title">Reputation — earn a verification badge (incentives)</div>
+          <div class="desc">The publisher's tool is scored from its metrics into a tiered, on-chain badge.</div>
+          <button onclick="act('request-badge',this)">Request badge evaluation</button>
+        </div>
+      </div>
     </div>
 
     <div class="card">
@@ -154,6 +163,7 @@
       <div class="kv"><span class="k">Active lock</span><span class="v" id="lockId">—</span></div>
       <div class="kv"><span class="k">Receipt</span><span class="v" id="receiptId">—</span></div>
       <div class="kv"><span class="k">Receipt status</span><span class="v" id="receiptStatus"><span class="pill idle">none</span></span></div>
+      <div class="kv"><span class="k">Reputation badge</span><span class="v" id="badge"><span class="pill idle">none</span></span></div>
     </div>
 
     <div class="card">
@@ -205,6 +215,10 @@ async function refresh(){
     const rs = s.receiptStatus;
     $('receiptStatus').innerHTML = rs
       ? `<span class="pill ok">${rs}</span>`
+      : `<span class="pill idle">none</span>`;
+    const bt = s.badgeTier;
+    $('badge').innerHTML = (bt && bt !== 'BADGE_TIER_NONE' && bt !== 'BADGE_TIER_UNSPECIFIED')
+      ? `<span class="pill ok">${bt.replace('BADGE_TIER_','')}</span> <span style="color:var(--muted)">score ${s.badgeScore||''}</span>`
       : `<span class="pill idle">none</span>`;
   }catch(e){}
 }

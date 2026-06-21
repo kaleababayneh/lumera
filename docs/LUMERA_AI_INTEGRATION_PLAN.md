@@ -423,7 +423,27 @@ module** ported (not a slice): proto-gen + ~1,400-LOC keeper + module wiring, al
   `RecordMetrics` is gov-authority-gated). `GetRoutingMultiplier`/`GetInsuranceDiscount`/`GetLACBonus`
   are ready for router/insurance/credits to consume.
 
-### Then: continue to `router` = the maximum pivot
+### HILT REACHED — the on-chain flywheel is complete (2026-06-21)
+After incentives, the on-chain core is done. The 5 thesis primitives are on-chain: Durable Memory
+(Cascade, native lumera), Verifiable Execution (PoS receipts), Trust/Identity (bonds + incentives +
+passport), Economic Coordination (credits settlement), and the only remaining primitive — Composable
+Intelligence (`workflows`) — is **deferred on purpose**: the grounded assessment rates it *adjacent*
+(not core), it is **7,823 keeper LOC**, and its money path is *redundant* with the verified credits
+settlement. Every other unported module is peripheral (`vaults` = thin reserve wrapper [SKIP];
+`payment_rails` = cross-chain on-ramp, IBC Phase-2), blocked (`auction` → unported `priority`),
+orthogonal (`challenges` = benchmarking that never writes back to reputation), or **the pivot itself
+(`router`)**. Per the thesis ("say no to peripheral") we stop on-chain integration here and move to the
+agent-facing layer where the *vision* completes:
+1. **Web PoC** (`poc/web/`) — visualize the live flywheel against a local node.
+2. **`router` + MCP daemon** — the off-chain agent layer (discover / quote / invoke) that lets real AI
+   agents use the chain. This is the maximum pivot: `router`'s on-chain part is telemetry; its real
+   form is the MCP daemon that wraps lock → submit-receipt → settle.
+
+### Deferred on-chain modules (revisit only if the flywheel demands them)
+`workflows` (composable intelligence, 7.8k LOC, redundant money path) · `payment_rails` (on-ramp,
+Phase-2 IBC) · `auction` (blocked on `priority`) · `challenges` (orthogonal benchmarking) · `vaults`
+(SKIP). `incentives` Phase-2 self-feed (metrics from PoS receipts + disputes) is the highest-value
+on-chain follow-up once the agent layer exists.
 Grounded assessment done: modern KVStoreService keeper; hard deps (registry/bank/account) all ported;
 the `router` dep is **soft** (stored, never invoked in the badge path → pass nil). Focused slice =
 the badge engine (RecordMetrics → RequestEvaluation → tiered badges → GetRoutingMultiplier/

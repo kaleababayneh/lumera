@@ -303,6 +303,18 @@ func main() {
 				st["receiptStatus"], _ = m["status"].(string)
 			}
 		}
+		// Reputation badge (incentives) — best-effort.
+		if m, err := query("incentives", "badge", cfg.Tool); err == nil {
+			if b, ok := m["badge"].(map[string]any); ok {
+				st["badgeTier"], _ = b["tier"].(string)
+				switch sc := b["composite_score"].(type) {
+				case float64:
+					st["badgeScore"] = int(sc)
+				case string:
+					st["badgeScore"] = sc
+				}
+			}
+		}
 		writeJSON(w, st)
 	})
 
@@ -429,6 +441,17 @@ func main() {
 		}
 		writeJSON(w, map[string]any{"ok": res.OK, "step": "settle", "tx": res,
 			"note": "Settlement verified the receipt and paid the publisher."})
+	})
+
+	// Reputation — the publisher requests a badge evaluation (incentives).
+	mux.HandleFunc("/api/request-badge", func(w http.ResponseWriter, r *http.Request) {
+		res, err := broadcast(cfg.Publisher, "incentives", "request-evaluation", cfg.Tool)
+		if err != nil {
+			fail(w, err)
+			return
+		}
+		writeJSON(w, map[string]any{"ok": res.OK, "step": "request-badge", "tx": res,
+			"note": "Publisher requested a reputation evaluation; a badge is awarded from the tool's metrics."})
 	})
 
 	// Negative — settle with a never-submitted receipt id → must be rejected.
