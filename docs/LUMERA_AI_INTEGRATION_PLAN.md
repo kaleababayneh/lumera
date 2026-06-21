@@ -468,6 +468,28 @@ app) connects and uses the on-chain economy through the standard protocol:
 **The agentic economy is complete end-to-end: discover → meter → execute → prove → settle**, driven by
 a real AI agent over MCP. On-chain trust graph + economic settlement + off-chain agent layer all green.
 
+### Security hardening — adversarial audit + fixes (2026-06-21)
+A 5-target adversarial audit (refute-to-confirm) of the money paths found 9 confirmed bugs (5 refuted).
+Fixed the value-at-risk ones; verified by `poc/security_test.sh` (the legitimate `poc/demo.sh` still
+passes):
+- **Bond theft (HIGH) — fixed.** A single SuperNode could self-file *and* self-uphold a challenge to
+  drain any publisher's bond at ~zero cost. Now `UpholdChallenge` requires the **adjudicator to be
+  disjoint** from both the challenger and the publisher, and `OpenChallenge` forbids a publisher
+  challenging its own tool. (Verified: self-adjudication rejected, bond intact.)
+- **Cheap griefing (MED) — fixed.** 1-ulume challenges could freeze settlements. Now a **minimum
+  challenger stake** floor (¼ of MinBondAmount) is enforced.
+- **Cross-settlement (MED) — fixed.** A receipt could settle any tool-matching lock. `ValidateReceipt`
+  now **binds the receipt to its lock** (`receipt.LockId == lockID`), so a receipt anchored for one
+  lock cannot be replayed against another.
+- **Reputation double-count (LOW) — fixed.** An upheld dispute now moves a call from success→dispute
+  (no longer counted as both), so dispute-rate/success-rate math is correct.
+- **Accepted / Phase-2 (documented):** the PoS receipt is a **single-active-SuperNode trust
+  assumption, not cryptographic proof** — `trace_hash` is attestor-supplied (no work verification); the
+  real fix is SGX `EnclaveQuote`/publisher co-sign + a disjoint quorum (Phase-2). The lock-binding fix
+  narrows the minting surface (a fabricated receipt cannot be settled without a matching lock).
+  On-demand `RequestEvaluation` re-scoring is intentional (gas-metered, self-only); stake-based slash
+  sizing (bounded below by the stake floor, above by available bond) is by design.
+
 ### Deferred on-chain modules (revisit only if the flywheel demands them)
 `workflows` (composable intelligence, 7.8k LOC, redundant money path) · `payment_rails` (on-ramp,
 Phase-2 IBC) · `auction` (blocked on `priority`) · `challenges` (orthogonal benchmarking) · `vaults`

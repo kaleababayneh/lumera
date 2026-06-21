@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"cosmossdk.io/collections"
+	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/LumeraProtocol/lumera/x/registry/types"
@@ -22,6 +23,16 @@ func disputeResolutionWindow(p types.Params) time.Duration {
 		secs = 86400
 	}
 	return time.Duration(secs) * time.Second
+}
+
+// minChallengeStake is the anti-griefing floor for a challenger's stake: a
+// quarter of the configured minimum bond (zero if no minimum bond is set).
+func minChallengeStake(p types.Params) sdkmath.Int {
+	amt, ok := sdkmath.NewIntFromString(p.MinBondAmount)
+	if !ok || !amt.IsPositive() {
+		return sdkmath.ZeroInt()
+	}
+	return amt.QuoRaw(4)
 }
 
 // Receipt disputes (Step 3 ⊗ Step 4): a challenger disputes a SuperNode-attested
@@ -108,9 +119,25 @@ func (k Keeper) OpenChallenge(ctx sdk.Context, challenger sdk.AccAddress, receip
 		return nil, types.ErrChallengeActive.Wrapf("receipt %s already has an open challenge", receiptID)
 	}
 
+	// The challenger must be disjoint from the publisher (no self-dispute, and
+	// the publisher cannot grief its own bond accounting).
+	tool, foundTool := k.GetToolCard(ctx, receipt.ToolId)
+	if !foundTool {
+		return nil, types.ErrToolNotFound.Wrapf("tool %s not found", receipt.ToolId)
+	}
+	if tool.Owner == challenger.String() {
+		return nil, types.ErrUnauthorized.Wrap("a publisher cannot challenge its own tool's receipt")
+	}
+
 	cleanStake, err := sanitizeBondCoins(stake)
 	if err != nil {
 		return nil, types.ErrInsufficientStake.Wrap(err.Error())
+	}
+	// Require a meaningful stake (anti-griefing): freezing a settlement must
+	// never be cheap. Floor = ¼ of the configured minimum bond.
+	if floor := minChallengeStake(k.GetParams(ctx)); floor.IsPositive() &&
+		cleanStake.AmountOf(types.BondDenom).LT(floor) {
+		return nil, types.ErrInsufficientStake.Wrapf("challenge stake must be >= %s%s", floor, types.BondDenom)
 	}
 
 	// Escrow the challenger's stake and lock an equal slice of the publisher's
@@ -161,8 +188,11 @@ func (k Keeper) OpenChallenge(ctx sdk.Context, challenger sdk.AccAddress, receip
 
 // UpholdChallenge resolves a pending challenge in the challenger's favour: it
 // unlocks then slashes the at-risk bond (restitution-routed), refunds the
-// challenger's stake, invalidates the receipt, and closes the challenge.
-func (k Keeper) UpholdChallenge(ctx sdk.Context, receiptID string) (*types.Challenge, sdk.Coins, error) {
+// challenger's stake, invalidates the receipt, and closes the challenge. The
+// `adjudicator` must be disjoint from both the challenger and the publisher,
+// so a single party cannot self-file and self-uphold a challenge to steal a
+// publisher's bond.
+func (k Keeper) UpholdChallenge(ctx sdk.Context, adjudicator sdk.AccAddress, receiptID string) (*types.Challenge, sdk.Coins, error) {
 	receipt, found := k.GetUsageReceipt(ctx, receiptID)
 	if !found {
 		return nil, nil, types.ErrReceiptNotFound.Wrapf("receipt %s not found", receiptID)
@@ -174,6 +204,14 @@ func (k Keeper) UpholdChallenge(ctx sdk.Context, receiptID string) (*types.Chall
 	if c.Status != types.ChallengeStatusPending {
 		return nil, nil, types.ErrInvalidState.Wrapf("challenge %s is %q, not pending", c.ChallengeId, c.Status)
 	}
+	// Disjoint adjudication — the adjudicator is neither the challenger nor the
+	// publisher (defeats self-filed + self-upheld bond theft).
+	if adjudicator.String() == c.ChallengerAddress {
+		return nil, nil, types.ErrUnauthorized.Wrap("adjudicator cannot be the challenger")
+	}
+	if tool, foundTool := k.GetToolCard(ctx, receipt.ToolId); foundTool && tool.Owner == adjudicator.String() {
+		return nil, nil, types.ErrUnauthorized.Wrap("adjudicator cannot be the publisher")
+	}
 
 	stake := c.ChallengerStake
 	// Free the locked bond so it becomes slashable, then slash it.
@@ -184,8 +222,9 @@ func (k Keeper) UpholdChallenge(ctx sdk.Context, receiptID string) (*types.Chall
 	if err != nil {
 		return nil, nil, err
 	}
-	// Feed the reputation engine: an upheld dispute is proven bad service.
-	k.bumpToolStats(ctx, receipt.ToolId, 0, 1)
+	// Feed the reputation engine: an upheld dispute moves one prior "successful"
+	// call into the disputed column (it was counted on SubmitReceipt).
+	k.recordUpheldDispute(ctx, receipt.ToolId)
 
 	// The challenger was right — return their stake.
 	challengerAddr, err := sdk.AccAddressFromBech32(c.ChallengerAddress)

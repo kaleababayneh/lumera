@@ -1,4 +1,3 @@
-
 package types
 
 import (
@@ -215,8 +214,8 @@ func FuzzLockTTL_MonotonicAcrossFullRange(f *testing.F) {
 		{120, 3600, 100, 200},
 		{120, 3600, 100, int64(time.Hour.Nanoseconds())},
 		{120, 3600, int64(time.Hour.Nanoseconds()), int64(2 * time.Hour.Nanoseconds())}, // both over max
-		{120, 3600, 0, 100},     // from zero up
-		{120, 3600, -1000, 100}, // negative to positive
+		{120, 3600, 0, 100},                                                             // from zero up
+		{120, 3600, -1000, 100},                                                         // negative to positive
 	}
 	for _, s := range seeds {
 		f.Add(s.defaultTTL, s.maxTTL, s.r1Ns, s.r2Ns)

@@ -354,7 +354,7 @@ func TestEscrowTransfer_AmountPrecision(t *testing.T) {
 	testAmounts := []string{
 		"1",
 		"1000000",
-		"1000000000000000000",                    // 10^18 (common in crypto)
+		"1000000000000000000", // 10^18 (common in crypto)
 		"115792089237316195423570985008687907853", // large but valid
 	}
 

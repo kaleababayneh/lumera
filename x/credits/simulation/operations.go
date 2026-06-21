@@ -1,4 +1,3 @@
-
 package simulation
 
 import (
@@ -17,7 +16,7 @@ import (
 	"github.com/LumeraProtocol/lumera/x/credits/types"
 )
 
-//#nosec G101 -- these are simulation operation weight keys, not credentials
+// #nosec G101 -- these are simulation operation weight keys, not credentials
 const (
 	opWeightLockCredits   = "op_weight_credits_lock"
 	opWeightSettleCredits = "op_weight_credits_settle"

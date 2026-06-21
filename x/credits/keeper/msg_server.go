@@ -1,4 +1,3 @@
-
 package keeper
 
 import (
@@ -243,7 +242,7 @@ func (s *msgServer) SettleCredits(goCtx context.Context, msg *types.MsgSettleCre
 	if keeper.registryKeeper == nil {
 		return nil, fmt.Errorf("registry keeper unavailable: cannot verify proof-of-service")
 	}
-	if err := keeper.registryKeeper.ValidateReceipt(sdkCtx, receiptID, lockToolID); err != nil {
+	if err := keeper.registryKeeper.ValidateReceipt(sdkCtx, receiptID, lockToolID, lockID); err != nil {
 		return nil, fmt.Errorf("proof-of-service verification failed for receipt %s: %w", receiptID, err)
 	}
 	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(

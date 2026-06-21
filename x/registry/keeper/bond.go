@@ -274,6 +274,24 @@ func (k Keeper) bumpToolStats(ctx sdk.Context, toolID string, successDelta, disp
 	}
 }
 
+// recordUpheldDispute moves one prior successful call into the disputed column
+// (guarded against underflow), so reputation reflects the proven-bad service
+// without double-counting it as both successful and disputed.
+func (k Keeper) recordUpheldDispute(ctx sdk.Context, toolID string) {
+	bond, found := k.GetBondRecord(ctx, toolID)
+	if !found {
+		return
+	}
+	if bond.SuccessfulCalls > 0 {
+		bond.SuccessfulCalls--
+	}
+	bond.DisputeCount++
+	bond.LastUpdatedAt = ctx.BlockTime()
+	if err := k.SetBondRecord(ctx, bond); err != nil {
+		k.Logger(ctx).Error("record upheld dispute failed", "tool", toolID, "error", err)
+	}
+}
+
 // GetToolUsage returns a tool's cumulative (successful receipts, upheld disputes)
 // — the on-chain signal the incentives module folds into reputation scoring.
 func (k Keeper) GetToolUsage(ctx context.Context, toolID string) (uint64, uint64, error) {

@@ -1,4 +1,3 @@
-
 package keeper
 
 import (
@@ -36,10 +35,10 @@ func FuzzNormalizeOriginID(f *testing.F) {
 		"user:dashboard",
 		"USER:DASHBOARD",
 		"  user:DASHBOARD  ",
-		"user",         // no colon
-		":surface",     // empty namespace
-		"user:",        // empty surface
-		"a:b:c",        // multi-colon
+		"user",                              // no colon
+		":surface",                          // empty namespace
+		"user:",                             // empty surface
+		"a:b:c",                             // multi-colon
 		strings.Repeat("x", 70) + ":" + "y", // too long
 		"\x00:\x00",
 		"user::surface",

@@ -1,4 +1,3 @@
-
 package keeper
 
 import (
@@ -93,7 +92,7 @@ func (r *e2eReserveStub) AllocateReserve(_ context.Context, owner, policyID, too
 		return reservetypes.ReserveAllocation{Applied: false, DiscountedPrice: amount}, nil
 	}
 	commit.remaining = commit.remaining.Sub(amount)
-	discountedAmt := amount.Amount.Mul(sdkmath.NewInt(int64(10_000-commit.discountBps))).Quo(sdkmath.NewInt(10_000))
+	discountedAmt := amount.Amount.Mul(sdkmath.NewInt(int64(10_000 - commit.discountBps))).Quo(sdkmath.NewInt(10_000))
 	allocation := reservetypes.ReserveAllocation{
 		Applied:         true,
 		CommitmentID:    commit.commitmentID,
@@ -284,7 +283,7 @@ func TestE2E_MR_ReserveDiscountIsLinearInBPS(t *testing.T) {
 	}
 
 	noDiscountCost := runWithBPS(0)
-	tenPctCost := runWithBPS(1_000)   // 10% discount
+	tenPctCost := runWithBPS(1_000)        // 10% discount
 	twentyFivePctCost := runWithBPS(2_500) // 25% discount
 
 	// MR-3 reformulated: the ABSOLUTE savings does NOT equal

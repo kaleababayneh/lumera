@@ -1,4 +1,3 @@
-
 package keeper
 
 import (
@@ -69,14 +68,14 @@ type streamGolden struct {
 func extractStream(t *testing.T, ctx sdk.Context, flowName string) streamGolden {
 	t.Helper()
 	allowed := map[string]bool{
-		types.EventTypeLock:        true,
-		types.EventTypeUnlock:      true,
-		types.EventTypeBurn:        true,
-		types.EventTypeDistribute:  true,
-		types.EventTypeSettlement:  true,
-		types.EventTypeSwap:        true,
-		types.EventTypeDispute:     true,
-		"insurance_contribution_sent": true,
+		types.EventTypeLock:            true,
+		types.EventTypeUnlock:          true,
+		types.EventTypeBurn:            true,
+		types.EventTypeDistribute:      true,
+		types.EventTypeSettlement:      true,
+		types.EventTypeSwap:            true,
+		types.EventTypeDispute:         true,
+		"insurance_contribution_sent":  true,
 		"adaptive_burn_rate_evaluated": true,
 		"adaptive_burn_rate_reason":    true,
 		"cac_royalty_distribution":     true,

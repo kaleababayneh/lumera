@@ -1,4 +1,3 @@
-
 package keeper_test
 
 import (
@@ -247,7 +246,7 @@ func TestSafeMulDiv_MR_AdditiveInRateWhenDivisible(t *testing.T) {
 func TestSafeMulDiv_LargeAmountLinearityPreserved(t *testing.T) {
 	t.Parallel()
 	// amount=2^60 (large but well below math.Int limits).
-	base, _ := math.NewIntFromString("1152921504606846976")  // 2^60
+	base, _ := math.NewIntFromString("1152921504606846976")    // 2^60
 	doubled, _ := math.NewIntFromString("2305843009213693952") // 2^61
 
 	r1, err := keeper.SafeMulDiv(base, 1500, 10000)

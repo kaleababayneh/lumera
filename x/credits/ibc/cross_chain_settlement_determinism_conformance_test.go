@@ -82,7 +82,7 @@ import (
 
 type chainState struct {
 	balances map[string]int64 // address → balance
-	escrow   int64             // module account
+	escrow   int64            // module account
 }
 
 func newChainState(initialBalances map[string]int64) *chainState {
@@ -122,11 +122,11 @@ func (c *chainState) snapshot() string {
 // crossChainPair models a source+destination chain pair plus a
 // packet pipeline.
 type crossChainPair struct {
-	source      *chainState
-	destination *chainState
-	mw          FeeSplitMiddleware
-	stub        *stubIBCModule
-	ctx         sdk.Context
+	source         *chainState
+	destination    *chainState
+	mw             FeeSplitMiddleware
+	stub           *stubIBCModule
+	ctx            sdk.Context
 	pendingPackets map[string]packetState // settlementID → state
 }
 

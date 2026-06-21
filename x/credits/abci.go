@@ -1,4 +1,3 @@
-
 // Package credits wires the ABCI lifecycle hooks for the credits module.
 package credits
 

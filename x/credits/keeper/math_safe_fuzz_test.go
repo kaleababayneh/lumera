@@ -1,4 +1,3 @@
-
 package keeper_test
 
 import (
@@ -15,16 +14,16 @@ import (
 // no panics occur and overflow protection works correctly.
 func FuzzSafeMulDiv(f *testing.F) {
 	// Seed corpus with representative cases
-	f.Add(int64(1000), int64(250), int64(10000))    // Normal percentage
-	f.Add(int64(0), int64(5000), int64(10000))       // Zero amount
-	f.Add(int64(1000), int64(0), int64(10000))       // Zero rate
-	f.Add(int64(1000), int64(10000), int64(10000))   // Full rate (100%)
+	f.Add(int64(1000), int64(250), int64(10000))                // Normal percentage
+	f.Add(int64(0), int64(5000), int64(10000))                  // Zero amount
+	f.Add(int64(1000), int64(0), int64(10000))                  // Zero rate
+	f.Add(int64(1000), int64(10000), int64(10000))              // Full rate (100%)
 	f.Add(int64(stdmath.MaxInt64/2), int64(5000), int64(10000)) // Large amount
-	f.Add(int64(1), int64(1), int64(10000))          // Minimal values
-	f.Add(int64(stdmath.MaxInt64), int64(1), int64(10000)) // Max int64
-	f.Add(int64(100), int64(-100), int64(10000))     // Negative rate (should error)
-	f.Add(int64(100), int64(100), int64(0))          // Zero scale (should error)
-	f.Add(int64(100), int64(10001), int64(10000))    // Rate exceeds scale (should error)
+	f.Add(int64(1), int64(1), int64(10000))                     // Minimal values
+	f.Add(int64(stdmath.MaxInt64), int64(1), int64(10000))      // Max int64
+	f.Add(int64(100), int64(-100), int64(10000))                // Negative rate (should error)
+	f.Add(int64(100), int64(100), int64(0))                     // Zero scale (should error)
+	f.Add(int64(100), int64(10001), int64(10000))               // Rate exceeds scale (should error)
 
 	f.Fuzz(func(t *testing.T, amountInt, rate, scale int64) {
 		// Skip obviously invalid scale
@@ -64,14 +63,14 @@ func FuzzSafeMulDiv(f *testing.F) {
 // FuzzSafePercentage tests basis point calculations with arbitrary amounts.
 func FuzzSafePercentage(f *testing.F) {
 	// Seed corpus
-	f.Add(int64(1000), uint32(1000))   // 10% of 1000
-	f.Add(int64(1000000), uint32(1))   // 0.01% of 1M
-	f.Add(int64(500), uint32(10000))   // 100% of 500
-	f.Add(int64(500), uint32(0))       // 0% of 500
-	f.Add(int64(100), uint32(10001))   // Exceeds 100% (should error)
+	f.Add(int64(1000), uint32(1000))             // 10% of 1000
+	f.Add(int64(1000000), uint32(1))             // 0.01% of 1M
+	f.Add(int64(500), uint32(10000))             // 100% of 500
+	f.Add(int64(500), uint32(0))                 // 0% of 500
+	f.Add(int64(100), uint32(10001))             // Exceeds 100% (should error)
 	f.Add(int64(stdmath.MaxInt64), uint32(5000)) // Large amount
-	f.Add(int64(1), uint32(1))         // Small amount with small bps
-	f.Add(int64(10000), uint32(5000))  // Round number
+	f.Add(int64(1), uint32(1))                   // Small amount with small bps
+	f.Add(int64(10000), uint32(5000))            // Round number
 
 	f.Fuzz(func(t *testing.T, amountInt int64, basisPoints uint32) {
 		amount := math.NewInt(amountInt)
@@ -112,13 +111,13 @@ func FuzzSafePercentage(f *testing.F) {
 // FuzzSafeSubtract tests subtraction with underflow detection.
 func FuzzSafeSubtract(f *testing.F) {
 	// Seed corpus
-	f.Add(int64(1000), int64(300))  // Normal subtraction
-	f.Add(int64(500), int64(0))     // Subtract zero
-	f.Add(int64(100), int64(100))   // Subtract equal
-	f.Add(int64(100), int64(101))   // Would underflow
+	f.Add(int64(1000), int64(300))                            // Normal subtraction
+	f.Add(int64(500), int64(0))                               // Subtract zero
+	f.Add(int64(100), int64(100))                             // Subtract equal
+	f.Add(int64(100), int64(101))                             // Would underflow
 	f.Add(int64(stdmath.MaxInt64), int64(stdmath.MaxInt64/2)) // Large numbers
-	f.Add(int64(0), int64(0))       // Both zero
-	f.Add(int64(0), int64(1))       // Zero minus positive
+	f.Add(int64(0), int64(0))                                 // Both zero
+	f.Add(int64(0), int64(1))                                 // Zero minus positive
 
 	f.Fuzz(func(t *testing.T, minuendInt, subtrahendInt int64) {
 		minuend := math.NewInt(minuendInt)
@@ -146,12 +145,12 @@ func FuzzSafeSubtract(f *testing.F) {
 // FuzzCalculateBurnAmount tests burn calculations with arbitrary totals and rates.
 func FuzzCalculateBurnAmount(f *testing.F) {
 	// Seed corpus
-	f.Add(int64(1000), uint32(1000))   // 10% burn
-	f.Add(int64(1000), uint32(0))      // 0% burn
-	f.Add(int64(500), uint32(10000))   // 100% burn
-	f.Add(int64(100), uint32(10001))   // Exceeds 100% (should error)
+	f.Add(int64(1000), uint32(1000))                // 10% burn
+	f.Add(int64(1000), uint32(0))                   // 0% burn
+	f.Add(int64(500), uint32(10000))                // 100% burn
+	f.Add(int64(100), uint32(10001))                // Exceeds 100% (should error)
 	f.Add(int64(stdmath.MaxInt64/10), uint32(5000)) // Large amount with 50% burn
-	f.Add(int64(1), uint32(5000))      // Minimal amount
+	f.Add(int64(1), uint32(5000))                   // Minimal amount
 
 	f.Fuzz(func(t *testing.T, totalInt int64, burnRateBPS uint32) {
 		if totalInt < 0 {
@@ -196,13 +195,13 @@ func FuzzCalculateBurnAmount(f *testing.F) {
 // FuzzCalculateSplit tests revenue split calculations with arbitrary amounts and BPS distributions.
 func FuzzCalculateSplit(f *testing.F) {
 	// Seed corpus - BPS must sum to 10000
-	f.Add(int64(1000), uint32(6000), uint32(3000), uint32(0), uint32(0), uint32(1000))       // Standard
-	f.Add(int64(999), uint32(3333), uint32(3334), uint32(0), uint32(0), uint32(3333))        // Rounding test
-	f.Add(int64(500), uint32(10000), uint32(0), uint32(0), uint32(0), uint32(0))             // All to publisher
-	f.Add(int64(100), uint32(2000), uint32(2000), uint32(2000), uint32(2000), uint32(2000))  // Even 5-way split
+	f.Add(int64(1000), uint32(6000), uint32(3000), uint32(0), uint32(0), uint32(1000))                    // Standard
+	f.Add(int64(999), uint32(3333), uint32(3334), uint32(0), uint32(0), uint32(3333))                     // Rounding test
+	f.Add(int64(500), uint32(10000), uint32(0), uint32(0), uint32(0), uint32(0))                          // All to publisher
+	f.Add(int64(100), uint32(2000), uint32(2000), uint32(2000), uint32(2000), uint32(2000))               // Even 5-way split
 	f.Add(int64(stdmath.MaxInt64/10), uint32(5000), uint32(3000), uint32(1000), uint32(500), uint32(500)) // Large amount
-	f.Add(int64(1), uint32(5000), uint32(3000), uint32(1000), uint32(500), uint32(500))       // Minimal amount
-	f.Add(int64(7), uint32(3333), uint32(3333), uint32(1667), uint32(834), uint32(833))       // Prime number, rounding
+	f.Add(int64(1), uint32(5000), uint32(3000), uint32(1000), uint32(500), uint32(500))                   // Minimal amount
+	f.Add(int64(7), uint32(3333), uint32(3333), uint32(1667), uint32(834), uint32(833))                   // Prime number, rounding
 
 	f.Fuzz(func(t *testing.T, amountInt int64, pubBPS, routerBPS, originBPS, treasuryBPS, refBPS uint32) {
 		if amountInt < 0 {
@@ -257,11 +256,11 @@ func FuzzCalculateSplit(f *testing.F) {
 // FuzzValidateRates tests rate validation with arbitrary rate combinations.
 func FuzzValidateRates(f *testing.F) {
 	// Seed corpus
-	f.Add(uint32(1000), uint32(500), uint32(6000), uint32(3000), uint32(0), uint32(0), uint32(1000))   // Valid
-	f.Add(uint32(10001), uint32(500), uint32(6000), uint32(3000), uint32(0), uint32(0), uint32(1000))  // Burn too high
-	f.Add(uint32(1000), uint32(10001), uint32(6000), uint32(3000), uint32(0), uint32(0), uint32(1000)) // Insurance too high
-	f.Add(uint32(6000), uint32(5000), uint32(6000), uint32(3000), uint32(0), uint32(0), uint32(1000))  // Combined > 100%
-	f.Add(uint32(0), uint32(0), uint32(10000), uint32(0), uint32(0), uint32(0), uint32(0))             // No deductions
+	f.Add(uint32(1000), uint32(500), uint32(6000), uint32(3000), uint32(0), uint32(0), uint32(1000))      // Valid
+	f.Add(uint32(10001), uint32(500), uint32(6000), uint32(3000), uint32(0), uint32(0), uint32(1000))     // Burn too high
+	f.Add(uint32(1000), uint32(10001), uint32(6000), uint32(3000), uint32(0), uint32(0), uint32(1000))    // Insurance too high
+	f.Add(uint32(6000), uint32(5000), uint32(6000), uint32(3000), uint32(0), uint32(0), uint32(1000))     // Combined > 100%
+	f.Add(uint32(0), uint32(0), uint32(10000), uint32(0), uint32(0), uint32(0), uint32(0))                // No deductions
 	f.Add(uint32(5000), uint32(5000), uint32(5000), uint32(3000), uint32(1000), uint32(500), uint32(500)) // Max deductions
 
 	f.Fuzz(func(t *testing.T, burnRate, insuranceRate, pubShare, routerShare, originShare, treasuryShare, refShare uint32) {

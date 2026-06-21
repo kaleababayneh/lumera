@@ -1,4 +1,3 @@
-
 package keeper
 
 import (
@@ -156,10 +155,10 @@ func TestFmSplitDet_MR_BaseFeeIndependence(t *testing.T) {
 	const lockAmt int64 = 1_000_000
 	const actualCost int64 = 700_000
 	baseFees := []int64{
-		1_000,    // 0.001 (near MinBaseFee)
-		25_000,   // 0.025 (default)
-		100_000,  // 0.1
-		500_000,  // 0.5
+		1_000,     // 0.001 (near MinBaseFee)
+		25_000,    // 0.025 (default)
+		100_000,   // 0.1
+		500_000,   // 0.5
 		1_000_000, // 1.0 (near MaxBaseFee)
 	}
 
@@ -202,10 +201,10 @@ func TestFmSplitDet_MR_GasIndependence(t *testing.T) {
 	const lockAmt int64 = 2_000_000
 	const actualCost int64 = 1_500_000
 	gasValues := []int64{
-		0,            // empty block
-		8_750_000,    // half target
-		17_500_000,   // exact target
-		35_000_000,   // 2× target
+		0,             // empty block
+		8_750_000,     // half target
+		17_500_000,    // exact target
+		35_000_000,    // 2× target
 		1_000_000_000, // far above (clamp territory)
 	}
 

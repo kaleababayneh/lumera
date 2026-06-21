@@ -1,4 +1,3 @@
-
 package keeper
 
 import (
@@ -72,12 +71,12 @@ func allValidUTF8(ss ...string) bool {
 func FuzzLock_ProtoRoundTripPreservesEquality(f *testing.F) {
 	// Seeds: representative Lock shapes.
 	seeds := []struct {
-		lockID, router, sessionID, toolID                    string
-		quoteID, policyVersion, intentHash, toolpackID       string
-		lastError                                            string
-		amountStr                                            string
-		createdAtSec, expiresAtSec                           int64
-		status                                               int32
+		lockID, router, sessionID, toolID              string
+		quoteID, policyVersion, intentHash, toolpackID string
+		lastError                                      string
+		amountStr                                      string
+		createdAtSec, expiresAtSec                     int64
+		status                                         int32
 	}{
 		// Typical.
 		{"lock-1", "cosmos1router", "session-1", "tool-1",
@@ -252,9 +251,9 @@ func FuzzLock_ProtoMarshalIsDeterministic(f *testing.F) {
 // wraps proto.Marshal/Unmarshal.
 func FuzzLock_KeeperSaveLoadRoundTrip(f *testing.F) {
 	seeds := []struct {
-		lockID, router    string
-		amountStr         string
-		createdSec        int64
+		lockID, router string
+		amountStr      string
+		createdSec     int64
 	}{
 		{"lock-kr-1", "cosmos1kr1", "100000", 1_700_000_000},
 		{"lock-kr-2", "cosmos1kr2", "5000000", 1_893_456_000},
@@ -280,12 +279,12 @@ func FuzzLock_KeeperSaveLoadRoundTrip(f *testing.F) {
 		ctx, keeper, _, _, _ := setupCreditsKeeper(t)
 
 		lock := &types.Lock{
-			LockId: lockID,
-			Router: router,
-			Amount: &v1beta1.Coin{Denom: "ulac", Amount: amountStr},
+			LockId:    lockID,
+			Router:    router,
+			Amount:    &v1beta1.Coin{Denom: "ulac", Amount: amountStr},
 			CreatedAt: timestamppb.New(time.Unix(createdSec, 0).UTC()),
 			ExpiresAt: timestamppb.New(time.Unix(createdSec+3600, 0).UTC()),
-			Status: types.LockStatus_LOCK_STATUS_ACTIVE,
+			Status:    types.LockStatus_LOCK_STATUS_ACTIVE,
 		}
 
 		if err := keeper.SaveLock(ctx, lock); err != nil {

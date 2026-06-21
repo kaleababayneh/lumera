@@ -1,4 +1,3 @@
-
 package credits
 
 import (

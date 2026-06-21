@@ -1,4 +1,3 @@
-
 package keeper
 
 import (
@@ -424,13 +423,14 @@ func TestLifecycleConformance_MUST3_LockUnlockRoundTripNoOp(t *testing.T) {
 
 // TestLifecycleConformance_MUST4_PartialSettleRefundsExactExcess
 // pins that SettleLock with actualCost < lockAmount produces:
-//   (a) Cross-keeper byte-equal router + publisher balance.
-//   (b) A strictly smaller net deduction than actualCost — because
-//       the router ALSO receives the router share of the fee split
-//       on actualCost (so net cost < actualCost).
-//   (c) Excess (lockAmount - actualCost) fully returned out of
-//       escrow — the module escrow NEVER retains any part of the
-//       unused lock amount.
+//
+//	(a) Cross-keeper byte-equal router + publisher balance.
+//	(b) A strictly smaller net deduction than actualCost — because
+//	    the router ALSO receives the router share of the fee split
+//	    on actualCost (so net cost < actualCost).
+//	(c) Excess (lockAmount - actualCost) fully returned out of
+//	    escrow — the module escrow NEVER retains any part of the
+//	    unused lock amount.
 func TestLifecycleConformance_MUST4_PartialSettleRefundsExactExcess(t *testing.T) {
 	t.Parallel()
 	stackA := newLifecycleStack(t)

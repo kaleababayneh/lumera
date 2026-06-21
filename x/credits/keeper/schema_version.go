@@ -1,4 +1,3 @@
-
 // Package keeper provides schema versioning utilities for the credits module.
 package keeper
 

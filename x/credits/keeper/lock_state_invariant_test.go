@@ -1,4 +1,3 @@
-
 package keeper
 
 import (
@@ -213,17 +212,17 @@ func TestLockStateInvariant_AggregatesMultipleIssues(t *testing.T) {
 	ctx = ctx.WithBlockTime(now)
 
 	require.NoError(t, keeper.SaveLock(ctx, &types.Lock{
-		LockId: "lock-bad-1",
-		Router: "lumera1r1",
-		Amount: &v1beta1.Coin{Denom: types.DefaultCreditDenom, Amount: "0"}, // bad
-		Status: types.LockStatus_LOCK_STATUS_ACTIVE,
+		LockId:    "lock-bad-1",
+		Router:    "lumera1r1",
+		Amount:    &v1beta1.Coin{Denom: types.DefaultCreditDenom, Amount: "0"}, // bad
+		Status:    types.LockStatus_LOCK_STATUS_ACTIVE,
 		ExpiresAt: timestamppb.New(now.Add(time.Hour)),
 	}))
 	require.NoError(t, keeper.SaveLock(ctx, &types.Lock{
-		LockId:    "lock-bad-2",
-		Router:    "lumera1r2",
-		Amount:    &v1beta1.Coin{Denom: types.DefaultCreditDenom, Amount: "1000"},
-		Status:    types.LockStatus_LOCK_STATUS_UNSPECIFIED, // bad
+		LockId: "lock-bad-2",
+		Router: "lumera1r2",
+		Amount: &v1beta1.Coin{Denom: types.DefaultCreditDenom, Amount: "1000"},
+		Status: types.LockStatus_LOCK_STATUS_UNSPECIFIED, // bad
 	}))
 
 	invariant := LockStateInvariant(*keeper)

@@ -1,4 +1,3 @@
-
 package keeper
 
 import (
@@ -57,6 +56,6 @@ func TestSettlementRecordHasLockID(t *testing.T) {
 	// 3. Verify Settlement Record
 	settlement, found := keeper.GetSettlement(ctx, receiptID)
 	require.True(t, found, "settlement record must exist")
-	
+
 	assert.Equal(t, lockID, settlement.LockId, "settlement record must contain the correct LockId")
 }

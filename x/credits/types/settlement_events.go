@@ -1,4 +1,3 @@
-
 // Package types defines public constants used for credits module settlement events.
 //
 //revive:disable:var-naming // Cosmos modules keep auxiliary protobuf types under package types.

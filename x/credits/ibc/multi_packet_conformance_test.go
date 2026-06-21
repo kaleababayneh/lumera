@@ -104,9 +104,9 @@ func buildPacket(t *testing.T, spec packetSpec) channeltypes.Packet {
 // and returns the per-packet ack outcomes plus the captured
 // event manager.
 type sequenceResult struct {
-	AckSuccesses []bool       // one per packet
-	StubCalls    []bool       // recvPacketCalled state per packet
-	Events       []sdk.Event  // all events from a fresh manager
+	AckSuccesses []bool      // one per packet
+	StubCalls    []bool      // recvPacketCalled state per packet
+	Events       []sdk.Event // all events from a fresh manager
 }
 
 func processSequence(t *testing.T, params FeeSplitParams, packets []packetSpec) sequenceResult {

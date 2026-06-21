@@ -71,10 +71,10 @@ type eventInStream struct {
 
 // streamGolden is the golden-file top-level structure.
 type streamGolden struct {
-	Scenario       string           `json:"scenario"`
-	PacketID       string           `json:"packet_id"`
-	EventCount     int              `json:"event_count"`
-	OrderedStream  []eventInStream  `json:"ordered_stream"`
+	Scenario      string          `json:"scenario"`
+	PacketID      string          `json:"packet_id"`
+	EventCount    int             `json:"event_count"`
+	OrderedStream []eventInStream `json:"ordered_stream"`
 }
 
 // collectFeeSplitStream extracts fee-split middleware events from
@@ -283,6 +283,7 @@ func assertStreamWideInvariants(t *testing.T, stream []eventInStream, expectSett
 //   - BurnBPS > 0 → burn transfer_routed
 //   - InsuranceBPS > 0 → insurance transfer_routed
 //   - ReferrerBPS > 0 → referrer transfer_routed
+//
 // Expected: fee_collected + fee_split_applied + 5 transfer_routed = 7 events.
 func TestFeeSplitEventStream_Golden_AllRolesPopulated(t *testing.T) {
 	params := FeeSplitParams{
@@ -391,7 +392,8 @@ func TestFeeSplitEventStream_Golden_ZeroInsuranceSuppressed(t *testing.T) {
 // informational. RequireSplitExecutor=false allows the packet
 // through; true would close it — that's a different scenario.
 // Expected: fee_collected + fee_split_applied + 5 transfer_routed = 7 events,
-//           ALL with executed=false.
+//
+//	ALL with executed=false.
 func TestFeeSplitEventStream_Golden_AdvisoryNoExecutor(t *testing.T) {
 	params := FeeSplitParams{
 		BurnBPS:      300,
@@ -460,7 +462,8 @@ func TestFeeSplitEventStream_Golden_AdvisoryNoExecutor(t *testing.T) {
 // transfer_routed for every fee_split_applied would be wrong —
 // this pins the actual behavior.
 // Expected: fee_collected + fee_split_applied + 4 transfer_routed = 6 events
-//           (publisher SKIPPED; router + referrer + burn + insurance present).
+//
+//	(publisher SKIPPED; router + referrer + burn + insurance present).
 func TestFeeSplitEventStream_Golden_MinimalMemoRouterOnly(t *testing.T) {
 	params := FeeSplitParams{
 		BurnBPS:      300,

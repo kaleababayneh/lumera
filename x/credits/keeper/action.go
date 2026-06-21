@@ -1,12 +1,11 @@
-
 package keeper
 
 import (
 	"context"
 	"fmt"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/LumeraProtocol/lumera/x/credits/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // RecordPartialFill records a partial settlement for an action.
@@ -72,21 +71,21 @@ func (k Keeper) FinalizeAction(ctx context.Context, actionID string, lockID stri
 	// For finalization, we pass zero as the delta since the cost is already accumulated.
 	// SettleLock/ProcessSettlement will read the existing TotalCost from the settlement record.
 	req := SettlementRequest{
-		ReceiptID:      actionID, // Use ActionID as ReceiptID
-		ActionID:       actionID,
-		ToolID:         record.ToolId,
-		TotalAmount:    sdk.NewCoins(), // No new delta, just finalizing existing accumulated cost
-		PublisherAddr:  publisherAddr,
-		RouterAddr:     routerAddr,
-		ReferrerAddr:   referrerAddr,
-		CacheHit:       record.CacheHit,
-		OriginToolID:   record.OriginToolId,
-		PublisherID:    record.PublisherId,
-		UserID:         record.UserId,
-		RouterID:       record.RouterId,
-		ReferrerID:     record.ReferrerId,
-		ToolpackID:     record.ToolpackId,
-		Stage:          "finalized",
+		ReceiptID:     actionID, // Use ActionID as ReceiptID
+		ActionID:      actionID,
+		ToolID:        record.ToolId,
+		TotalAmount:   sdk.NewCoins(), // No new delta, just finalizing existing accumulated cost
+		PublisherAddr: publisherAddr,
+		RouterAddr:    routerAddr,
+		ReferrerAddr:  referrerAddr,
+		CacheHit:      record.CacheHit,
+		OriginToolID:  record.OriginToolId,
+		PublisherID:   record.PublisherId,
+		UserID:        record.UserId,
+		RouterID:      record.RouterId,
+		ReferrerID:    record.ReferrerId,
+		ToolpackID:    record.ToolpackId,
+		Stage:         "finalized",
 	}
 
 	// Call SettleLock to handle burn/refund/settlement

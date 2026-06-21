@@ -1,4 +1,3 @@
-
 package types
 
 import (
@@ -35,8 +34,9 @@ type InsuranceKeeper interface {
 type RegistryKeeper interface {
 	GetToolPublisher(ctx context.Context, toolID string) (sdk.AccAddress, error)
 	// ValidateReceipt gates settlement on a verifiable Proof-of-Service receipt:
-	// it returns nil iff a receipt with receiptID was anchored for toolID.
-	ValidateReceipt(ctx sdk.Context, receiptID, toolID string) error
+	// it returns nil iff a receipt with receiptID was anchored for toolID and is
+	// bound to the lock being settled (lockID).
+	ValidateReceipt(ctx sdk.Context, receiptID, toolID, lockID string) error
 }
 
 // ReserveKeeper exposes reserve tier allocation to the credits module.

@@ -146,12 +146,14 @@ func (k msgServer) ChallengeReceipt(goCtx context.Context, msg *types.MsgChallen
 
 // SettleReceipt adjudicates a disputed receipt by UPHOLDING the challenge: the
 // locked bond is slashed (restitution-routed), the challenger's stake refunded,
-// and the receipt invalidated. The adjudicator must be an active SuperNode (the
-// verification layer); production should use a disjoint quorum / governance, and
-// the reject-on-expiry path is a follow-up slice.
+// and the receipt invalidated. The adjudicator must be an active SuperNode AND
+// disjoint from both the challenger and the publisher (enforced in
+// UpholdChallenge) — so no single party can self-file and self-uphold to steal
+// a bond. Production should additionally require a disjoint quorum / governance.
 func (k msgServer) SettleReceipt(goCtx context.Context, msg *types.MsgSettleReceipt) (*types.MsgSettleReceiptResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
-	if _, err := sdk.AccAddressFromBech32(msg.Settler); err != nil {
+	adjudicator, err := sdk.AccAddressFromBech32(msg.Settler)
+	if err != nil {
 		return nil, fmt.Errorf("invalid settler address: %w", err)
 	}
 	if strings.TrimSpace(msg.ReceiptId) == "" {
@@ -160,7 +162,7 @@ func (k msgServer) SettleReceipt(goCtx context.Context, msg *types.MsgSettleRece
 	if err := k.Keeper.requireActiveSupernode(ctx, msg.Settler); err != nil {
 		return nil, err
 	}
-	c, _, err := k.Keeper.UpholdChallenge(ctx, msg.ReceiptId)
+	c, _, err := k.Keeper.UpholdChallenge(ctx, adjudicator, msg.ReceiptId)
 	if err != nil {
 		return nil, err
 	}

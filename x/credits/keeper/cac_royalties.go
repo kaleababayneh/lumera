@@ -1,4 +1,3 @@
-
 // Package keeper hosts the core credits keeper implementation.
 package keeper
 

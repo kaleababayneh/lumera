@@ -1,13 +1,12 @@
-
 package keeper
 
 import (
 	"testing"
 	"time"
 
+	"github.com/LumeraProtocol/lumera/x/credits/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
-	"github.com/LumeraProtocol/lumera/x/credits/types"
 )
 
 func TestActionLifecycle(t *testing.T) {
@@ -48,7 +47,7 @@ func TestActionLifecycle(t *testing.T) {
 		CumulativeFilled: sdk.NewInt64Coin(types.DefaultCreditDenom, 100_000),
 		Timestamp:        time.Now().UTC(),
 	}
-	
+
 	req1 := SettlementRequest{
 		ReceiptID:     actionID, // Use ActionID as ReceiptID
 		ActionID:      actionID,
@@ -61,7 +60,7 @@ func TestActionLifecycle(t *testing.T) {
 		RouterID:      routerAddr.String(),
 		ReferrerID:    referrerAddr.String(),
 	}
-	
+
 	err = keeper.RecordPartialFill(ctx, req1)
 	require.NoError(t, err)
 
@@ -78,7 +77,7 @@ func TestActionLifecycle(t *testing.T) {
 	)
 	require.Equal(t, types.SettlementStatus_SETTLEMENT_STATUS_PENDING.String(), eventAttribute(t, settlementEvent, types.AttributeKeyStatus))
 	require.Equal(t, uint64(1), rec.FillCount)
-	
+
 	totalCost := types.CoinsFromProto(rec.TotalCost)
 	require.Equal(t, sdk.NewCoins(fill1.FillAmount), totalCost)
 
@@ -90,13 +89,13 @@ func TestActionLifecycle(t *testing.T) {
 		CumulativeFilled: sdk.NewInt64Coin(types.DefaultCreditDenom, 300_000),
 		Timestamp:        time.Now().UTC(),
 	}
-	
+
 	req2 := SettlementRequest{
-		ReceiptID:     actionID,
-		ActionID:      actionID,
-		TotalAmount:   sdk.NewCoins(fill2.FillAmount), // Delta
+		ReceiptID:   actionID,
+		ActionID:    actionID,
+		TotalAmount: sdk.NewCoins(fill2.FillAmount), // Delta
 	}
-	
+
 	err = keeper.RecordPartialFill(ctx, req2)
 	require.NoError(t, err)
 
@@ -113,7 +112,7 @@ func TestActionLifecycle(t *testing.T) {
 	// Verify refund
 	refund := lockAmount.Sub(fill1.FillAmount.Add(fill2.FillAmount))
 	require.Equal(t, sdk.NewCoins(refund), res.RefundAmount)
-	
+
 	rec, found = keeper.GetSettlement(ctx, actionID)
 	require.True(t, found)
 	require.Equal(t, types.SettlementStatus_SETTLEMENT_STATUS_COMPLETED, rec.Status)
@@ -126,7 +125,7 @@ func TestActionLifecycle(t *testing.T) {
 		types.SettlementStatus_SETTLEMENT_STATUS_COMPLETED.String(),
 	)
 	require.Equal(t, types.SettlementStatus_SETTLEMENT_STATUS_COMPLETED.String(), eventAttribute(t, settlementEvent, types.AttributeKeyStatus))
-	
+
 	// Verify lock burned
 	lock, found := keeper.GetLock(ctx, lockID)
 	require.True(t, found)

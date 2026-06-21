@@ -1,4 +1,3 @@
-
 package keeper
 
 import (
@@ -61,9 +60,9 @@ type benchStatBaseline struct {
 }
 
 type benchStatGolden struct {
-	Suite         string              `json:"suite"`
-	RunsPerBench  int                 `json:"runs_per_bench"`
-	Baselines     []benchStatBaseline `json:"baselines"`
+	Suite        string              `json:"suite"`
+	RunsPerBench int                 `json:"runs_per_bench"`
+	Baselines    []benchStatBaseline `json:"baselines"`
 }
 
 // runMultiBench runs the bench function `runs` times and returns

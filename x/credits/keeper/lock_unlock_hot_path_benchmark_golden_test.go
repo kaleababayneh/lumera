@@ -1,4 +1,3 @@
-
 package keeper
 
 import (
@@ -59,8 +58,8 @@ type creditsBenchAnchor struct {
 }
 
 type creditsBenchGolden struct {
-	Suite   string                `json:"suite"`
-	Anchors []creditsBenchAnchor  `json:"anchors"`
+	Suite   string               `json:"suite"`
+	Anchors []creditsBenchAnchor `json:"anchors"`
 }
 
 func runCreditsBench(fn func(b *testing.B)) (allocs, bytesAlloc, ns int64) {

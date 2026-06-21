@@ -1,4 +1,3 @@
-
 package keeper
 
 import (
@@ -75,10 +74,10 @@ type cooperativeReserveStub struct {
 }
 
 type cooperativeCommitment struct {
-	commitmentID    string
-	owner           string
-	remaining       sdk.Coin
-	discountBps     uint32
+	commitmentID string
+	owner        string
+	remaining    sdk.Coin
+	discountBps  uint32
 }
 
 type cooperativeAllocationRecord struct {
@@ -106,10 +105,10 @@ func (r *cooperativeReserveStub) installCommitment(commitID, owner, policyID, to
 }
 
 // AllocateReserve mirrors the real reserve keeper's contract:
-// - finds matching commitment by policyID+toolID
-// - if remaining ≥ actualCost: deducts full actualCost from
-//   remaining, returns DiscountedPrice
-// - else: returns Applied=false, full price
+//   - finds matching commitment by policyID+toolID
+//   - if remaining ≥ actualCost: deducts full actualCost from
+//     remaining, returns DiscountedPrice
+//   - else: returns Applied=false, full price
 func (r *cooperativeReserveStub) AllocateReserve(_ context.Context, owner, policyID, toolID string, amount sdk.Coin) (reservetypes.ReserveAllocation, error) {
 	if amount.IsZero() {
 		return reservetypes.ReserveAllocation{Applied: false, DiscountedPrice: amount}, nil
@@ -131,7 +130,7 @@ func (r *cooperativeReserveStub) AllocateReserve(_ context.Context, owner, polic
 	commit.remaining = commit.remaining.Sub(amount)
 	// Compute discounted price.
 	discountedAmt := amount.Amount.Mul(
-		sdkmath.NewInt(int64(10_000-commit.discountBps))).
+		sdkmath.NewInt(int64(10_000 - commit.discountBps))).
 		Quo(sdkmath.NewInt(10_000))
 	discounted := sdk.NewCoin(amount.Denom, discountedAmt)
 
@@ -469,7 +468,7 @@ func TestReserveCreditsCoop_MUST5_ZeroDiscountCommitmentDepletesNoSavings(t *tes
 	require.Equal(t, initialCapacity-actualCost, postCapacity,
 		"MUST-5(b): zero-BPS commitment must still deplete capacity "+
 			"by full actualCost: got=%d expected=%d",
-			postCapacity, initialCapacity-actualCost)
+		postCapacity, initialCapacity-actualCost)
 
 	// MUST-5(c): charge = full actualCost (no savings).
 	chargeFromLegs := sumCoins(result.BurnAmount) +

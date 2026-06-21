@@ -86,10 +86,10 @@ type recoveryScenario struct {
 // fresh middleware. Returns the (recvCount, ackCount, timeoutCount)
 // stub-call totals + total middleware events emitted.
 type recoveryResult struct {
-	ackCalls       int
-	timeoutCalls   int
-	mwEvents       int
-	allDelegated   bool
+	ackCalls     int
+	timeoutCalls int
+	mwEvents     int
+	allDelegated bool
 }
 
 func runRecoveryScript(t *testing.T, script []recoveryScenario) recoveryResult {

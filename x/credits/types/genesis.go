@@ -1,4 +1,3 @@
-
 // Package types holds shared types and helpers for the credits module.
 //
 //revive:disable:var-naming // The module uses the conventional Cosmos `types` namespace.

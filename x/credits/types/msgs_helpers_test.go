@@ -1,4 +1,3 @@
-
 package types
 
 import (
@@ -308,13 +307,13 @@ func TestCoinFromProto_FieldNameInEveryErrorPath(t *testing.T) {
 	t.Parallel()
 	fieldName := "custom_field_name_for_triage"
 	cases := []*v1beta1.Coin{
-		nil,                                            // :47-49
-		{Denom: "", Amount: "100"},                      // :51-53
-		{Denom: "1bad", Amount: "100"},                  // :58-60
-		{Denom: "ulac", Amount: ""},                     // :62-64
-		{Denom: "ulac", Amount: "not-a-number"},         // :65-68
-		{Denom: "ulac", Amount: "0"},                    // positivity
-		{Denom: "ulac", Amount: "-1"},                   // positivity
+		nil,                                     // :47-49
+		{Denom: "", Amount: "100"},              // :51-53
+		{Denom: "1bad", Amount: "100"},          // :58-60
+		{Denom: "ulac", Amount: ""},             // :62-64
+		{Denom: "ulac", Amount: "not-a-number"}, // :65-68
+		{Denom: "ulac", Amount: "0"},            // positivity
+		{Denom: "ulac", Amount: "-1"},           // positivity
 	}
 	for _, c := range cases {
 		_, err := coinFromProto(c, fieldName)
@@ -331,8 +330,9 @@ func TestCoinFromProto_FieldNameInEveryErrorPath(t *testing.T) {
 // TestCoinFromProtoHelpers_ZeroAmountDivergence is the top-
 // level scan-angle #5 anchor. Same zero-amount input produces
 // DIFFERENT outcomes across the two coin helpers:
-//   coinFromProto:     ERROR (positivity required)
-//   CoinFromProtoSafe: SUCCESS (zero is a valid sdk.Coin)
+//
+//	coinFromProto:     ERROR (positivity required)
+//	CoinFromProtoSafe: SUCCESS (zero is a valid sdk.Coin)
 func TestCoinFromProtoHelpers_ZeroAmountDivergesBetweenSiblings(t *testing.T) {
 	t.Parallel()
 	zeroCoin := &v1beta1.Coin{Denom: "ulac", Amount: "0"}

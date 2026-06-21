@@ -1,4 +1,3 @@
-
 package keeper
 
 import (
@@ -93,7 +92,7 @@ func TestFinalizeSettlementWithLock_RejectsInvalidRouterID(t *testing.T) {
 //
 //   - ReferrerId == ""     → no parse attempted, function proceeds.
 //   - ReferrerId != ""     → parse must succeed or the function
-//                             errors out before touching SettleLock.
+//     errors out before touching SettleLock.
 //
 // A regression that inverted the branch (parse on empty, skip on
 // non-empty) would silently ignore malformed referrer addresses

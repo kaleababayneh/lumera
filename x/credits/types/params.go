@@ -1,4 +1,3 @@
-
 // Package types holds shared types and helpers for the credits module.
 //
 //revive:disable:var-naming // Package name aligns with Cosmos SDK module layout.

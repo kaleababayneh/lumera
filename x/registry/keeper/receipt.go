@@ -149,14 +149,21 @@ func (k Keeper) SubmitReceipt(ctx sdk.Context, attestor string, receipt *types.U
 }
 
 // ValidateReceipt is the gate consumed by credits settlement: it returns nil iff
-// a receipt with receiptID exists and was anchored for toolID.
-func (k Keeper) ValidateReceipt(ctx sdk.Context, receiptID, toolID string) error {
+// a receipt with receiptID exists, was anchored for toolID, is bound to the lock
+// being settled (lockID), and is not under dispute / invalidated.
+func (k Keeper) ValidateReceipt(ctx sdk.Context, receiptID, toolID, lockID string) error {
 	receipt, found := k.GetUsageReceipt(ctx, receiptID)
 	if !found {
 		return types.ErrReceiptNotFound.Wrapf("no proof-of-service receipt for id %s", receiptID)
 	}
 	if receipt.ToolId != toolID {
 		return types.ErrUnauthorized.Wrapf("receipt %s is for tool %s, not %s", receiptID, receipt.ToolId, toolID)
+	}
+	// Bind the receipt to the lock it settles: a receipt anchored for one lock
+	// cannot be replayed to settle a different router's / user's lock for the
+	// same tool.
+	if strings.TrimSpace(receipt.LockId) == "" || receipt.LockId != strings.TrimSpace(lockID) {
+		return types.ErrUnauthorized.Wrapf("receipt %s is not bound to lock %s", receiptID, lockID)
 	}
 	// A receipt under dispute, or already invalidated by an upheld challenge,
 	// must not settle — payment is blocked until the dispute clears.

@@ -70,12 +70,12 @@ import (
 // or contains ONLY events from the underlying app (the stub) —
 // the middleware itself emits nothing.
 type failurePathGolden struct {
-	Scenario              string            `json:"scenario"`
-	HandlerCalled         string            `json:"handler_called"` // OnAck | OnTimeout
-	UnderlyingAppCalled   bool              `json:"underlying_app_called"`
-	MiddlewareEventCount  int               `json:"middleware_event_count"` // MUST be 0
-	NumIterations         int               `json:"num_iterations"`
-	Trail                 []eventInStream   `json:"trail"` // any middleware events (should be empty)
+	Scenario             string          `json:"scenario"`
+	HandlerCalled        string          `json:"handler_called"` // OnAck | OnTimeout
+	UnderlyingAppCalled  bool            `json:"underlying_app_called"`
+	MiddlewareEventCount int             `json:"middleware_event_count"` // MUST be 0
+	NumIterations        int             `json:"num_iterations"`
+	Trail                []eventInStream `json:"trail"` // any middleware events (should be empty)
 }
 
 // collectMiddlewareEventsOnly filters out non-fee-split events

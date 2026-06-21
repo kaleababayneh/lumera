@@ -1,4 +1,3 @@
-
 package keeper
 
 import (
@@ -39,7 +38,7 @@ func baseParams() *types.Params {
 		TargetAnnualDeflationBps:        1000, // 10% target
 		MinBurnRateSpendBps:             100,
 		MaxBurnRateSpendBps:             500,
-		DeathSpiralSupplyContractionBps: 0,    // disabled by default
+		DeathSpiralSupplyContractionBps: 0, // disabled by default
 		DeathSpiralBurnRateCapBps:       150,
 	}
 }
@@ -158,7 +157,7 @@ func TestEvaluateAdaptiveBurnAdjustment(t *testing.T) {
 			name: "above_band_floors_at_zero_when_step_exceeds_rate",
 			params: func() *types.Params {
 				p := baseParams()
-				p.BurnRateSpendBps = 10  // below one step
+				p.BurnRateSpendBps = 10 // below one step
 				p.MinBurnRateSpendBps = 0
 				return p
 			},
@@ -242,14 +241,14 @@ func TestEvaluateAdaptiveBurnAdjustment(t *testing.T) {
 			params: func() *types.Params {
 				p := baseParams()
 				p.BurnRateSpendBps = 300
-				p.DeathSpiralSupplyContractionBps = 500   // trip threshold
-				p.DeathSpiralBurnRateCapBps = 150         // hard cap
+				p.DeathSpiralSupplyContractionBps = 500 // trip threshold
+				p.DeathSpiralBurnRateCapBps = 150       // hard cap
 				return p
 			},
 			stats: adaptiveBurnStats{
 				Supply:                 positiveSupply(),
 				SampleCount:            500,
-				AnnualizedDeflationBps: 500, // would normally step UP
+				AnnualizedDeflationBps: 500,  // would normally step UP
 				PeriodContractionBps:   1000, // exceeds 500 trip threshold
 			},
 			assert: func(t *testing.T, got *AdaptiveBurnAdjustment) {

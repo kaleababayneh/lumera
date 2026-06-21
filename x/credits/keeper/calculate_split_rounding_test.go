@@ -1,4 +1,3 @@
-
 package keeper_test
 
 import (
@@ -51,10 +50,11 @@ import (
 // Raw calc: 100/200/300/350/50 = total 1000. No rounding
 // needed. Need a case where SafePercentage actually rounds
 // down. Amount=7, BPS 3333/3334/3333/0/0 (sum 10000):
-//   7*3333/10000 = 2 (2.3331 trunc)
-//   7*3334/10000 = 2 (2.3338 trunc)
-//   7*3333/10000 = 2
-//   sum=6, diff=1 → goes to router (3334 is highest).
+//
+//	7*3333/10000 = 2 (2.3331 trunc)
+//	7*3334/10000 = 2 (2.3338 trunc)
+//	7*3333/10000 = 2
+//	sum=6, diff=1 → goes to router (3334 is highest).
 func TestCalculateSplit_RoundingResidualGoesToHighestBPS(t *testing.T) {
 	t.Parallel()
 	pub, router, orig, treas, ref, err := keeper.CalculateSplit(
@@ -263,12 +263,12 @@ func TestCalculateSplit_ZeroAmount(t *testing.T) {
 func TestCalculateSplit_BPSSumMismatchRejected(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
-		name                                           string
-		pub, router, orig, treas, ref                  uint32
+		name                          string
+		pub, router, orig, treas, ref uint32
 	}{
-		{"underflow_9000", 3000, 2500, 1500, 1000, 1000},  // sum=9000
-		{"overflow_11000", 3000, 2500, 2000, 1500, 2000},  // sum=11000
-		{"all_zero", 0, 0, 0, 0, 0},                        // sum=0
+		{"underflow_9000", 3000, 2500, 1500, 1000, 1000}, // sum=9000
+		{"overflow_11000", 3000, 2500, 2000, 1500, 2000}, // sum=11000
+		{"all_zero", 0, 0, 0, 0, 0},                      // sum=0
 	} {
 		_, _, _, _, _, err := keeper.CalculateSplit(
 			math.NewInt(1000), tc.pub, tc.router, tc.orig, tc.treas, tc.ref,

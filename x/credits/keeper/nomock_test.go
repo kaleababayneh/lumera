@@ -1,4 +1,3 @@
-
 // Package keeper_test provides comprehensive tests for the credits module
 // using real Cosmos SDK keepers instead of mocks. These tests verify
 // actual state transitions and coin movements.

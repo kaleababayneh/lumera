@@ -1,4 +1,3 @@
-
 package keeper
 
 import (
@@ -74,10 +73,10 @@ func TestLockUnlockAtomicity_MR_EscrowEqualsActiveLockSumAtEveryStep(t *testing.
 
 	// Sequence of operations (all in same block — same ctx).
 	type op struct {
-		kind     string // "lock" | "unlock"
-		router   int    // index into routers
-		amount   int64  // for lock
-		lockIdx  int    // for unlock — index into per-router locks tracker
+		kind    string // "lock" | "unlock"
+		router  int    // index into routers
+		amount  int64  // for lock
+		lockIdx int    // for unlock — index into per-router locks tracker
 	}
 	script := []op{
 		{kind: "lock", router: 0, amount: 100_000},

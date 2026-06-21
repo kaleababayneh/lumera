@@ -50,7 +50,7 @@ func FuzzParseSettlementMemo_MalformedJSON(f *testing.F) {
 		`{"lumera": {}}`,
 		`{"lumera": []}`,
 		`{"lumera": "not_an_object"}`,
-		`{"lumera": {"settlement_id": "x"}}`, // missing refund_address
+		`{"lumera": {"settlement_id": "x"}}`,  // missing refund_address
 		`{"lumera": {"refund_address": "x"}}`, // missing settlement_id
 		`{"lumera": {"settlement_id": "", "refund_address": ""}}`,
 		`{"lumera": {"type": "wrong_type", "settlement_id": "x", "refund_address": "y"}}`,
@@ -121,8 +121,8 @@ func FuzzPacketDataUnmarshal(f *testing.F) {
 		[]byte(`[]`),
 		[]byte("\x00"),
 		[]byte(`{"amount":"` + strings.Repeat("9", 200) + `"}`), // huge number
-		[]byte(`{"memo":"{not json"}`),                         // invalid inner memo
-		[]byte(`{"memo":"{\"lumera\":{}}"}`),                   // empty Lumera envelope
+		[]byte(`{"memo":"{not json"}`),                          // invalid inner memo
+		[]byte(`{"memo":"{\"lumera\":{}}"}`),                    // empty Lumera envelope
 	}
 	for _, s := range seeds {
 		f.Add(s)
