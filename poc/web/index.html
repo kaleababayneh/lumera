@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lumera AI — Economic Flywheel PoC</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#131823; --panel2:#1a2030; --line:#222a3a;
+    --txt:#e6ebf5; --muted:#8b97ad; --acc:#5db0ff; --good:#37d39b; --bad:#ff6b6b; --warn:#ffce6b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       background:var(--bg);color:var(--txt)}
+  header{padding:18px 24px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
+  header h1{margin:0;font-size:18px;font-weight:650}
+  header .sub{color:var(--muted);font-size:12px}
+  .wrap{display:grid;grid-template-columns:1.35fr 1fr;gap:18px;padding:18px 24px;max-width:1200px;margin:0 auto}
+  @media(max-width:900px){.wrap{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:18px}
+  .card h2{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+  .actors{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .actor{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px}
+  .actor .role{font-weight:650;font-size:13px}
+  .actor .addr{color:var(--muted);font-size:11px;word-break:break-all;margin-top:2px}
+  .bal{display:flex;justify-content:space-between;margin-top:8px;font-variant-numeric:tabular-nums}
+  .bal b{color:var(--acc)}
+  .step{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}
+  .step:first-of-type{border-top:none}
+  .num{flex:0 0 26px;height:26px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);
+       display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+  .step .body{flex:1}
+  .step .title{font-weight:600}
+  .step .desc{color:var(--muted);font-size:12.5px;margin:2px 0 8px}
+  button{background:var(--acc);color:#04111f;border:none;border-radius:8px;padding:8px 14px;font-weight:650;cursor:pointer}
+  button:hover{filter:brightness(1.08)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.ghost{background:transparent;color:var(--txt);border:1px solid var(--line)}
+  button.danger{background:transparent;color:var(--bad);border:1px solid #50313a}
+  .kv{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px dashed var(--line);font-size:12.5px}
+  .kv:first-child{border-top:none}
+  .kv .k{color:var(--muted)} .kv .v{font-variant-numeric:tabular-nums;word-break:break-all;text-align:right}
+  .pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:650}
+  .pill.ok{background:rgba(55,211,155,.15);color:var(--good)}
+  .pill.no{background:rgba(255,107,107,.15);color:var(--bad)}
+  .pill.idle{background:rgba(139,151,173,.15);color:var(--muted)}
+  #log{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:#0a0d13;border:1px solid var(--line);
+       border-radius:10px;padding:12px;max-height:340px;overflow:auto;white-space:pre-wrap}
+  .logline{padding:2px 0}
+  .logline.ok{color:var(--good)} .logline.bad{color:var(--bad)} .logline.info{color:var(--muted)}
+  .flywheel{color:var(--muted);font-size:12.5px;margin-top:6px}
+  .flywheel b{color:var(--txt)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Lumera AI — Economic Flywheel <span class="pill ok">live local node</span></h1>
+  <div class="sub" id="cfg">connecting…</div>
+</header>
+
+<div class="wrap">
+  <!-- LEFT: the loop -->
+  <div>
+    <div class="card">
+      <h2>The flywheel</h2>
+      <div class="flywheel">
+        <b>Agent</b> buys credits → <b>Publisher</b> lists a tool with a bond →
+        <b>Router</b> locks payment → <b>SuperNode</b> proves the work
+        (<code>BLAKE3(input,model,output)</code>) → <b>Settlement</b> pays the publisher
+        <i>only against that proof</i>.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Run the loop</h2>
+
+      <div class="step">
+        <div class="num">1</div>
+        <div class="body">
+          <div class="title">Agent buys credits — swap LUME → LAC</div>
+          <div class="desc">The agent converts the native LUME token into LAC spending credits.</div>
+          <button onclick="act('swap',this)">Swap 5,000,000 ulume</button>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">2</div>
+        <div class="body">
+          <div class="title">Publisher lists a tool — register + bond</div>
+          <div class="desc">Registers <code id="toolName">pubtool</code> and escrows a 2,000,000 ulume bond (skin-in-the-game / Step 3).</div>
+          <button onclick="act('register',this)">Register tool + bond</button>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">3</div>
+        <div class="body">
+          <div class="title">Router locks payment — quote → lock</div>
+          <div class="desc">Locks 1,000,000 LAC for one call; returns a <code>lock_id</code>.</div>
+          <button onclick="act('lock',this)">Lock credits</button>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">4</div>
+        <div class="body">
+          <div class="title">SuperNode proves the work — Proof-of-Service (Step 4)</div>
+          <div class="desc">An active SuperNode anchors <code>receipt_id = pos1&lt;BLAKE3(input,model,output)&gt;</code> on-chain.</div>
+          <button onclick="act('submit-receipt',this)">Submit PoS receipt</button>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">5</div>
+        <div class="body">
+          <div class="title">Settlement — gated on the proof</div>
+          <div class="desc">Pays the publisher <b>only if</b> the receipt verifies for this tool.</div>
+          <button onclick="act('settle',this)">Settle (verified) → pay publisher</button>
+          <button class="danger" onclick="act('settle-noproof',this)" title="Demonstrates the gate">Try settle without proof ✗</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Activity log</h2>
+      <div id="log"><div class="logline info">Ready. Click the steps in order.</div></div>
+    </div>
+  </div>
+
+  <!-- RIGHT: live state -->
+  <div>
+    <div class="card">
+      <h2>Actors &amp; balances</h2>
+      <div class="actors">
+        <div class="actor">
+          <div class="role">Agent / Router / SuperNode</div>
+          <div class="addr" id="agentAddr">…</div>
+          <div class="bal"><span>LUME</span><b id="agentLume">—</b></div>
+          <div class="bal"><span>LAC credits</span><b id="agentLac">—</b></div>
+        </div>
+        <div class="actor">
+          <div class="role">Publisher</div>
+          <div class="addr" id="pubAddr">…</div>
+          <div class="bal"><span>LUME</span><b id="pubLume">—</b></div>
+          <div class="bal"><span>LAC earned</span><b id="pubLac">—</b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>On-chain state</h2>
+      <div class="kv"><span class="k">Tool owner</span><span class="v" id="toolOwner">—</span></div>
+      <div class="kv"><span class="k">Bond escrowed (registry acct)</span><span class="v" id="bond">—</span></div>
+      <div class="kv"><span class="k">Active lock</span><span class="v" id="lockId">—</span></div>
+      <div class="kv"><span class="k">Receipt</span><span class="v" id="receiptId">—</span></div>
+      <div class="kv"><span class="k">Receipt status</span><span class="v" id="receiptStatus"><span class="pill idle">none</span></span></div>
+    </div>
+
+    <div class="card">
+      <h2>What this proves</h2>
+      <div class="flywheel">
+        Verifiable Execution → Economic Coordination. Settlement is contingent on a
+        SuperNode-attested proof, so the agent pays for <b>verified</b> work — the trust unlock.
+        <br><br>Not yet wired (enhancements, not prerequisites): reputation badges
+        (<code>incentives</code>) and dispute → bond slashing.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+function logLine(msg, cls){
+  const d = document.createElement('div');
+  d.className = 'logline ' + (cls||'');
+  d.textContent = msg;
+  $('log').prepend(d);
+}
+function fmtAmt(v){ if(v==null||v==='?') return '—'; const n=Number(v); return isNaN(n)? v : n.toLocaleString(); }
+function shortAddr(a){ return a && a.length>16 ? a.slice(0,12)+'…'+a.slice(-6) : (a||'—'); }
+function shortId(a){ return a && a.length>22 ? a.slice(0,14)+'…'+a.slice(-6) : (a||'—'); }
+
+async function loadConfig(){
+  try{
+    const c = await (await fetch('/api/config')).json();
+    $('cfg').textContent = `chain ${c.chainId} · node ${c.node}`;
+    $('agentAddr').textContent = shortAddr(c.agent);
+    $('pubAddr').textContent = shortAddr(c.publisher);
+    if(c.tool) $('toolName').textContent = c.tool;
+  }catch(e){ $('cfg').textContent = 'node unreachable — is lumerad running?'; }
+}
+
+async function refresh(){
+  try{
+    const s = await (await fetch('/api/state')).json();
+    if(!s.ok) return;
+    $('agentLume').textContent = fmtAmt(s.agentLume);
+    $('agentLac').textContent  = fmtAmt(s.agentLac);
+    $('pubLume').textContent   = fmtAmt(s.publisherLume);
+    $('pubLac').textContent    = fmtAmt(s.publisherLac);
+    $('bond').textContent      = fmtAmt(s.registryBond) + ' ulume';
+    $('toolOwner').textContent = s.toolOwner ? shortAddr(s.toolOwner) : '— (not registered)';
+    $('lockId').textContent    = s.lockId || '—';
+    $('receiptId').textContent = shortId(s.receiptId);
+    const rs = s.receiptStatus;
+    $('receiptStatus').innerHTML = rs
+      ? `<span class="pill ok">${rs}</span>`
+      : `<span class="pill idle">none</span>`;
+  }catch(e){}
+}
+
+async function act(step, btn){
+  const all = document.querySelectorAll('button');
+  all.forEach(b=>b.disabled=true);
+  const old = btn.textContent; btn.textContent = '…';
+  try{
+    const r = await (await fetch('/api/'+step, {method:'POST'})).json();
+    if(r.error){ logLine('✗ '+step+': '+r.error, 'bad'); }
+    else {
+      const tx = r.tx || {};
+      const code = tx.code;
+      if(step === 'settle-noproof'){
+        logLine((r.rejected? '✓ rejected as expected — ':'⚠ NOT rejected — ') + (r.note||''), r.rejected?'ok':'bad');
+        if(tx.raw_log) logLine('   chain: '+tx.raw_log, 'info');
+      } else if(r.ok){
+        logLine('✓ '+step+' (code 0) '+(r.note||''), 'ok');
+        if(r.lockId) logLine('   lock_id='+r.lockId,'info');
+        if(r.receiptId) logLine('   receipt_id='+r.receiptId,'info');
+        if(tx.txhash) logLine('   tx '+tx.txhash,'info');
+      } else {
+        logLine('✗ '+step+' (code '+code+') '+(tx.raw_log||r.note||''),'bad');
+      }
+    }
+  }catch(e){ logLine('✗ '+step+': '+e,'bad'); }
+  finally{
+    btn.textContent = old;
+    all.forEach(b=>b.disabled=false);
+    refresh();
+  }
+}
+
+loadConfig();
+refresh();
+setInterval(refresh, 3000);
+</script>
+</body>
+</html>
