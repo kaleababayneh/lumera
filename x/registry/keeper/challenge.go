@@ -219,3 +219,71 @@ func (k Keeper) UpholdChallenge(ctx sdk.Context, receiptID string) (*types.Chall
 	))
 	return c, slashed, nil
 }
+
+// RejectChallenge resolves a pending challenge against the challenger: the locked
+// bond is released, the challenger's stake is forfeited to the insurance reserve
+// (frivolous-dispute deterrent), and the receipt returns to attested (settleable
+// again). Used by the expiry sweep.
+func (k Keeper) RejectChallenge(ctx sdk.Context, c *types.Challenge, note string) error {
+	if c == nil || c.Status != types.ChallengeStatusPending {
+		return nil
+	}
+	if receipt, found := k.GetUsageReceipt(ctx, c.ReceiptId); found {
+		// Release the locked bond (best-effort: the bond may have changed).
+		if err := k.UnlockBond(ctx, receipt.ToolId, c.ChallengerStake); err != nil {
+			k.Logger(ctx).Error("unlock bond on reject failed", "tool", receipt.ToolId, "error", err)
+		}
+		if receipt.Status == "disputed" {
+			receipt.Status = "attested"
+			if err := k.SetUsageReceipt(ctx, receipt); err != nil {
+				return err
+			}
+		}
+	}
+	// Forfeit the challenger's stake to the insurance reserve.
+	if !c.ChallengerStake.IsZero() {
+		if err := k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, slashInsuranceModuleName, c.ChallengerStake); err != nil {
+			return err
+		}
+	}
+	now := ctx.BlockTime()
+	c.Status = types.ChallengeStatusRejected
+	c.Outcome = "invalid"
+	c.Resolution = note
+	c.ResolvedAt = &now
+	if err := k.SetChallenge(ctx, c); err != nil {
+		return err
+	}
+	ctx.EventManager().EmitEvent(sdk.NewEvent(
+		types.EventTypeChallengeResolved,
+		sdk.NewAttribute("challenge_id", c.ChallengeId),
+		sdk.NewAttribute("receipt_id", c.ReceiptId),
+		sdk.NewAttribute("outcome", "rejected"),
+		sdk.NewAttribute("forfeited", c.ChallengerStake.String()),
+	))
+	return nil
+}
+
+// ProcessExpiredChallenges rejects pending challenges whose resolution deadline
+// has passed (no adjudicator upheld them in time). Bounded per block. Run from
+// the registry EndBlocker.
+func (k Keeper) ProcessExpiredChallenges(ctx sdk.Context) {
+	const maxPerBlock = 200
+	now := ctx.BlockTime()
+	n := 0
+	for _, c := range k.GetAllChallenges(ctx) {
+		if n >= maxPerBlock {
+			break
+		}
+		if c == nil || c.Status != types.ChallengeStatusPending {
+			continue
+		}
+		if now.Before(c.DeadlineAt) {
+			continue
+		}
+		if err := k.RejectChallenge(ctx, c, "auto-rejected: resolution deadline passed"); err != nil {
+			k.Logger(ctx).Error("reject expired challenge failed", "challenge", c.ChallengeId, "error", err)
+		}
+		n++
+	}
+}

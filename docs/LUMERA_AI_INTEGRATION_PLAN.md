@@ -392,8 +392,13 @@ generated. Added (all in `x/registry`):
   `disputed` + bond `locked=500000` → settle **blocked** → supernode uphold → slash event
   `burned=25000 insurance=425000 treasury=50000`, `bonded 2,000,000→1,500,000`, `total_slashed=500000`,
   receipt `invalid`, challenge `upheld`, challenger stake refunded, insurance reserve **+425,000**,
-  settlement still blocked. **Deferred (next slice):** reject-on-expiry (registry EndBlocker
-  `ProcessExpiredChallenges`), the challenger bonus, and a disjoint-quorum adjudicator.
+  settlement still blocked. **Reject-on-expiry added + verified (2026-06-21):** disputes are now
+  bilateral — a registry **EndBlocker** (`ProcessExpiredChallenges`, `RejectChallenge`) auto-rejects a
+  challenge whose `ChallengeResolutionDeadlineSeconds` passes without an uphold: the locked bond is
+  **released (not slashed)**, the challenger's stake is **forfeited to insurance**, and the receipt
+  returns to `attested` (settleable). Verified e2e: challenge → expire → bond `bonded=2,000,000`
+  unchanged + `locked=0`, challenger stake `500000`→insurance, challenge `rejected`, then settlement
+  succeeds. **Deferred:** the challenger bonus on uphold, and a disjoint-quorum adjudicator.
 
 ### `incentives` (trust-graph reputation engine) — FULL MODULE PORT: BUILT + WIRED + VERIFIED (2026-06-21)
 The reward side of the trust graph (complements dispute→slash, the punishment side). First **full new

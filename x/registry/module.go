@@ -2,6 +2,7 @@
 package registry
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -110,3 +111,11 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 
 // ConsensusVersion implements AppModule/ConsensusVersion.
 func (AppModule) ConsensusVersion() uint64 { return 1 }
+
+// EndBlock auto-rejects receipt disputes whose resolution deadline has passed
+// (releases the locked bond, forfeits the challenger stake). This is the
+// reject side of dispute resolution; uphold is the SettleReceipt msg.
+func (am AppModule) EndBlock(goCtx context.Context) error {
+	am.keeper.ProcessExpiredChallenges(sdk.UnwrapSDKContext(goCtx))
+	return nil
+}
