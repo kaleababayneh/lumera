@@ -167,6 +167,11 @@
     .hamb{display:inline-flex}
   }
   .route-anim{animation:fade .22s ease}@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  #tourOv{position:fixed;inset:0;z-index:300;display:none}#tourOv.show{display:block}
+  .tour-hole{position:fixed;border:1px solid rgba(255,255,255,.7);box-shadow:0 0 0 9999px rgba(0,0,0,.74);transition:.25s;pointer-events:none}
+  .tour-pop{position:fixed;width:320px;max-width:90vw;background:#0b0b0b;border:1px solid var(--line-2);padding:16px;box-shadow:0 16px 44px rgba(0,0,0,.7)}
+  .tour-step{font-size:9px;color:var(--dim)}.tour-t{font-size:15px;font-weight:650;margin:6px 0 7px}.tour-b{color:var(--muted);font-size:12.5px;line-height:1.55}
+  .tour-nav{display:flex;justify-content:space-between;margin-top:15px}
 </style>
 </head>
 <body>
@@ -177,11 +182,13 @@
       <div class="grp up">Agent</div>
       <a data-route="" href="#/"><span class="ic" data-ic="grid"></span> Dashboard</a>
       <a data-route="marketplace" href="#/marketplace"><span class="ic" data-ic="store"></span> Marketplace <span class="ct" id="navTools">0</span></a>
+      <a data-route="agent" href="#/agent"><span class="ic" data-ic="zap"></span> Agent terminal</a>
       <a data-route="wallet" href="#/wallet"><span class="ic" data-ic="wallet"></span> Wallet</a>
       <div class="grp up">Publisher</div>
       <a data-route="publish" href="#/publish"><span class="ic" data-ic="upload"></span> Publish a tool</a>
       <a data-route="reputation" href="#/reputation"><span class="ic" data-ic="award"></span> Reputation</a>
       <div class="grp up">Network</div>
+      <a data-route="graph" href="#/graph"><span class="ic" data-ic="activity"></span> Trust graph</a>
       <a data-route="disputes" href="#/disputes"><span class="ic" data-ic="scale"></span> Disputes</a>
       <a data-route="activity" href="#/activity"><span class="ic" data-ic="activity"></span> Activity</a>
       <a data-route="vision" href="#/vision"><span class="ic" data-ic="map"></span> Roadmap</a>
@@ -209,6 +216,7 @@
         <div><h1 id="pageTitle">Dashboard</h1><div class="crumb" id="crumb">overview</div></div>
       </div>
       <div class="right">
+        <button class="btn-sm" onclick="startTour()" title="Guided walkthrough">▷ Guided tour</button>
         <a class="chip" href="#/wallet"><b id="topAcct">—</b> · <b id="topLac">—</b> LAC</a>
         <div class="chip"><span class="dot"></span><span id="topNet">local</span></div>
       </div>
@@ -260,6 +268,16 @@ function paintIcons(root){(root||document).querySelectorAll('[data-ic]').forEach
 // deterministic sparkline from a seed
 function spark(seed,w,h){let x=seed*9301%50/50;const pts=[];for(let i=0;i<14;i++){x=(x*1.7+ (i*seed%7)/7)%1;pts.push(0.25+0.6*x);}const W=w||64,H=h||26;const d=pts.map((p,i)=>`${(i/(pts.length-1)*W).toFixed(1)},${(H-p*H).toFixed(1)}`).join(' ');
   return `<svg class="spark" width="${W}" height="${H}"><polyline points="${d}" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1.5"/></svg>`;}
+// deterministic demo series
+function series(seed,n,base,amp){const out=[];for(let i=0;i<n;i++){out.push(base+amp*(0.45+0.45*((Math.sin(i*0.55+seed)+1)/2))+amp*0.12*(((i*seed)%5)/5));}return out;}
+function lineChart(data,w,h,color){if(!data.length)return '';const mn=Math.min(...data),mx=Math.max(...data),rng=(mx-mn)||1;
+  const pts=data.map((v,i)=>`${(i/(data.length-1)*w).toFixed(1)},${(h-((v-mn)/rng)*(h-8)-4).toFixed(1)}`);
+  return `<svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="display:block">
+    <polygon points="0,${h} ${pts.join(' ')} ${w},${h}" fill="${color?color.replace(')',',.10)').replace('rgb','rgba'):'rgba(255,255,255,.07)'}"/>
+    <polyline points="${pts.join(' ')}" fill="none" stroke="${color||'rgba(255,255,255,.8)'}" stroke-width="1.6"/></svg>`;}
+function barChart(items,w,h){const mx=Math.max(...items.map(i=>i.value),1);const bw=w/items.length;
+  return `<svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="display:block">
+    ${items.map((it,i)=>{const bh=Math.max(2,(it.value/mx)*(h-3));return `<rect x="${(i*bw+bw*0.2).toFixed(1)}" y="${(h-bh).toFixed(1)}" width="${(bw*0.6).toFixed(1)}" height="${bh.toFixed(1)}" fill="${it.color||'rgba(255,255,255,.5)'}"/>`;}).join('')}</svg>`;}
 
 // ---- account ----
 let account=localStorage.getItem('lumera.account')||'acct1';
@@ -328,6 +346,7 @@ function updateLive(){
   set('topAcct',S.agent||account);set('topLac',fmtS(S.agentLac));set('navTools',S.toolCount!=null?S.toolCount:'0');
   set('sideNet',C.chainId||'offline');set('topNet',C.chainId||'local');set('sideBlock',S.blockHeight||'—');
   set('kpiTools',S.toolCount!=null?S.toolCount:'—');set('kpiSettled',fmtS(S.publisherLac));set('kpiInsurance',fmtS(S.insurancePool));set('kpiLac',fmtS(S.agentLac));
+  set('kpiCalls',fmtS(S.networkCalls));set('kpiGmv',fmtS(S.networkGmv));set('kpiAgents',S.networkAgents!=null?S.networkAgents:'—');
   set('wAcctName',S.agent||account);set('wAgentAddr',shortA(S.agentAddr));set('wAgentLume',fmt(S.agentLume));set('wAgentLac',fmt(S.agentLac));
   set('wPubLume',fmt(S.publisherLume));set('wPubLac',fmt(S.publisherLac));set('wChlLume',fmt(S.challengerLume));set('wInsurance',fmt(S.insurancePool));
   const b=el('tdBonded');if(b){const bonded=Number(S.bondBonded||0),sl=Number(S.bondSlashed||0),tot=bonded+sl||1;
@@ -373,6 +392,7 @@ derived:${esc(d.derived)}</div>`;
 
 // ================= views =================
 const TITLES={'':['Dashboard','overview'],marketplace:['Marketplace','discover on-chain tools'],tool:['Tool','detail & playground'],
+  agent:['Agent terminal','autonomous agent over MCP'],graph:['Trust graph','the network'],
   publish:['Publish a tool','the publisher flow'],disputes:['Disputes','challenge & slash'],reputation:['Reputation','badges & leaderboard'],
   wallet:['Wallet','credits & balances'],activity:['Activity','on-chain feed'],vision:['Roadmap','the full vision']};
 
@@ -387,10 +407,18 @@ function vDashboard(){
     ${kpiCard('live','kpiLac','—','Your LAC credits',9)}
   </div>
   <div class="grid g4" style="margin-top:16px">
-    <div class="kpi"><span class="tag soon">SOON</span><div class="v">128.4k</div><div class="l up">Calls · 24h</div>${spark(2)}</div>
-    <div class="kpi"><span class="tag soon">SOON</span><div class="v">42<small>ms</small></div><div class="l up">p95 latency</div>${spark(4)}</div>
-    <div class="kpi"><span class="tag soon">SOON</span><div class="v">99.7<small>%</small></div><div class="l up">Success rate</div>${spark(6)}</div>
+    <div class="kpi"><span class="tag live">NET</span><div class="v" id="kpiCalls">—</div><div class="l up">Calls metered</div>${spark(2)}</div>
+    <div class="kpi"><span class="tag live">NET</span><div class="v" id="kpiGmv">—</div><div class="l up">GMV settled · ulac</div>${spark(7)}</div>
+    <div class="kpi"><span class="tag live">NET</span><div class="v" id="kpiAgents">—</div><div class="l up">Active agents</div>${spark(4)}</div>
     <div class="kpi"><span class="tag soon">SOON</span><div class="v">100<small>%</small></div><div class="l up">TEE-attested</div>${spark(8)}</div>
+  </div>
+  <div class="grid g2" style="margin-top:16px">
+    <div class="card"><div class="h"><span class="up">Network volume · 30d</span><span class="hint">calls / day</span></div>
+      <div class="b" style="padding-bottom:8px">${lineChart(series(3,30,400,900),300,90,'rgba(63,185,80,.9)')}
+        <div class="row" style="justify-content:space-between;margin-top:6px"><span class="hint">${fmtS(S.networkCalls)} total</span><span class="hint" style="color:var(--live)">▲ 23% MoM</span></div></div></div>
+    <div class="card"><div class="h"><span class="up">Revenue settled · 30d</span><span class="hint">ulac / day</span></div>
+      <div class="b" style="padding-bottom:8px">${lineChart(series(8,30,200,1200),300,90,'rgba(91,166,255,.9)')}
+        <div class="row" style="justify-content:space-between;margin-top:6px"><span class="hint">${fmtS(S.networkGmv)} GMV</span><span class="hint" style="color:var(--live)">▲ 31% MoM</span></div></div></div>
   </div>
   <div class="grid g2" style="margin-top:16px">
     <div class="card"><div class="h"><span class="up">Quick call</span><span class="badge-live"><span class="dot"></span>LIVE</span></div><div class="b">
@@ -549,6 +577,11 @@ function vReputation(){
       <div class="kv"><span class="k">${tierChip('BRONZE')}</span><span class="v">new / recovering</span></div>
     </div></div>
   </div>
+  <div class="card" style="margin-bottom:16px"><div class="h"><span class="up">Reputation distribution</span><span class="hint">${TOOLS.length} on-chain tools by tier</span></div>
+    <div class="b"><div class="row" style="align-items:flex-end;gap:16px">
+      ${['PLATINUM','GOLD','SILVER','BRONZE'].map(t=>{const n=TOOLS.filter(x=>tierName(x.tier)===t).length;const c={PLATINUM:'#e6e6fa',GOLD:'#e8c46b',SILVER:'#cbd5e1',BRONZE:'#c08457'}[t];
+        return `<div style="flex:1;text-align:center"><div style="height:80px;display:flex;align-items:flex-end"><div style="width:100%;height:${Math.max(6,n*22)}px;background:${c};opacity:.85"></div></div><div class="tier ${t}" style="margin-top:8px;display:inline-block">${t}</div><div class="hint" style="margin-top:4px">${n} tools</div></div>`;}).join('')}
+    </div></div></div>
   <div class="card"><div class="h"><span class="up">Leaderboard</span><span class="hint">live tools ranked among preview listings</span></div>
     <table><thead><tr><th>#</th><th>Tool</th><th>Category</th><th>Tier</th><th>Score</th><th>Status</th></tr></thead><tbody>
     ${ranked.map((t,i)=>`<tr onclick="go('tool/${t.id}')" style="cursor:pointer"><td class="rank">${i+1}</td><td><b>${esc(t.id)}</b></td><td style="color:var(--muted)">${t.cat}</td><td>${tierChip(t.tier)}</td><td>${t.score||'—'}</td><td>${t.live?'<span class="pill ok">live</span>':'<span class="pill warn">preview</span>'}</td></tr>`).join('')}
@@ -583,7 +616,68 @@ function feedHTML(items){if(!items||!items.length)return '<div class="empty">No 
     <div class="fm">${a.height?'h'+a.height+' · ':''}${ago(a.time)}<br>${a.txhash?`<a onclick="navigator.clipboard&&navigator.clipboard.writeText('${a.txhash}');toast('Copied tx hash')">tx ${a.txhash.slice(0,8)}</a>`:''}</div></div>`).join('');}
 function vVision(){return {html:`<div class="sub">Where Lumera AI is headed — each capability maps to a real module already in the repo.</div>
   <div class="grid g3">${VISION.map(v=>`<div class="vcard"><div class="vh">${svg(v.ic,20)}<span class="badge-soon">SOON</span></div><h3>${esc(v.t)}</h3><p>${esc(v.d)}</p><div class="mod up">${esc(v.mod)}</div></div>`).join('')}</div>`,mount:paintAll};}
-const VIEWS={'':vDashboard,marketplace:vMarketplace,tool:vTool,publish:vPublish,disputes:vDisputes,reputation:vReputation,wallet:vWallet,activity:vActivity,vision:vVision};
+// ---- Agent terminal (real MCP) ----
+function vAgent(){
+  return {html:`<div class="sub">An autonomous AI agent connects over the <b style="color:#fff">Model Context Protocol</b>, discovers on-chain tools, and calls one — metered, proven, settled. No human in the loop.</div>
+  <div class="grid g2">
+    <div class="card"><div class="h"><span class="up">Agent session</span><span class="badge-live"><span class="dot"></span>REAL MCP</span></div><div class="b">
+      <div class="row" style="gap:12px"><div class="field" style="flex:1"><label>Tool</label><input id="agTool" value="${esc(focusTool)}"></div>
+        <div class="field" style="flex:2"><label>Prompt</label><input id="agInput" value="summarize this contract clause"></div></div>
+      <button class="btn-primary" onclick="runAgent()">${svg('zap',15)} Run agent over MCP</button>
+      <div id="agTerm" class="result" style="min-height:230px;margin-top:14px"><span class="hint">Idle — click “Run agent”. The web server spawns the real <code>mcp-router</code> binary and speaks JSON-RPC over stdio.</span></div>
+    </div></div>
+    <div class="card"><div class="h"><span class="up">What just happened</span></div><div class="b"><div class="hint" style="line-height:1.85">
+      This is the agentic economy running end-to-end:<br>
+      1. Agent connects to the router over MCP (stdio JSON-RPC).<br>
+      2. <b style="color:#fff">tools/list</b> — discovers every on-chain tool + its reputation.<br>
+      3. <b style="color:#fff">tools/call</b> — the router runs lock → execute → <b style="color:#fff">Proof-of-Service</b> → settle.<br>
+      4. The agent gets the result <b style="color:#fff">plus its on-chain proof</b>, and the publisher is paid.<br><br>
+      It's the same protocol Claude Desktop speaks — point any MCP agent at the router and it transacts on Lumera autonomously.</div></div></div>
+  </div>`,mount:paintAll};
+}
+async function runAgent(){
+  const term=el('agTerm');const tool=(el('agTool').value||focusTool);const input=(el('agInput').value||'hello');
+  const line=(t,c)=>{term.innerHTML+=`\n<span style="color:${c||'var(--muted)'}">${esc(t)}</span>`;term.scrollTop=term.scrollHeight;};
+  term.innerHTML='<span class="ok">● agent connecting over MCP (stdio)…</span>';
+  await sleep(350);line('→ initialize');await sleep(300);line('← lumera-mcp-router · protocol 2024-11-05','#fff');
+  await sleep(300);line('→ tools/list');await sleep(400);
+  try{
+    const d=await (await fetch('/api/mcp-call?tool='+encodeURIComponent(tool)+'&input='+encodeURIComponent(input)+'&'+acctParam(),{method:'POST'})).json();
+    line('← discovered '+(d.toolCount||0)+' on-chain tools','#fff');await sleep(350);
+    line('→ tools/call '+tool+'("'+input+'")');await sleep(300);
+    line('  lock → execute → Proof-of-Service → settle','var(--dim)');await sleep(550);
+    if(d.ok){const s=d.structured||{};
+      line('← result: '+(s.output||''),'#fff');await sleep(250);
+      line('← proof:  '+(s.receipt_id||''),'var(--live)');await sleep(200);
+      line('← settled: publisher '+shortA(s.publisher)+' paid '+(s.cost_ulac||''),'var(--live)');await sleep(200);
+      line('\n✓ verifiable execution → economic settlement, no human in the loop','var(--live)');
+      toast('Agent call complete','proven + settled over MCP','ok');await loadActivity();await refresh();updateLive();
+    } else line('✗ '+(d.error||'agent call failed'),'var(--danger)');
+  }catch(e){line('✗ '+e,'var(--danger)');}
+}
+// ---- Trust graph ----
+function gh(s){let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;return Math.abs(h);}
+function vGraph(){
+  const tools=(TOOLS.length?TOOLS:[]).map(t=>({id:t.id,tier:(t.tier||'NONE').replace('BADGE_TIER_','')}));
+  const agents=ACCOUNTS.filter(a=>a.name!=='val');
+  const W=780,H=470,cx=W/2,cy=H/2,ring=165;
+  const tierR={PLATINUM:11,GOLD:9,SILVER:7,BRONZE:5.5,NONE:4.5},tierC={PLATINUM:'#e6e6fa',GOLD:'#e8c46b',SILVER:'#cbd5e1',BRONZE:'#c08457',NONE:'rgba(255,255,255,.45)'};
+  const tp=tools.map((t,i)=>{const a=(i/(tools.length||1))*Math.PI*2-Math.PI/2;return {t,x:cx+Math.cos(a)*ring,y:cy+Math.sin(a)*ring};});
+  const ap=agents.map((a,i)=>{const an=(i/(agents.length||1))*Math.PI*2-Math.PI/2;return {a,x:cx+Math.cos(an)*(ring+88),y:cy+Math.sin(an)*(ring+88)};});
+  const edges=ACTIVITY.filter(x=>x.type==='call'&&x.tool).slice(0,16).map(x=>{const t=tp.find(p=>p.t.id===x.tool);if(!t)return null;const a=ap[gh(x.account||'a')%(ap.length||1)]||{x:cx,y:cy};return {a,t};}).filter(Boolean);
+  return {html:`<div class="sub">The trust graph — agents call tools, the chain settles &amp; governs. Node size = reputation, edges = recent calls. This network effect is the moat.</div>
+  <div class="card"><div class="b" style="padding:0;overflow:hidden">
+    <svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;background:radial-gradient(ellipse 50% 50% at center,rgba(255,255,255,.04),transparent 72%)">
+      ${tp.map(p=>`<line x1="${cx}" y1="${cy}" x2="${p.x.toFixed(0)}" y2="${p.y.toFixed(0)}" stroke="rgba(255,255,255,.07)" stroke-width="1"/>`).join('')}
+      ${edges.map((e,i)=>`<line x1="${e.a.x.toFixed(0)}" y1="${e.a.y.toFixed(0)}" x2="${e.t.x.toFixed(0)}" y2="${e.t.y.toFixed(0)}" stroke="rgba(91,166,255,.4)" stroke-width="1"><animate attributeName="stroke-opacity" values="0.06;0.55;0.06" dur="${(2+i%3)}s" repeatCount="indefinite"/></line>`).join('')}
+      <circle cx="${cx}" cy="${cy}" r="24" fill="#0a0a0a" stroke="rgba(255,255,255,.5)" stroke-width="1.5"/><text x="${cx}" y="${cy+4}" text-anchor="middle" fill="#fff" font-size="10" font-family="monospace">CHAIN</text>
+      ${ap.map(p=>`<circle cx="${p.x.toFixed(0)}" cy="${p.y.toFixed(0)}" r="6" fill="#000" stroke="rgba(91,166,255,.75)" stroke-width="1.5"/><text x="${p.x.toFixed(0)}" y="${(p.y+19).toFixed(0)}" text-anchor="middle" fill="var(--dim)" font-size="9">${esc(p.a.name)}</text>`).join('')}
+      ${tp.map(p=>`<circle cx="${p.x.toFixed(0)}" cy="${p.y.toFixed(0)}" r="${tierR[p.t.tier]||5}" fill="${tierC[p.t.tier]||'#fff'}" opacity="0.92"/><text x="${p.x.toFixed(0)}" y="${(p.y-13).toFixed(0)}" text-anchor="middle" fill="#fff" font-size="8.5">${esc(p.t.id)}</text>`).join('')}
+    </svg></div></div>
+  <div class="row" style="margin-top:14px;gap:20px;flex-wrap:wrap"><span class="hint">${tp.length} tools · ${ap.length} agents · ${edges.length} live call-edges</span>
+    <span class="row" style="gap:8px"><span class="tier PLATINUM">PLATINUM</span><span class="tier GOLD">GOLD</span><span class="tier SILVER">SILVER</span><span class="tier BRONZE">BRONZE</span><span class="hint">= node size</span></span></div>`,mount:paintAll};
+}
+const VIEWS={'':vDashboard,marketplace:vMarketplace,tool:vTool,agent:vAgent,graph:vGraph,publish:vPublish,disputes:vDisputes,reputation:vReputation,wallet:vWallet,activity:vActivity,vision:vVision};
 
 // ================= router =================
 function parseHash(){const h=(location.hash||'#/').replace(/^#\/?/,'');const [route,...rest]=h.split('/');return [route,rest.join('/')];}
@@ -635,6 +729,41 @@ async function doNoProof(){
   }catch(e){if(r)r.innerHTML='<div class="result" style="color:var(--danger)">✗ '+esc(e)+'</div>';}
   await refresh();updateLive();
 }
+
+// ================= guided tour =================
+const TOUR=[
+  {route:'',sel:'#acctDD',title:'You are an agent',body:"Pick which funded account you act as. Open a second browser to be a different agent — they transact independently."},
+  {route:'marketplace',sel:'#mktGrid',title:'A live marketplace',body:"On-chain tools ranked by verifiable reputation. No platform owner, no gatekeeper — agents discover by proof, not marketing."},
+  {route:'tool/pubtool',sel:'#tdInput',title:'Call a tool',body:"One action runs the whole loop: lock credits → execute → Proof-of-Service → settle.",action:()=>doCall('tdInput','tdResult'),wait:1700},
+  {route:'tool/pubtool',sel:'#tdResult',title:'Verifiable execution',body:"The agent pays only for PROVEN work — a BLAKE3 receipt anchored on-chain. That contingency is the trust unlock."},
+  {route:'agent',sel:'#agTerm',title:'Autonomous agents',body:"A real AI agent over MCP discovers + calls tools with no human in the loop — the same protocol Claude Desktop speaks.",action:()=>runAgent(),wait:2700},
+  {route:'disputes',sel:'#view',title:'Self-governing trust',body:"A bad call gets disputed; an upheld dispute slashes the publisher's bond (restitution-routed) and reputation erodes. The graph polices itself."},
+  {route:'graph',sel:'svg',title:'The network effect',body:"Agents, tools, and the chain form a self-reinforcing trust graph. More good actors → more trust → more usage. That compounding is the moat."},
+];
+let tourI=0;
+function startTour(){tourI=0;el('sidebar').classList.remove('open');showTour();}
+async function showTour(){
+  const step=TOUR[tourI];if(!step){endTour();return;}
+  location.hash='#/'+step.route;
+  await sleep(280);
+  if(step.action){try{step.action();}catch(e){}await sleep(step.wait||1200);}
+  const tgt=document.querySelector(step.sel)||el('view');
+  if(tgt&&tgt.scrollIntoView)tgt.scrollIntoView({block:'center'});
+  await sleep(140);spotlight(tgt,step);
+}
+function spotlight(tgt,step){
+  let ov=el('tourOv');if(!ov){ov=document.createElement('div');ov.id='tourOv';document.body.appendChild(ov);}
+  const r=tgt.getBoundingClientRect(),pad=8;
+  const popTop=Math.min(r.bottom+12,window.innerHeight-200),popLeft=Math.max(12,Math.min(r.left,window.innerWidth-340));
+  ov.innerHTML=`<div class="tour-hole" style="left:${r.left-pad}px;top:${r.top-pad}px;width:${r.width+pad*2}px;height:${r.height+pad*2}px"></div>
+    <div class="tour-pop" style="left:${popLeft}px;top:${popTop}px">
+      <div class="tour-step up">STEP ${tourI+1} / ${TOUR.length}</div><div class="tour-t">${esc(step.title)}</div><div class="tour-b">${step.body}</div>
+      <div class="tour-nav"><button class="btn-sm" onclick="endTour()">Skip</button>
+        <button class="btn-sm btn-primary" onclick="nextTour()">${tourI===TOUR.length-1?'Finish ✓':'Next →'}</button></div></div>`;
+  ov.classList.add('show');
+}
+function nextTour(){tourI++;showTour();}
+function endTour(){const ov=el('tourOv');if(ov)ov.classList.remove('show');tourI=0;toast('Tour complete',"that's the flywheel — explore freely",'ok');}
 
 // ================= boot =================
 async function boot(){
