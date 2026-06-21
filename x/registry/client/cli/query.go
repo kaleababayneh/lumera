@@ -20,9 +20,35 @@ func GetQueryCmd() *cobra.Command {
 		RunE:                       client.ValidateCmd,
 	}
 	cmd.AddCommand(CmdGetTool())
+	cmd.AddCommand(CmdListTools())
 	cmd.AddCommand(CmdGetBond())
 	cmd.AddCommand(CmdGetReceipt())
 	cmd.AddCommand(CmdGetChallenge())
+	return cmd
+}
+
+// CmdListTools lists registered tools (the discovery surface for the router).
+func CmdListTools() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list-tools",
+		Short: "List registered tools (optionally filtered by --owner)",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+			owner, _ := cmd.Flags().GetString("owner")
+			qc := types.NewQueryClient(clientCtx)
+			res, err := qc.ListTools(cmd.Context(), &types.QueryListToolsRequest{Owner: owner})
+			if err != nil {
+				return err
+			}
+			return clientCtx.PrintProto(res)
+		},
+	}
+	cmd.Flags().String("owner", "", "filter by tool owner address")
+	flags.AddQueryFlagsToCmd(cmd)
 	return cmd
 }
 

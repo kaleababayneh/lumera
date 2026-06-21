@@ -63,6 +63,43 @@ func (q queryServer) GetChallenge(goCtx context.Context, req *types.QueryGetChal
 	return &types.QueryGetChallengeResponse{Challenge: c}, nil
 }
 
+// ListTools returns registered tools, optionally filtered by owner / category.
+// This is the discovery surface consumed by the off-chain router / MCP daemon.
+func (q queryServer) ListTools(goCtx context.Context, req *types.QueryListToolsRequest) (*types.QueryListToolsResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	all := q.k.GetAllTools(ctx)
+	if req == nil || (req.Owner == "" && len(req.Categories) == 0) {
+		return &types.QueryListToolsResponse{Tools: all}, nil
+	}
+	out := make([]*types.ToolCard, 0, len(all))
+	for _, t := range all {
+		if t == nil {
+			continue
+		}
+		if req.Owner != "" && t.Owner != req.Owner {
+			continue
+		}
+		if len(req.Categories) > 0 && !hasAnyCategory(t.Categories, req.Categories) {
+			continue
+		}
+		out = append(out, t)
+	}
+	return &types.QueryListToolsResponse{Tools: out}, nil
+}
+
+func hasAnyCategory(have, want []string) bool {
+	set := make(map[string]struct{}, len(have))
+	for _, c := range have {
+		set[c] = struct{}{}
+	}
+	for _, w := range want {
+		if _, ok := set[w]; ok {
+			return true
+		}
+	}
+	return false
+}
+
 // GetReceipt returns a stored Proof-of-Service usage receipt by id.
 func (q queryServer) GetReceipt(goCtx context.Context, req *types.QueryGetReceiptRequest) (*types.QueryGetReceiptResponse, error) {
 	if req == nil || strings.TrimSpace(req.ReceiptId) == "" {

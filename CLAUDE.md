@@ -194,6 +194,20 @@ dependency keepers **stubbed** (every stub marked `// TEMPORARY: replace with re
 keeper before mainnet`), then replace each stub with the real module **one-by-one** until it's
 real end-to-end. **Production target — no stubs may ship to mainnet.**
 
+## VISION COMPLETE end-to-end (2026-06-21)
+The full agentic economy runs on a local node: **discover → meter → execute → prove → settle**.
+- **On-chain trust graph + flywheel** (all verified e2e, no stubs): registry (tool discovery + bonds +
+  PoS receipts + dispute→slash), credits (settlement gated on PoS), incentives (reputation badges),
+  insurance/oracle/policies/reserve/nft, supernode (PoS attestor, read-only). 5 thesis primitives
+  on-chain except Composable Intelligence (`workflows`, deferred as adjacent/redundant). **Hilt reached.**
+- **Agent layer** (`poc/`): a web PoC (`poc/web`) visualizing the flywheel, and an **MCP router**
+  (`poc/mcp-router`) — a Model Context Protocol server so real AI agents discover + call on-chain tools,
+  each call metered → executed → **proven (BLAKE3 PoS receipt)** → settled (publisher paid). Verified:
+  an agent over MCP called `pubtool`, got the result + on-chain proof, publisher paid 800000ulac.
+- **Deferred (not on the critical path):** `workflows`/`payment_rails`/`auction`/`challenges`/`vaults`
+  (peripheral/blocked/orthogonal); incentives Phase-2 self-feed (metrics from PoS receipts + disputes);
+  reject-on-expiry EndBlocker for disputes; SGX `EnclaveQuote` verification; the deferred test suites.
+
 ## Module 1: `x/credits`
 
 - [x] Copy `x/credits` + dependency-cluster type pkgs (`reserve`, `nft`, `registry`, `cac`,

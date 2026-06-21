@@ -434,10 +434,28 @@ settlement. Every other unported module is peripheral (`vaults` = thin reserve w
 orthogonal (`challenges` = benchmarking that never writes back to reputation), or **the pivot itself
 (`router`)**. Per the thesis ("say no to peripheral") we stop on-chain integration here and move to the
 agent-facing layer where the *vision* completes:
-1. **Web PoC** (`poc/web/`) — visualize the live flywheel against a local node.
-2. **`router` + MCP daemon** — the off-chain agent layer (discover / quote / invoke) that lets real AI
-   agents use the chain. This is the maximum pivot: `router`'s on-chain part is telemetry; its real
-   form is the MCP daemon that wraps lock → submit-receipt → settle.
+1. **Web PoC** (`poc/web/`) — visualize the live flywheel against a local node. **DONE + verified.**
+2. **`router` + MCP daemon** — the off-chain agent layer that lets real AI agents use the chain.
+   **DONE + verified.**
+
+### `router` + MCP daemon — BUILT + VERIFIED (2026-06-21) — the vision realized
+`poc/mcp-router/` is an **MCP (Model Context Protocol) server** (JSON-RPC 2.0 over stdio) — the
+router pivot in its real, off-chain form. Any MCP-compatible AI agent (Claude Desktop, an Agent SDK
+app) connects and uses the on-chain economy through the standard protocol:
+- `tools/list` → **discovers tools from the chain** via the registry `ListTools` query (implemented
+  this pass, plus a `list-tools` CLI), annotating each with its on-chain publisher + reputation badge.
+- `tools/call` → runs the full loop per call: ensure credits (auto-swap) → **lock** → execute the
+  tool off-chain (`executeTool`, a placeholder transform — real tools plug in here) → **submit a
+  SuperNode Proof-of-Service receipt** (`BLAKE3(input,model,output)`) → **settle** (gated on the
+  receipt → pays the publisher) → return the result **plus its on-chain proof** (`receipt_id`,
+  publisher paid, "settlement gated on the receipt").
+- **Verified e2e**: fed `initialize`/`tools/list`/`tools/call` over stdio against a live node →
+  discovered `pubtool` → call `"hello from an AI agent"` → output `HELLO FROM AN AI AGENT` proven by
+  receipt `pos1cb914…`, publisher paid `800000ulac`. See `poc/mcp-router/README.md` (incl. a
+  Claude-Desktop MCP config).
+
+**The agentic economy is complete end-to-end: discover → meter → execute → prove → settle**, driven by
+a real AI agent over MCP. On-chain trust graph + economic settlement + off-chain agent layer all green.
 
 ### Deferred on-chain modules (revisit only if the flywheel demands them)
 `workflows` (composable intelligence, 7.8k LOC, redundant money path) · `payment_rails` (on-ramp,
