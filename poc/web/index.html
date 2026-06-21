@@ -47,6 +47,29 @@
   .nav a .ct{margin-left:auto;font-size:10px;color:var(--dim);border:1px solid var(--line);padding:1px 6px;font-variant-numeric:tabular-nums}
   .sidefoot{border-top:1px solid var(--line);padding:14px 18px;font-size:11px;color:var(--muted)}
   .sidefoot .row{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+  .acctsel{padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid var(--line)}
+  .acctsel .acctaddr{color:var(--dim);font-size:10px;margin-top:7px;word-break:break-all}
+  /* custom themed dropdown (matches cards/chips, not the OS native select) */
+  .dd{position:relative}
+  .dd-trigger{width:100%;display:flex;align-items:center;gap:9px;padding:9px 10px;background:#000;border:1px solid var(--line-2);color:#fff;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;transition:.14s}
+  .dd-trigger:hover{border-color:rgba(255,255,255,.4);background:var(--hover)}
+  .dd.open .dd-trigger{border-color:rgba(255,255,255,.5);background:var(--hover)}
+  .dd-av{width:20px;height:20px;flex:0 0 20px;display:grid;place-items:center;font-size:10px;font-weight:700;background:linear-gradient(135deg,rgba(255,255,255,.9),rgba(255,255,255,.4));color:#000}
+  .dd-lab{flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dd-chev{color:var(--dim);font-size:10px;transition:.2s}
+  .dd.open .dd-chev{transform:rotate(180deg);color:#fff}
+  .dd-menu{position:absolute;left:0;right:0;bottom:calc(100% + 7px);background:#0a0a0a;border:1px solid var(--line-2);display:none;z-index:80;max-height:320px;overflow:auto;box-shadow:0 -10px 34px rgba(0,0,0,.7)}
+  .dd.open .dd-menu{display:block;animation:ddin .14s ease}
+  @keyframes ddin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .dd-head{font-size:9px;color:var(--dim);letter-spacing:.16em;padding:9px 11px 5px}
+  .dd-opt{display:flex;align-items:center;gap:9px;padding:9px 11px;font-size:12.5px;cursor:pointer;border-top:1px solid var(--line)}
+  .dd-opt:hover{background:var(--hover)}
+  .dd-opt.active{background:var(--panel-2)}
+  .dd-opt .mk{width:6px;height:6px;flex:0 0 6px;border:1px solid var(--line-2)}
+  .dd-opt.active .mk{background:var(--live);border-color:var(--live)}
+  .dd-opt .nm{font-weight:600}
+  .dd-opt .role{color:var(--dim);font-size:9.5px;margin-top:1px}
+  .dd-opt .ad{margin-left:auto;color:var(--dim);font-size:9.5px;font-family:var(--mono)}
   .dot{width:7px;height:7px;background:var(--live);border-radius:50%;animation:pulse 2s infinite}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(63,185,80,.5)}70%{box-shadow:0 0 0 6px rgba(63,185,80,0)}100%{box-shadow:0 0 0 0 rgba(63,185,80,0)}}
 
@@ -192,6 +215,18 @@
       <a data-route="vision" href="#/vision"><span class="ic">◌</span> Roadmap</a>
     </nav>
     <div class="sidefoot">
+      <div class="acctsel">
+        <label class="up" style="font-size:9px;letter-spacing:.16em;margin-bottom:6px">Acting as</label>
+        <div class="dd" id="acctDD">
+          <button class="dd-trigger" id="acctTrigger" onclick="toggleAcctMenu(event)" aria-haspopup="listbox">
+            <span class="dd-av" id="acctAv">A</span>
+            <span class="dd-lab" id="acctLabel">acct1</span>
+            <span class="dd-chev">▾</span>
+          </button>
+          <div class="dd-menu" id="acctMenu" role="listbox"></div>
+        </div>
+        <div class="acctaddr mono" id="acctAddr">—</div>
+      </div>
       <div class="row"><span class="dot" id="sideDot"></span> <span id="sideNet">connecting…</span></div>
       <div class="row" style="color:var(--dim)">block <span id="sideBlock" style="margin-left:auto;font-family:var(--mono)">—</span></div>
     </div>
@@ -201,7 +236,7 @@
     <header class="topbar">
       <div><h1 id="pageTitle">Dashboard</h1><div class="crumb" id="crumb">overview</div></div>
       <div class="right">
-        <a class="chip" href="#/wallet">Agent <b id="topLac">—</b> LAC</a>
+        <a class="chip" href="#/wallet"><b id="topAcct">—</b> · <b id="topLac">—</b> LAC</a>
         <div class="chip"><span class="dot"></span><span id="topNet">local</span></div>
       </div>
     </header>
@@ -262,9 +297,46 @@ function toast(title,sub,kind){const d=document.createElement('div');d.className
   d.innerHTML=`<div><div class="ti">${esc(title)}</div>${sub?`<div class="ts">${esc(sub)}</div>`:''}</div>`;
   el('toasts').appendChild(d);setTimeout(()=>{d.style.opacity='0';d.style.transition='.3s';setTimeout(()=>d.remove(),300);},4200);}
 
-// ---- api ----
-async function getJSON(u){return await (await fetch(u)).json();}
-async function post(step,qs){return await (await fetch('/api/'+step+(qs?('?'+qs):''),{method:'POST'})).json();}
+// ---- account (this browser acts as this funded account) ----
+let account=localStorage.getItem('lumera.account')||'acct1';
+function acctParam(){return account?('account='+encodeURIComponent(account)):'';}
+
+// ---- api (every call carries the selected account; role-fixed endpoints ignore it) ----
+async function getJSON(u){const a=acctParam();const sep=u.includes('?')?'&':'?';return await (await fetch(u+(a?sep+a:''))).json();}
+async function post(step,qs){const q=[qs,acctParam()].filter(Boolean).join('&');return await (await fetch('/api/'+step+(q?('?'+q):''),{method:'POST'})).json();}
+
+let ACCOUNTS=[];
+function acctRole(n){return n==='val'?'agent · supernode':'test account';}
+function acctAvatar(n){return n==='val'?'V':(n.replace('acct','')||n[0]).toUpperCase();}
+async function loadAccounts(){
+  try{
+    const d=await (await fetch('/api/accounts')).json();
+    ACCOUNTS=d.accounts||[];
+    if(!ACCOUNTS.some(a=>a.name===account))account=d.default||'acct1';
+    renderAcctMenu();setAcctTrigger();
+  }catch(e){}
+}
+function renderAcctMenu(){
+  const m=el('acctMenu');if(!m)return;
+  m.innerHTML='<div class="dd-head up">Switch account</div>'+ACCOUNTS.map(a=>`
+    <div class="dd-opt ${a.name===account?'active':''}" role="option" onclick="selectAccount('${a.name}')">
+      <span class="mk"></span><div><div class="nm">${esc(a.name)}</div><div class="role">${acctRole(a.name)}</div></div>
+      <span class="ad">${shortA(a.address)}</span></div>`).join('');
+}
+function setAcctTrigger(){
+  const a=ACCOUNTS.find(x=>x.name===account);
+  if(el('acctLabel'))el('acctLabel').textContent=account;
+  if(el('acctAv'))el('acctAv').textContent=acctAvatar(account);
+  if(el('acctAddr'))el('acctAddr').textContent=a?shortA(a.address):'—';
+}
+function toggleAcctMenu(ev){ev.stopPropagation();const dd=el('acctDD');if(dd)dd.classList.toggle('open');}
+function closeAcctMenu(){const dd=el('acctDD');if(dd)dd.classList.remove('open');}
+async function selectAccount(name){
+  account=name;localStorage.setItem('lumera.account',name);
+  closeAcctMenu();renderAcctMenu();setAcctTrigger();
+  toast('Switched account','now acting as '+name,'info');
+  await refresh();renderView();
+}
 
 async function loadConfig(){try{C=await getJSON('/api/config');}catch(e){}}
 async function refresh(){try{const s=await getJSON('/api/state');if(s.ok){S=s;
@@ -275,12 +347,13 @@ async function refresh(){try{const s=await getJSON('/api/state');if(s.ok){S=s;
 function set(id,v){const e=el(id);if(e)e.textContent=v;}
 function setHTML(id,v){const e=el(id);if(e)e.innerHTML=v;}
 function updateLive(){
-  set('topLac',fmtS(S.agentLac));set('navTools',S.toolCount!=null?S.toolCount:'0');
+  set('topAcct',S.agent||account);set('topLac',fmtS(S.agentLac));set('navTools',S.toolCount!=null?S.toolCount:'0');
   set('sideNet',C.chainId||'offline');set('topNet',C.chainId||'local');set('sideBlock',S._block||'live');
   // dashboard kpis
   set('kpiTools',S.toolCount!=null?S.toolCount:'—');set('kpiSettled',fmtS(S.publisherLac));
   set('kpiInsurance',fmtS(S.insurancePool));set('kpiLac',fmtS(S.agentLac));
   // wallet
+  set('wAcctName',S.agent||account);set('wAgentAddr',shortA(S.agentAddr));
   set('wAgentLume',fmt(S.agentLume));set('wAgentLac',fmt(S.agentLac));set('wPubLume',fmt(S.publisherLume));
   set('wPubLac',fmt(S.publisherLac));set('wChlLume',fmt(S.challengerLume));set('wInsurance',fmt(S.insurancePool));
   // tool-detail bond/badge (if mounted)
@@ -505,11 +578,12 @@ function vWallet(){
   return {html:`
   <div class="sub">Agents hold LAC credits; publishers earn them. Credits are minted by swapping the native LUME token.</div>
   <div class="grid g2">
-    <div class="card"><div class="h"><span class="up">Agent / SuperNode</span></div><div class="b">
-      <div class="kv"><span class="k">Address</span><span class="v mono">${shortA(C.agent)}</span></div>
+    <div class="card"><div class="h"><span class="up">Active account · <b style="color:#fff" id="wAcctName">${esc(account)}</b></span><span class="badge-live"><span class="dot"></span>LIVE</span></div><div class="b">
+      <div class="kv"><span class="k">Address</span><span class="v mono" id="wAgentAddr">${shortA(S.agentAddr)}</span></div>
       <div class="kv"><span class="k">LUME</span><span class="v" id="wAgentLume">—</span></div>
       <div class="kv"><span class="k">LAC credits</span><span class="v" id="wAgentLac">—</span></div>
       <div class="row" style="margin-top:14px"><button class="btn-primary" onclick="doAction('swap','Swapped LUME → LAC','◇','ok')">Swap 5,000,000 LUME → LAC</button></div>
+      <div class="hint" style="margin-top:10px">Switch accounts in the sidebar to act as a different agent — open a second browser, pick another account, and call tools side by side.</div>
     </div></div>
     <div class="card"><div class="h"><span class="up">Counterparties</span></div><div class="b">
       <div class="kv"><span class="k">Publisher</span><span class="v mono">${shortA(C.publisher)}</span></div>
@@ -602,9 +676,10 @@ async function doNoProof(){
 
 // ================= boot =================
 async function boot(){
-  await loadConfig();await refresh();
-  el('view'); renderView();
+  await loadConfig();await loadAccounts();await refresh();
+  renderView();
   window.addEventListener('hashchange',renderView);
+  document.addEventListener('click',closeAcctMenu); // click outside closes the account menu
   setInterval(async()=>{await refresh();updateLive();},3000);
 }
 boot();

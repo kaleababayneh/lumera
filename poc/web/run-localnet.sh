@@ -14,7 +14,11 @@ rm -rf "$HM"
 KR=(--keyring-backend test --home "$HM")
 C=(--home "$HM" --node "$NODE" --chain-id "$CHAIN" --keyring-backend test --gas 700000 --fees 200000ulume -y)
 "$LD" init val --chain-id "$CHAIN" --home "$HM" >/dev/null 2>&1
-for k in val pub chl; do "$LD" keys add "$k" "${KR[@]}" --algo eth_secp256k1 >/dev/null 2>&1; done
+# val = agent/router/supernode, pub = publisher, chl = challenger,
+# acct1..acct5 = funded test accounts (so you can drive the app as different
+# agents from different browsers — pick one in the sidebar account dropdown).
+ACCTS=(acct1 acct2 acct3 acct4 acct5)
+for k in val pub chl "${ACCTS[@]}"; do "$LD" keys add "$k" "${KR[@]}" --algo eth_secp256k1 >/dev/null 2>&1; done
 VAL=$("$LD" keys show val -a "${KR[@]}"); PUB=$("$LD" keys show pub -a "${KR[@]}"); CHL=$("$LD" keys show chl -a "${KR[@]}")
 VALOPER=$("$LD" keys show val --bech val -a "${KR[@]}")
 # Seed a high-quality metric snapshot for the demo tool so the publisher can earn
@@ -53,10 +57,16 @@ waittx "$("$LD" tx supernode register-supernode "$VALOPER" 127.0.0.1 "$VAL" --fr
 # Fund the publisher (escrows a tool bond) and the challenger (disputes a bad receipt).
 waittx "$("$LD" tx bank send "$VAL" "$PUB" 6000000ulume --from val "${C[@]}" -o json | hash)"
 waittx "$("$LD" tx bank send "$VAL" "$CHL" 3000000ulume --from val "${C[@]}" -o json | hash)"
+# Fund the 5 test accounts with LUME (each swaps to LAC + pays for tool calls).
+for a in "${ACCTS[@]}"; do
+  ADDR=$("$LD" keys show "$a" -a "${KR[@]}")
+  waittx "$("$LD" tx bank send "$VAL" "$ADDR" 50000000ulume --from val "${C[@]}" -o json | hash)"
+done
 echo "node ready @h$(height)"
 echo "  agent/router/supernode (val): $VAL"
 echo "  publisher (pub):              $PUB"
 echo "  challenger (chl):             $CHL"
+for a in "${ACCTS[@]}"; do echo "  $a (test account):            $("$LD" keys show "$a" -a "${KR[@]}")"; done
 echo
 echo "Now start the web PoC:   LUMERA_HOME=$HM go run ./poc/web"
 echo "Then open:               http://localhost:8787"

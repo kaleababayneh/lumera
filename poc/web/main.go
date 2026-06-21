@@ -38,7 +38,8 @@ type config struct {
 	Home        string // node home (holds the test keyring)
 	Node        string // tcp rpc endpoint
 	ChainID     string
-	Agent       string // key name: agent + router + supernode (val)
+	Agent       string // default agent/router key name (val)
+	Supernode   string // active-SuperNode key that attests receipts (val)
 	Publisher   string // key name: tool publisher (pub)
 	Challenger  string // key name: dispute challenger (chl)
 	Tool        string // demo tool id
@@ -61,6 +62,7 @@ var cfg = config{
 	Node:        envOr("LUMERA_NODE", "tcp://localhost:26657"),
 	ChainID:     envOr("LUMERA_CHAIN_ID", "lumera-local-1"),
 	Agent:       envOr("LUMERA_AGENT", "val"),
+	Supernode:   envOr("LUMERA_SUPERNODE", "val"),
 	Publisher:   envOr("LUMERA_PUBLISHER", "pub"),
 	Challenger:  envOr("LUMERA_CHALLENGER", "chl"),
 	Tool:        envOr("LUMERA_TOOL", "pubtool"),
@@ -68,6 +70,31 @@ var cfg = config{
 	Gas:         envOr("LUMERA_GAS", "700000"),
 	LumeDenom:   "ulume",
 	CreditDenom: "ulac",
+}
+
+// selectableAccounts is the allowlist of key names a browser may act as (the
+// agent/caller identity), so each browser can drive the app as a different,
+// independently-funded account. Only these names are honoured from the
+// `?account=` parameter — never an arbitrary keyring entry.
+var selectableAccounts = []string{"val", "acct1", "acct2", "acct3", "acct4", "acct5"}
+
+func isSelectableAccount(name string) bool {
+	for _, a := range selectableAccounts {
+		if a == name {
+			return true
+		}
+	}
+	return false
+}
+
+// agentKey resolves the active agent key for a request: the `?account=` value if
+// it is on the allowlist, otherwise the default agent. The SuperNode that attests
+// receipts (cfg.Supernode) is always separate, so any account can be the payer.
+func agentKey(r *http.Request) string {
+	if a := r.URL.Query().Get("account"); a != "" && isSelectableAccount(a) {
+		return a
+	}
+	return cfg.Agent
 }
 
 // ---- in-memory demo session -------------------------------------------------
@@ -403,13 +430,27 @@ func main() {
 		})
 	})
 
+	// The selectable agent accounts (name + address) for the sidebar dropdown, so
+	// each browser can drive the app as a different, independently-funded account.
+	mux.HandleFunc("/api/accounts", func(w http.ResponseWriter, r *http.Request) {
+		accts := make([]map[string]string, 0, len(selectableAccounts))
+		for _, name := range selectableAccounts {
+			addr, _ := keyAddr(name)
+			accts = append(accts, map[string]string{"name": name, "address": addr})
+		}
+		writeJSON(w, map[string]any{"ok": true, "accounts": accts, "default": cfg.Agent})
+	})
+
 	mux.HandleFunc("/api/state", func(w http.ResponseWriter, r *http.Request) {
-		agentAddr, _ := keyAddr(cfg.Agent)
+		agentName := agentKey(r)
+		agentAddr, _ := keyAddr(agentName)
 		pubAddr, _ := keyAddr(cfg.Publisher)
 		chlAddr, _ := keyAddr(cfg.Challenger)
 		regAddr := moduleAddr("registry")
 		st := map[string]any{
 			"ok":             true,
+			"agent":          agentName,
+			"agentAddr":      agentAddr,
 			"agentLume":      balance(agentAddr, cfg.LumeDenom),
 			"agentLac":       balance(agentAddr, cfg.CreditDenom),
 			"publisherLac":   balance(pubAddr, cfg.CreditDenom),
@@ -457,7 +498,7 @@ func main() {
 
 	// Step 1 — Agent swaps LUME for LAC credits.
 	mux.HandleFunc("/api/swap", func(w http.ResponseWriter, r *http.Request) {
-		res, err := broadcast(cfg.Agent,
+		res, err := broadcast(agentKey(r),
 			"credits", "swap-lume-to-lac", "--amount", "5000000ulume", "--min-lac-out", "1")
 		if err != nil {
 			fail(w, err)
@@ -482,7 +523,7 @@ func main() {
 	// Step 3 — Router locks credits against the tool (quote → lock).
 	mux.HandleFunc("/api/lock", func(w http.ResponseWriter, r *http.Request) {
 		seq := nextSeq()
-		res, err := broadcast(cfg.Agent,
+		res, err := broadcast(agentKey(r),
 			"credits", "lock-credits",
 			"--amount", "1000000ulac",
 			"--session-id", "web-"+strconv.Itoa(seq),
@@ -523,7 +564,7 @@ func main() {
 		if v := r.URL.Query().Get("output"); v != "" {
 			output = v
 		}
-		res, err := broadcast(cfg.Agent,
+		res, err := broadcast(cfg.Supernode,
 			"registry", "submit-receipt", cfg.Tool,
 			"--model", model, "--input", input, "--result", output,
 			"--session-id", "web", "--lock-id", lockID)
@@ -564,7 +605,7 @@ func main() {
 			fail(w, err)
 			return
 		}
-		res, err := broadcast(cfg.Agent,
+		res, err := broadcast(agentKey(r),
 			"credits", "settle-credits",
 			"--lock-id", lockID, "--actual-cost", "800000ulac",
 			"--publisher", pubAddr, "--receipt-id", receiptID, "--tool-id", cfg.Tool)
@@ -594,16 +635,18 @@ func main() {
 			fail(w, errors.New("tool not registered yet — publish it first"))
 			return
 		}
-		// Auto top-up the agent's credits if it can't cover one lock.
-		agentAddr, _ := keyAddr(cfg.Agent)
+		// The caller (lock + settle) is the selected account; the SuperNode
+		// (cfg.Supernode) always attests the receipt, so any funded account can call.
+		agent := agentKey(r)
+		agentAddr, _ := keyAddr(agent)
 		if balanceInt(agentAddr, cfg.CreditDenom) < 1_000_000 {
-			if res, err := broadcast(cfg.Agent, "credits", "swap-lume-to-lac", "--amount", "5000000ulume", "--min-lac-out", "1"); err != nil || !res.OK {
+			if res, err := broadcast(agent, "credits", "swap-lume-to-lac", "--amount", "5000000ulume", "--min-lac-out", "1"); err != nil || !res.OK {
 				fail(w, errors.New("auto top-up (LUME→LAC swap) failed"))
 				return
 			}
 		}
 		seq := nextSeq()
-		lr, err := broadcast(cfg.Agent, "credits", "lock-credits",
+		lr, err := broadcast(agent, "credits", "lock-credits",
 			"--amount", "1000000ulac", "--session-id", "call-"+strconv.Itoa(seq),
 			"--tool-id", cfg.Tool, "--quote-id", "cq-"+strconv.Itoa(seq),
 			"--policy-version", "policy-v1", "--intent-hash", "ci-"+strconv.Itoa(seq))
@@ -618,7 +661,7 @@ func main() {
 		}
 		model := cfg.Tool
 		output := strings.ToUpper(input)
-		rr, err := broadcast(cfg.Agent, "registry", "submit-receipt", cfg.Tool,
+		rr, err := broadcast(cfg.Supernode, "registry", "submit-receipt", cfg.Tool,
 			"--model", model, "--input", input, "--result", output, "--session-id", "call", "--lock-id", lockID)
 		if err != nil || !rr.OK {
 			fail(w, errors.New("proof-of-service submission failed"))
@@ -628,7 +671,7 @@ func main() {
 		if rid == "" {
 			rid = anyEventValue(rr, "receipt_id")
 		}
-		sr, err := broadcast(cfg.Agent, "credits", "settle-credits",
+		sr, err := broadcast(agent, "credits", "settle-credits",
 			"--lock-id", lockID, "--actual-cost", "800000ulac",
 			"--publisher", owner, "--receipt-id", rid, "--tool-id", cfg.Tool)
 		if err != nil || !sr.OK {
@@ -730,7 +773,7 @@ func main() {
 		}
 		pubAddr, _ := keyAddr(cfg.Publisher)
 		bogus := "pos1" + hex.EncodeToString(sha256Bytes("never-submitted"))
-		res, err := broadcast(cfg.Agent,
+		res, err := broadcast(agentKey(r),
 			"credits", "settle-credits",
 			"--lock-id", lockID, "--actual-cost", "800000ulac",
 			"--publisher", pubAddr, "--receipt-id", bogus, "--tool-id", cfg.Tool)
