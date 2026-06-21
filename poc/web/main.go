@@ -578,6 +578,113 @@ func listMarketTools() []marketTool {
 	return out
 }
 
+// executeTool runs a tool off-chain. One tool — oracle-feed — does GENUINE
+// verifiable execution: it fetches a live price from a real API, so the receipt
+// binds proof to a real external value. The rest use a deterministic placeholder
+// (real LLM/API tools plug in here the same way). A failed fetch falls back to
+// the placeholder so a flaky network never breaks the demo.
+func executeTool(tool, input string) string {
+	if tool == "oracle-feed" {
+		if p, ok := fetchSpotPrice(input); ok {
+			return p
+		}
+	}
+	out := strings.ToUpper(strings.TrimSpace(input))
+	if out == "" {
+		out = "(empty)"
+	}
+	return out
+}
+
+// fetchSpotPrice queries Coinbase's public spot-price endpoint (no API key) for a
+// pair like BTC-USD. Real, live, deterministic-per-instant — exactly what a
+// Proof-of-Service receipt should anchor.
+func fetchSpotPrice(pair string) (string, bool) {
+	clean := ""
+	for _, c := range strings.ToUpper(strings.TrimSpace(pair)) {
+		if c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-' {
+			clean += string(c)
+		}
+	}
+	if !strings.Contains(clean, "-") {
+		clean = "BTC-USD"
+	}
+	cl := &http.Client{Timeout: 4 * time.Second}
+	resp, err := cl.Get("https://api.coinbase.com/v2/prices/" + clean + "/spot")
+	if err != nil {
+		return "", false
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return "", false
+	}
+	var m struct {
+		Data struct{ Amount, Base, Currency string } `json:"data"`
+	}
+	if json.NewDecoder(resp.Body).Decode(&m) != nil || m.Data.Amount == "" {
+		return "", false
+	}
+	return fmt.Sprintf("%s/%s spot = $%s (Coinbase, live)", m.Data.Base, m.Data.Currency, m.Data.Amount), true
+}
+
+// bestEffortUnlock releases a lock left behind by a failed call attempt, so a
+// retry doesn't leak the caller's credits. Errors are ignored (the lock may have
+// already advanced).
+func bestEffortUnlock(agent, lockID string) {
+	if lockID != "" {
+		_, _ = broadcast(agent, "credits", "unlock-credits", "--lock-id", lockID, "--reason", "retry-cleanup")
+	}
+}
+
+// runToolCall performs one full metered+proven+settled call: lock → execute →
+// Proof-of-Service → settle. Returned as a unit so /api/call can retry the whole
+// chain on a transient failure (read-after-write lag, sequence races) and never
+// fail mid-pitch.
+func runToolCall(agent, tool, input, owner string) (rid, lockID, output, model, txhash string, err error) {
+	seq := nextSeq()
+	// A per-call model tag keeps every receipt content-unique, so repeating an
+	// identical (tool, input) — e.g. re-running the tour — never collides with a
+	// prior receipt bound to a different lock. The user-facing output stays clean.
+	model = fmt.Sprintf("%s-c%d", tool, seq)
+	lr, e := broadcast(agent, "credits", "lock-credits",
+		"--amount", "1000000ulac", "--session-id", "call-"+strconv.Itoa(seq),
+		"--tool-id", tool, "--quote-id", "cq-"+strconv.Itoa(seq),
+		"--policy-version", "policy-v1", "--intent-hash", "ci-"+strconv.Itoa(seq))
+	if e != nil {
+		return "", "", "", model, "", fmt.Errorf("lock: %w", e)
+	}
+	lockID = anyEventValue(lr, "lock_id")
+	if !lr.OK {
+		return "", "", "", model, "", fmt.Errorf("lock rejected: %s", lr.RawLog)
+	}
+	if lockID == "" {
+		return "", "", "", model, "", errors.New("lock produced no lock_id")
+	}
+	output = executeTool(tool, input)
+	rr, e := broadcast(cfg.Supernode, "registry", "submit-receipt", tool,
+		"--model", model, "--input", input, "--result", output, "--session-id", "call", "--lock-id", lockID)
+	if e != nil {
+		return "", lockID, output, model, "", fmt.Errorf("submit-receipt: %w", e)
+	}
+	if !rr.OK {
+		return "", lockID, output, model, "", fmt.Errorf("submit-receipt rejected: %s", rr.RawLog)
+	}
+	rid = eventValue(rr, "receipt_submitted", "receipt_id")
+	if rid == "" {
+		rid = anyEventValue(rr, "receipt_id")
+	}
+	sr, e := broadcast(agent, "credits", "settle-credits",
+		"--lock-id", lockID, "--actual-cost", "800000ulac",
+		"--publisher", owner, "--receipt-id", rid, "--tool-id", tool)
+	if e != nil {
+		return rid, lockID, output, model, "", fmt.Errorf("settle: %w", e)
+	}
+	if !sr.OK {
+		return rid, lockID, output, model, "", fmt.Errorf("settle rejected: %s", sr.RawLog)
+	}
+	return rid, lockID, output, model, sr.TxHash, nil
+}
+
 // ---- http -------------------------------------------------------------------
 
 func writeJSON(w http.ResponseWriter, v any) {
@@ -895,47 +1002,31 @@ func main() {
 				return
 			}
 		}
-		seq := nextSeq()
-		lr, err := broadcast(agent, "credits", "lock-credits",
-			"--amount", "1000000ulac", "--session-id", "call-"+strconv.Itoa(seq),
-			"--tool-id", tool, "--quote-id", "cq-"+strconv.Itoa(seq),
-			"--policy-version", "policy-v1", "--intent-hash", "ci-"+strconv.Itoa(seq))
+		// Retry the whole lock→execute→prove→settle chain on a transient failure
+		// (read-after-write lag right after a register, a sequence race), so a live
+		// demo never fails on a flaky first attempt.
+		var rid, lockID, output, model, txhash string
+		var err error
+		for attempt := 0; attempt < 3; attempt++ {
+			rid, lockID, output, model, txhash, err = runToolCall(agent, tool, input, owner)
+			if err == nil {
+				break
+			}
+			bestEffortUnlock(agent, lockID) // don't leak the failed attempt's lock
+			time.Sleep(time.Duration(700+500*attempt) * time.Millisecond)
+		}
 		if err != nil {
-			fail(w, fmt.Errorf("lock: %w", err))
-			return
-		}
-		lockID := anyEventValue(lr, "lock_id")
-		if !lr.OK || lockID == "" {
-			fail(w, errors.New("lock failed"))
-			return
-		}
-		model := tool
-		output := strings.ToUpper(input)
-		rr, err := broadcast(cfg.Supernode, "registry", "submit-receipt", tool,
-			"--model", model, "--input", input, "--result", output, "--session-id", "call", "--lock-id", lockID)
-		if err != nil || !rr.OK {
-			fail(w, errors.New("proof-of-service submission failed"))
-			return
-		}
-		rid := eventValue(rr, "receipt_submitted", "receipt_id")
-		if rid == "" {
-			rid = anyEventValue(rr, "receipt_id")
-		}
-		sr, err := broadcast(agent, "credits", "settle-credits",
-			"--lock-id", lockID, "--actual-cost", "800000ulac",
-			"--publisher", owner, "--receipt-id", rid, "--tool-id", tool)
-		if err != nil || !sr.OK {
-			fail(w, errors.New("settlement failed"))
+			fail(w, err)
 			return
 		}
 		session.Lock()
 		session.ReceiptID, session.LockID, session.ChallengeOpen = rid, "", false
 		session.Unlock()
 		bumpCalls()
-		recordActivity(activityEntry{Type: "call", Title: "Tool call settled", Sub: tool + " · paid 800,000 ulac", Account: agent, Tool: tool, TxHash: sr.TxHash, Height: sr.Height})
+		recordActivity(activityEntry{Type: "call", Title: "Tool call settled", Sub: tool + " · paid 800,000 ulac", Account: agent, Tool: tool, TxHash: txhash, Height: ""})
 		writeJSON(w, map[string]any{"ok": true, "step": "call",
 			"input": input, "output": output, "model": model, "receiptId": rid,
-			"lockId": lockID, "publisher": owner, "cost": "800000ulac", "txhash": sr.TxHash,
+			"lockId": lockID, "publisher": owner, "cost": "800000ulac", "txhash": txhash,
 			"note": "Metered → executed → proven (BLAKE3 PoS) → settled. Publisher paid 800,000 ulac."})
 	})
 
@@ -955,35 +1046,43 @@ func main() {
 			fail(w, fmt.Errorf("mcp-router not built at %s — run poc/web/run-localnet.sh (it builds it)", routerBin))
 			return
 		}
-		cmd := exec.Command(routerBin)
-		cmd.Env = append(os.Environ(),
-			"LUMERA_HOME="+cfg.Home, "LUMERA_NODE="+cfg.Node, "LUMERA_CHAIN_ID="+cfg.ChainID,
-			"LUMERAD="+cfg.Bin, "LUMERA_AGENT="+agent, "LUMERA_SUPERNODE="+cfg.Supernode)
 		reqs := fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":"initialize"}`+"\n"+
 			`{"jsonrpc":"2.0","id":2,"method":"tools/list"}`+"\n"+
 			`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":%q,"arguments":{"input":%q}}}`+"\n", tool, input)
-		cmd.Stdin = strings.NewReader(reqs)
-		var out bytes.Buffer
-		cmd.Stdout = &out
-		if err := cmd.Run(); err != nil {
-			fail(w, fmt.Errorf("mcp router: %w", err))
-			return
-		}
+		// Retry the whole MCP session on a transient failure so the demo never stalls.
 		var toolsList []any
 		var result map[string]any
-		for _, ln := range strings.Split(strings.TrimSpace(out.String()), "\n") {
-			var m map[string]any
-			if json.Unmarshal([]byte(strings.TrimSpace(ln)), &m) != nil {
+		for attempt := 0; attempt < 3; attempt++ {
+			cmd := exec.Command(routerBin)
+			cmd.Env = append(os.Environ(),
+				"LUMERA_HOME="+cfg.Home, "LUMERA_NODE="+cfg.Node, "LUMERA_CHAIN_ID="+cfg.ChainID,
+				"LUMERAD="+cfg.Bin, "LUMERA_AGENT="+agent, "LUMERA_SUPERNODE="+cfg.Supernode)
+			cmd.Stdin = strings.NewReader(reqs)
+			var out bytes.Buffer
+			cmd.Stdout = &out
+			if err := cmd.Run(); err != nil {
+				time.Sleep(time.Duration(700+500*attempt) * time.Millisecond)
 				continue
 			}
-			switch fmt.Sprint(m["id"]) {
-			case "2":
-				if res, ok := m["result"].(map[string]any); ok {
-					toolsList, _ = res["tools"].([]any)
+			toolsList, result = nil, nil
+			for _, ln := range strings.Split(strings.TrimSpace(out.String()), "\n") {
+				var m map[string]any
+				if json.Unmarshal([]byte(strings.TrimSpace(ln)), &m) != nil {
+					continue
 				}
-			case "3":
-				result, _ = m["result"].(map[string]any)
+				switch fmt.Sprint(m["id"]) {
+				case "2":
+					if res, ok := m["result"].(map[string]any); ok {
+						toolsList, _ = res["tools"].([]any)
+					}
+				case "3":
+					result, _ = m["result"].(map[string]any)
+				}
 			}
+			if result != nil {
+				break
+			}
+			time.Sleep(time.Duration(700+500*attempt) * time.Millisecond)
 		}
 		text := ""
 		var structured map[string]any

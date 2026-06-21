@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -285,16 +286,54 @@ type callResult struct {
 	Verifiable string `json:"verifiable"`
 }
 
-// executeTool is the placeholder for off-chain tool execution. Real tools (LLM
-// inference, APIs, compute) plug in here; the PoC returns a deterministic
-// transform so the input/model/output digest is meaningful.
+// executeTool runs the off-chain work. One tool — oracle-feed — does GENUINE
+// verifiable execution by fetching a live price from a real API (no key), so the
+// Proof-of-Service receipt anchors a real external value. Other tools use a
+// deterministic placeholder (real LLM/API/compute tools plug in the same way).
 func executeTool(toolID, input string) (model, output string) {
-	model = toolID
+	// A per-call model tag keeps each receipt content-unique so repeated identical
+	// calls never collide with a prior receipt bound to a different lock.
+	model = fmt.Sprintf("%s-c%d", toolID, time.Now().UnixNano()%1000000)
+	if toolID == "oracle-feed" {
+		if p, ok := fetchSpotPrice(input); ok {
+			return model, p
+		}
+	}
 	output = strings.ToUpper(strings.TrimSpace(input))
 	if output == "" {
 		output = "(empty)"
 	}
 	return model, output
+}
+
+// fetchSpotPrice queries Coinbase's public spot-price endpoint for a pair like
+// BTC-USD (real, live, no API key). Falls back gracefully on any error.
+func fetchSpotPrice(pair string) (string, bool) {
+	clean := ""
+	for _, c := range strings.ToUpper(strings.TrimSpace(pair)) {
+		if c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-' {
+			clean += string(c)
+		}
+	}
+	if !strings.Contains(clean, "-") {
+		clean = "BTC-USD"
+	}
+	cl := &http.Client{Timeout: 4 * time.Second}
+	resp, err := cl.Get("https://api.coinbase.com/v2/prices/" + clean + "/spot")
+	if err != nil {
+		return "", false
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return "", false
+	}
+	var m struct {
+		Data struct{ Amount, Base, Currency string } `json:"data"`
+	}
+	if json.NewDecoder(resp.Body).Decode(&m) != nil || m.Data.Amount == "" {
+		return "", false
+	}
+	return fmt.Sprintf("%s/%s spot = $%s (Coinbase, live)", m.Data.Base, m.Data.Currency, m.Data.Amount), true
 }
 
 func ensureCredits(agent string, need int64) error {

@@ -322,8 +322,8 @@ const VISION=[
 ];
 // merge real on-chain tools with mock previews for the marketplace
 function marketTools(){
-  const live=TOOLS.map(t=>({id:t.id,cat:'Live',ic:'shield',live:true,owner:t.owner,tier:tierName(t.tier),score:t.score||0,price:'0.8',unit:'call',bonded:t.bonded,
-    desc:'On-chain tool — metered, proven (BLAKE3 PoS) and settled on every call.'}));
+  const live=TOOLS.map(t=>({id:t.id,cat:'Live',ic:t.id==='oracle-feed'?'activity':'shield',live:true,owner:t.owner,tier:tierName(t.tier),score:t.score||0,price:'0.8',unit:'call',bonded:t.bonded,real:t.id==='oracle-feed',
+    desc:t.id==='oracle-feed'?'Live crypto spot price via Coinbase — GENUINE verifiable execution of a real external fetch.':'On-chain tool — metered, proven (BLAKE3 PoS) and settled on every call.'}));
   const liveIds=new Set(live.map(t=>t.id));
   return [...live,...MOCK.filter(m=>!liveIds.has(m.id))];
 }
@@ -407,18 +407,19 @@ function vDashboard(){
     ${kpiCard('live','kpiLac','—','Your LAC credits',9)}
   </div>
   <div class="grid g4" style="margin-top:16px">
-    <div class="kpi"><span class="tag live">NET</span><div class="v" id="kpiCalls">—</div><div class="l up">Calls metered</div>${spark(2)}</div>
-    <div class="kpi"><span class="tag live">NET</span><div class="v" id="kpiGmv">—</div><div class="l up">GMV settled · ulac</div>${spark(7)}</div>
-    <div class="kpi"><span class="tag live">NET</span><div class="v" id="kpiAgents">—</div><div class="l up">Active agents</div>${spark(4)}</div>
+    <div class="kpi"><span class="tag soon">SAMPLE</span><div class="v" id="kpiCalls">—</div><div class="l up">Calls metered</div>${spark(2)}</div>
+    <div class="kpi"><span class="tag soon">SAMPLE</span><div class="v" id="kpiGmv">—</div><div class="l up">GMV settled · ulac</div>${spark(7)}</div>
+    <div class="kpi"><span class="tag live">LIVE</span><div class="v" id="kpiAgents">—</div><div class="l up">Funded agents</div>${spark(4)}</div>
     <div class="kpi"><span class="tag soon">SOON</span><div class="v">100<small>%</small></div><div class="l up">TEE-attested</div>${spark(8)}</div>
   </div>
+  <div class="hint" style="margin-top:8px">Top row + the marketplace, reputation and bonds are <b style="color:var(--live)">live on-chain</b>. <span style="color:var(--preview)">SAMPLE</span> tiles &amp; the charts below are illustrative (what the network looks like at scale), and <span style="color:var(--preview)">SOON</span> = roadmap.</div>
   <div class="grid g2" style="margin-top:16px">
-    <div class="card"><div class="h"><span class="up">Network volume · 30d</span><span class="hint">calls / day</span></div>
+    <div class="card"><div class="h"><span class="up">Network volume · 30d</span><span class="badge-soon">ILLUSTRATIVE</span></div>
       <div class="b" style="padding-bottom:8px">${lineChart(series(3,30,400,900),300,90,'rgba(63,185,80,.9)')}
-        <div class="row" style="justify-content:space-between;margin-top:6px"><span class="hint">${fmtS(S.networkCalls)} total</span><span class="hint" style="color:var(--live)">▲ 23% MoM</span></div></div></div>
-    <div class="card"><div class="h"><span class="up">Revenue settled · 30d</span><span class="hint">ulac / day</span></div>
+        <div class="row" style="justify-content:space-between;margin-top:6px"><span class="hint">sample series</span><span class="hint" style="color:var(--live)">▲ 23% MoM</span></div></div></div>
+    <div class="card"><div class="h"><span class="up">Revenue settled · 30d</span><span class="badge-soon">ILLUSTRATIVE</span></div>
       <div class="b" style="padding-bottom:8px">${lineChart(series(8,30,200,1200),300,90,'rgba(91,166,255,.9)')}
-        <div class="row" style="justify-content:space-between;margin-top:6px"><span class="hint">${fmtS(S.networkGmv)} GMV</span><span class="hint" style="color:var(--live)">▲ 31% MoM</span></div></div></div>
+        <div class="row" style="justify-content:space-between;margin-top:6px"><span class="hint">sample series</span><span class="hint" style="color:var(--live)">▲ 31% MoM</span></div></div></div>
   </div>
   <div class="grid g2" style="margin-top:16px">
     <div class="card"><div class="h"><span class="up">Quick call</span><span class="badge-live"><span class="dot"></span>LIVE</span></div><div class="b">
@@ -466,7 +467,8 @@ function vTool(id){
     </div>
     <div class="grid g2">
       <div class="card"><div class="h"><span class="up">Call this tool</span><span class="hint">lock → prove → settle</span></div><div class="b">
-        <div class="field"><label>Input</label><input id="tdInput" placeholder="ask the tool…" value="what is the capital of France?"></div>
+        ${id==='oracle-feed'?'<div class="banner" style="border-color:rgba(63,185,80,.4);background:rgba(63,185,80,.06);color:#a8e6b8">This tool does <b>real</b> execution — it fetches a live Coinbase spot price, and the receipt anchors that exact value. Try a pair like <code>BTC-USD</code> or <code>ETH-USD</code>.</div>':''}
+        <div class="field"><label>Input</label><input id="tdInput" placeholder="ask the tool…" value="${id==='oracle-feed'?'BTC-USD':'what is the capital of France?'}"></div>
         <button class="btn-primary" onclick="doCall('tdInput','tdResult')">Call tool · 0.8 LAC ${svg('arrow',15)}</button>
         <div id="tdResult"></div>
       </div></div>
@@ -606,7 +608,7 @@ function vWallet(){
   </div>`,mount:updateLive};
 }
 function vActivity(){
-  return {html:`<div class="sub">A real feed of on-chain actions driven through the console — each links to its transaction.</div>
+  return {html:`<div class="sub">Live on-chain actions you drive show a <b style="color:var(--live)">block height + tx hash</b>; entries without a height are seeded network history (so the feed isn't empty on a fresh node).</div>
   <div class="card"><div class="b"><div class="feed" id="actFeed">${ACTIVITY.length?feedHTML(ACTIVITY):'<div class="empty">No activity yet — call a tool or publish one.</div>'}</div></div></div>`,mount:updateLive};
 }
 function feedHTML(items){if(!items||!items.length)return '<div class="empty">No activity yet.</div>';
