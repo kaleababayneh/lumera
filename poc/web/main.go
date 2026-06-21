@@ -26,6 +26,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"lukechampine.com/blake3"
 )
 
 //go:embed index.html
@@ -97,6 +99,29 @@ func agentKey(r *http.Request) string {
 	return cfg.Agent
 }
 
+// validToolID accepts short, URL-safe tool identifiers (so the marketplace can
+// hold many tools without arbitrary input reaching the CLI).
+func validToolID(s string) bool {
+	if len(s) == 0 || len(s) > 48 {
+		return false
+	}
+	for _, c := range s {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-' || c == '_') {
+			return false
+		}
+	}
+	return true
+}
+
+// toolID resolves the tool a request targets: the `?tool=` value if well-formed,
+// otherwise the default demo tool.
+func toolID(r *http.Request) string {
+	if t := strings.TrimSpace(r.URL.Query().Get("tool")); validToolID(t) {
+		return t
+	}
+	return cfg.Tool
+}
+
 // ---- in-memory demo session -------------------------------------------------
 
 var session = struct {
@@ -117,6 +142,45 @@ func nextSeq() int {
 	defer session.Unlock()
 	session.Seq++
 	return session.Seq
+}
+
+// ---- activity log -----------------------------------------------------------
+// A server-side ring buffer of real on-chain actions driven through the app. Each
+// entry carries the real txhash + block height, so the Activity view is a true
+// explorer (shared across browsers, persists until the server restarts).
+
+type activityEntry struct {
+	Type    string `json:"type"`
+	Title   string `json:"title"`
+	Sub     string `json:"sub"`
+	Account string `json:"account"`
+	Tool    string `json:"tool"`
+	TxHash  string `json:"txhash"`
+	Height  string `json:"height"`
+	Time    int64  `json:"time"`
+}
+
+var activityLog = struct {
+	sync.Mutex
+	items []activityEntry
+}{}
+
+func recordActivity(e activityEntry) {
+	e.Time = time.Now().Unix()
+	activityLog.Lock()
+	defer activityLog.Unlock()
+	activityLog.items = append([]activityEntry{e}, activityLog.items...)
+	if len(activityLog.items) > 100 {
+		activityLog.items = activityLog.items[:100]
+	}
+}
+
+func recentActivity() []activityEntry {
+	activityLog.Lock()
+	defer activityLog.Unlock()
+	out := make([]activityEntry, len(activityLog.items))
+	copy(out, activityLog.items)
+	return out
 }
 
 // ---- lumerad helpers --------------------------------------------------------
@@ -164,6 +228,7 @@ type txResult struct {
 	OK     bool           `json:"ok"`
 	Code   int            `json:"code"`
 	TxHash string         `json:"txhash"`
+	Height string         `json:"height"`
 	RawLog string         `json:"raw_log"`
 	Events []eventAttr    `json:"events"`
 	Raw    map[string]any `json:"-"`
@@ -259,6 +324,7 @@ func parseTx(hash string, m map[string]any) *txResult {
 		res.Code = int(c)
 	}
 	res.OK = res.Code == 0
+	res.Height, _ = m["height"].(string)
 	res.RawLog, _ = m["raw_log"].(string)
 	if evs, ok := m["events"].([]any); ok {
 		for _, e := range evs {
@@ -373,6 +439,39 @@ func balanceInt(addr, denom string) int64 {
 	return n
 }
 
+// bondArg sanitises a bond amount from the UI (digits only) into a `<n>ulume`
+// argument, defaulting to the demo's 2,000,000 when empty/invalid.
+func bondArg(s string) string {
+	d := strings.Map(func(c rune) rune {
+		if c >= '0' && c <= '9' {
+			return c
+		}
+		return -1
+	}, s)
+	if d == "" || d == "0" {
+		d = "2000000"
+	}
+	return d + "ulume"
+}
+
+// nodeHeight returns the latest block height as a string (best-effort).
+func nodeHeight() string {
+	out, err := run("status", "--node", cfg.Node)
+	if err != nil {
+		return ""
+	}
+	var m map[string]any
+	if json.Unmarshal([]byte(out), &m) != nil {
+		return ""
+	}
+	si, ok := m["sync_info"].(map[string]any)
+	if !ok {
+		si, _ = m["SyncInfo"].(map[string]any)
+	}
+	h, _ := si["latest_block_height"].(string)
+	return h
+}
+
 func moduleAddr(name string) string {
 	m, err := query("auth", "module-account", name)
 	if err != nil {
@@ -393,6 +492,54 @@ func moduleAddr(name string) string {
 		return a
 	}
 	return ""
+}
+
+// deriveReceiptID recomputes the content-addressed receipt id the chain uses:
+// pos1<hex(BLAKE3(BLAKE3(input) ‖ model ‖ BLAKE3(output)))>. The web UI calls
+// this to re-verify that a receipt really binds to a given input/model/output.
+func deriveReceiptID(input, model, output string) string {
+	rh := blake3.Sum256([]byte(input))
+	oh := blake3.Sum256([]byte(output))
+	tr := blake3.Sum256(append(append(append([]byte{}, rh[:]...), []byte(model)...), oh[:]...))
+	return "pos1" + hex.EncodeToString(tr[:])
+}
+
+type marketTool struct {
+	ID      string `json:"id"`
+	Owner   string `json:"owner"`
+	Tier    string `json:"tier"`
+	Score   any    `json:"score"`
+	Bonded  string `json:"bonded"`
+	Slashed string `json:"slashed"`
+}
+
+// listMarketTools returns every on-chain tool enriched with owner, reputation
+// tier/score and bonded amount — the live marketplace.
+func listMarketTools() []marketTool {
+	m, err := query("registry", "list-tools")
+	if err != nil {
+		return nil
+	}
+	raw, _ := m["tools"].([]any)
+	out := make([]marketTool, 0, len(raw))
+	for _, t := range raw {
+		tm, _ := t.(map[string]any)
+		id, _ := tm["tool_id"].(string)
+		if id == "" {
+			continue
+		}
+		mt := marketTool{ID: id, Bonded: "0", Slashed: "0"}
+		mt.Owner, _ = tm["owner"].(string)
+		if bm, err := query("incentives", "badge", id); err == nil {
+			if b, ok := bm["badge"].(map[string]any); ok {
+				mt.Tier, _ = b["tier"].(string)
+				mt.Score = b["composite_score"]
+			}
+		}
+		mt.Bonded, mt.Slashed = bondAmounts(id)
+		out = append(out, mt)
+	}
+	return out
 }
 
 // ---- http -------------------------------------------------------------------
@@ -441,6 +588,48 @@ func main() {
 		writeJSON(w, map[string]any{"ok": true, "accounts": accts, "default": cfg.Agent})
 	})
 
+	// All on-chain tools (the live marketplace), each with owner + reputation + bond.
+	mux.HandleFunc("/api/tools", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]any{"ok": true, "tools": listMarketTools()})
+	})
+
+	// The real on-chain activity feed (actions driven through the app, newest first).
+	mux.HandleFunc("/api/activity", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]any{"ok": true, "items": recentActivity()})
+	})
+
+	// Receipt detail — the on-chain Proof-of-Service record for a receipt id.
+	mux.HandleFunc("/api/receipt", func(w http.ResponseWriter, r *http.Request) {
+		id := strings.TrimSpace(r.URL.Query().Get("id"))
+		if id == "" {
+			fail(w, errors.New("missing receipt id"))
+			return
+		}
+		m, err := query("registry", "get-receipt", id)
+		if err != nil {
+			fail(w, err)
+			return
+		}
+		// Flatten {receipt:{…}, status} → the receipt fields + status for the UI.
+		rec := m
+		if inner, ok := m["receipt"].(map[string]any); ok {
+			rec = inner
+			if st, ok := m["status"].(string); ok {
+				rec["status"] = st
+			}
+		}
+		writeJSON(w, map[string]any{"ok": true, "receipt": rec})
+	})
+
+	// Re-derive the content-addressed receipt id from an input/model/output and
+	// report whether it matches a claimed id — client-verifiable Proof-of-Service.
+	mux.HandleFunc("/api/derive-receipt", func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		derived := deriveReceiptID(q.Get("input"), q.Get("model"), q.Get("output"))
+		claimed := strings.TrimSpace(q.Get("id"))
+		writeJSON(w, map[string]any{"ok": true, "derived": derived, "claimed": claimed, "matches": claimed != "" && derived == claimed})
+	})
+
 	mux.HandleFunc("/api/state", func(w http.ResponseWriter, r *http.Request) {
 		agentName := agentKey(r)
 		agentAddr, _ := keyAddr(agentName)
@@ -458,6 +647,8 @@ func main() {
 			"challengerLume": balance(chlAddr, cfg.LumeDenom),
 			"registryBond":   balance(regAddr, cfg.LumeDenom),
 		}
+		tool := toolID(r)
+		st["tool"] = tool
 		session.Lock()
 		st["lockId"], st["receiptId"] = session.LockID, session.ReceiptID
 		st["challengeOpen"] = session.ChallengeOpen
@@ -465,13 +656,14 @@ func main() {
 		st["slashInsurance"], st["slashTreasury"] = session.SlashInsurance, session.SlashTreasury
 		session.Unlock()
 		// publisher bond: bonded vs cumulatively slashed (skin-in-the-game gauge).
-		st["bondBonded"], st["bondSlashed"] = bondAmounts(cfg.Tool)
+		st["bondBonded"], st["bondSlashed"] = bondAmounts(tool)
 		// network stats (real): the insurance pool grows as slashes route into it,
 		// and the on-chain tool count is the live marketplace size.
 		st["insurancePool"] = balance(moduleAddr("insurance"), cfg.LumeDenom)
 		st["toolCount"] = toolCount()
-		// tool + receipt status (best-effort)
-		if m, err := query("registry", "get-tool", cfg.Tool); err == nil {
+		st["blockHeight"] = nodeHeight()
+		// selected tool + receipt status (best-effort)
+		if m, err := query("registry", "get-tool", tool); err == nil {
 			if t, ok := m["tool"].(map[string]any); ok {
 				st["toolOwner"], _ = t["owner"].(string)
 			}
@@ -482,7 +674,7 @@ func main() {
 			}
 		}
 		// Reputation badge (incentives) — best-effort.
-		if m, err := query("incentives", "badge", cfg.Tool); err == nil {
+		if m, err := query("incentives", "badge", tool); err == nil {
 			if b, ok := m["badge"].(map[string]any); ok {
 				st["badgeTier"], _ = b["tier"].(string)
 				switch sc := b["composite_score"].(type) {
@@ -498,26 +690,40 @@ func main() {
 
 	// Step 1 — Agent swaps LUME for LAC credits.
 	mux.HandleFunc("/api/swap", func(w http.ResponseWriter, r *http.Request) {
-		res, err := broadcast(agentKey(r),
+		acct := agentKey(r)
+		res, err := broadcast(acct,
 			"credits", "swap-lume-to-lac", "--amount", "5000000ulume", "--min-lac-out", "1")
 		if err != nil {
 			fail(w, err)
 			return
 		}
+		if res.OK {
+			recordActivity(activityEntry{Type: "swap", Title: "Swapped LUME → LAC", Sub: "5,000,000 ulume → credits", Account: acct, TxHash: res.TxHash, Height: res.Height})
+		}
 		writeJSON(w, map[string]any{"ok": res.OK, "step": "swap", "tx": res,
 			"note": "Agent converted 5,000,000 ulume into LAC credits."})
 	})
 
-	// Step 2 — Publisher registers a tool and escrows a bond.
+	// Step 2 — Publisher registers a tool and escrows a bond. With a `tool` param,
+	// the selected account publishes its OWN tool (real marketplace); without it,
+	// the dedicated publisher registers the demo tool.
 	mux.HandleFunc("/api/register", func(w http.ResponseWriter, r *http.Request) {
-		res, err := broadcast(cfg.Publisher,
-			"registry", "register-tool", cfg.Tool, "--bond", "2000000ulume")
+		tool := toolID(r)
+		from := cfg.Publisher
+		if r.URL.Query().Get("tool") != "" {
+			from = agentKey(r)
+		}
+		bond := bondArg(r.URL.Query().Get("bond"))
+		res, err := broadcast(from, "registry", "register-tool", tool, "--bond", bond)
 		if err != nil {
 			fail(w, err)
 			return
 		}
-		writeJSON(w, map[string]any{"ok": res.OK, "step": "register", "tx": res,
-			"note": "Publisher registered '" + cfg.Tool + "' and escrowed a 2,000,000 ulume bond (skin-in-the-game)."})
+		if res.OK {
+			recordActivity(activityEntry{Type: "register", Title: "Tool published", Sub: tool + " · bond " + bond, Account: from, Tool: tool, TxHash: res.TxHash, Height: res.Height})
+		}
+		writeJSON(w, map[string]any{"ok": res.OK, "step": "register", "tx": res, "tool": tool,
+			"note": "Registered '" + tool + "' and escrowed a " + bond + " bond (skin-in-the-game)."})
 	})
 
 	// Step 3 — Router locks credits against the tool (quote → lock).
@@ -527,7 +733,7 @@ func main() {
 			"credits", "lock-credits",
 			"--amount", "1000000ulac",
 			"--session-id", "web-"+strconv.Itoa(seq),
-			"--tool-id", cfg.Tool,
+			"--tool-id", toolID(r),
 			"--quote-id", "q-"+strconv.Itoa(seq),
 			"--policy-version", "policy-v1",
 			"--intent-hash", "intent-"+strconv.Itoa(seq))
@@ -565,7 +771,7 @@ func main() {
 			output = v
 		}
 		res, err := broadcast(cfg.Supernode,
-			"registry", "submit-receipt", cfg.Tool,
+			"registry", "submit-receipt", toolID(r),
 			"--model", model, "--input", input, "--result", output,
 			"--session-id", "web", "--lock-id", lockID)
 		if err != nil {
@@ -600,15 +806,15 @@ func main() {
 			fail(w, errors.New("no receipt — run Submit Receipt first"))
 			return
 		}
-		pubAddr, err := keyAddr(cfg.Publisher)
-		if err != nil {
-			fail(w, err)
-			return
+		tool := toolID(r)
+		pubAddr := toolOwnerAddr(tool)
+		if pubAddr == "" {
+			pubAddr, _ = keyAddr(cfg.Publisher)
 		}
 		res, err := broadcast(agentKey(r),
 			"credits", "settle-credits",
 			"--lock-id", lockID, "--actual-cost", "800000ulac",
-			"--publisher", pubAddr, "--receipt-id", receiptID, "--tool-id", cfg.Tool)
+			"--publisher", pubAddr, "--receipt-id", receiptID, "--tool-id", tool)
 		if err != nil {
 			fail(w, err)
 			return
@@ -630,7 +836,8 @@ func main() {
 		if input == "" {
 			input = "hello from a Lumera agent"
 		}
-		owner := toolOwnerAddr(cfg.Tool)
+		tool := toolID(r)
+		owner := toolOwnerAddr(tool)
 		if owner == "" {
 			fail(w, errors.New("tool not registered yet — publish it first"))
 			return
@@ -648,7 +855,7 @@ func main() {
 		seq := nextSeq()
 		lr, err := broadcast(agent, "credits", "lock-credits",
 			"--amount", "1000000ulac", "--session-id", "call-"+strconv.Itoa(seq),
-			"--tool-id", cfg.Tool, "--quote-id", "cq-"+strconv.Itoa(seq),
+			"--tool-id", tool, "--quote-id", "cq-"+strconv.Itoa(seq),
 			"--policy-version", "policy-v1", "--intent-hash", "ci-"+strconv.Itoa(seq))
 		if err != nil {
 			fail(w, fmt.Errorf("lock: %w", err))
@@ -659,9 +866,9 @@ func main() {
 			fail(w, errors.New("lock failed"))
 			return
 		}
-		model := cfg.Tool
+		model := tool
 		output := strings.ToUpper(input)
-		rr, err := broadcast(cfg.Supernode, "registry", "submit-receipt", cfg.Tool,
+		rr, err := broadcast(cfg.Supernode, "registry", "submit-receipt", tool,
 			"--model", model, "--input", input, "--result", output, "--session-id", "call", "--lock-id", lockID)
 		if err != nil || !rr.OK {
 			fail(w, errors.New("proof-of-service submission failed"))
@@ -673,7 +880,7 @@ func main() {
 		}
 		sr, err := broadcast(agent, "credits", "settle-credits",
 			"--lock-id", lockID, "--actual-cost", "800000ulac",
-			"--publisher", owner, "--receipt-id", rid, "--tool-id", cfg.Tool)
+			"--publisher", owner, "--receipt-id", rid, "--tool-id", tool)
 		if err != nil || !sr.OK {
 			fail(w, errors.New("settlement failed"))
 			return
@@ -681,18 +888,23 @@ func main() {
 		session.Lock()
 		session.ReceiptID, session.LockID, session.ChallengeOpen = rid, "", false
 		session.Unlock()
+		recordActivity(activityEntry{Type: "call", Title: "Tool call settled", Sub: tool + " · paid 800,000 ulac", Account: agent, Tool: tool, TxHash: sr.TxHash, Height: sr.Height})
 		writeJSON(w, map[string]any{"ok": true, "step": "call",
 			"input": input, "output": output, "model": model, "receiptId": rid,
 			"lockId": lockID, "publisher": owner, "cost": "800000ulac", "txhash": sr.TxHash,
 			"note": "Metered → executed → proven (BLAKE3 PoS) → settled. Publisher paid 800,000 ulac."})
 	})
 
-	// Reputation — the publisher requests a badge evaluation (incentives).
+	// Reputation — request a badge evaluation (incentives) for the selected tool.
 	mux.HandleFunc("/api/request-badge", func(w http.ResponseWriter, r *http.Request) {
-		res, err := broadcast(cfg.Publisher, "incentives", "request-evaluation", cfg.Tool)
+		tool := toolID(r)
+		res, err := broadcast(cfg.Publisher, "incentives", "request-evaluation", tool)
 		if err != nil {
 			fail(w, err)
 			return
+		}
+		if res.OK {
+			recordActivity(activityEntry{Type: "badge", Title: "Reputation evaluated", Sub: tool, Account: cfg.Publisher, Tool: tool, TxHash: res.TxHash, Height: res.Height})
 		}
 		writeJSON(w, map[string]any{"ok": res.OK, "step": "request-badge", "tx": res,
 			"note": "Publisher requested a reputation evaluation; a badge is awarded from the tool's metrics."})
@@ -726,6 +938,7 @@ func main() {
 			session.Lock()
 			session.ChallengeOpen = true
 			session.Unlock()
+			recordActivity(activityEntry{Type: "challenge", Title: "Receipt disputed", Sub: "stake 500,000 ulume escrowed", Account: cfg.Challenger, TxHash: res.TxHash, Height: res.Height})
 		}
 		writeJSON(w, map[string]any{"ok": res.OK, "step": "challenge", "tx": res,
 			"note": "Challenger escrowed a 500,000 ulume stake and locked an equal slice of the publisher's bond. The receipt is now disputed — settlement against it is frozen."})
@@ -756,6 +969,7 @@ func main() {
 			session.SlashAmount, session.SlashBurn = amount, burn
 			session.SlashInsurance, session.SlashTreasury = ins, treas
 			session.Unlock()
+			recordActivity(activityEntry{Type: "resolve", Title: "Dispute upheld → bond slashed", Sub: "slashed " + amount + " (5% burn / 85% insurance / 10% treasury)", Account: cfg.Agent, TxHash: res.TxHash, Height: res.Height})
 		}
 		writeJSON(w, map[string]any{"ok": res.OK, "step": "resolve", "tx": res,
 			"slashAmount": amount, "slashBurn": burn, "slashInsurance": ins, "slashTreasury": treas,
@@ -771,12 +985,16 @@ func main() {
 			fail(w, errors.New("no active lock — run Lock Credits first"))
 			return
 		}
-		pubAddr, _ := keyAddr(cfg.Publisher)
+		tool := toolID(r)
+		pubAddr := toolOwnerAddr(tool)
+		if pubAddr == "" {
+			pubAddr, _ = keyAddr(cfg.Publisher)
+		}
 		bogus := "pos1" + hex.EncodeToString(sha256Bytes("never-submitted"))
 		res, err := broadcast(agentKey(r),
 			"credits", "settle-credits",
 			"--lock-id", lockID, "--actual-cost", "800000ulac",
-			"--publisher", pubAddr, "--receipt-id", bogus, "--tool-id", cfg.Tool)
+			"--publisher", pubAddr, "--receipt-id", bogus, "--tool-id", tool)
 		if err != nil {
 			fail(w, err)
 			return
@@ -784,6 +1002,33 @@ func main() {
 		// Expected: res.OK == false (proof-of-service verification failed).
 		writeJSON(w, map[string]any{"ok": true, "rejected": !res.OK, "step": "settle-noproof", "tx": res,
 			"note": "Attempted settlement with an unverified receipt — the chain rejected it (no payout)."})
+	})
+
+	// Bond lifecycle — the publisher tops up or withdraws excess bond for its tool.
+	mux.HandleFunc("/api/bond-topup", func(w http.ResponseWriter, r *http.Request) {
+		tool := toolID(r)
+		res, err := broadcast(agentKey(r), "registry", "create-bond", tool, bondArg(r.URL.Query().Get("amount")))
+		if err != nil {
+			fail(w, err)
+			return
+		}
+		if res.OK {
+			recordActivity(activityEntry{Type: "bond", Title: "Bond topped up", Sub: tool, Account: agentKey(r), Tool: tool, TxHash: res.TxHash, Height: res.Height})
+		}
+		writeJSON(w, map[string]any{"ok": res.OK, "step": "bond-topup", "tx": res, "note": "Bond increased for " + tool + "."})
+	})
+	mux.HandleFunc("/api/bond-withdraw", func(w http.ResponseWriter, r *http.Request) {
+		tool := toolID(r)
+		res, err := broadcast(agentKey(r), "registry", "withdraw-bond", tool, bondArg(r.URL.Query().Get("amount")))
+		if err != nil {
+			fail(w, err)
+			return
+		}
+		if res.OK {
+			recordActivity(activityEntry{Type: "bond", Title: "Bond withdrawn", Sub: tool, Account: agentKey(r), Tool: tool, TxHash: res.TxHash, Height: res.Height})
+		}
+		writeJSON(w, map[string]any{"ok": res.OK, "step": "bond-withdraw", "tx": res,
+			"note": "Withdrew excess bond from " + tool + " (only the amount above the minimum is reclaimable while registered)."})
 	})
 
 	log.Printf("Lumera AI web PoC on http://localhost%s  (node=%s, home=%s)", addr, cfg.Node, cfg.Home)
