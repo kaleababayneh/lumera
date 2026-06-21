@@ -9,15 +9,18 @@
 #
 # Run from the repo root:  bash poc/demo.sh
 set -uo pipefail
-LD=${LUMERAD:-/tmp/lumerad}; HM=/tmp/lnode_demo; NODE="tcp://localhost:26657"
+LD=${LUMERAD:-/tmp/lumerad}; HM=${LUMERA_HOME:-/tmp/lumera-demo}; NODE=${LUMERA_NODE:-tcp://localhost:26657}
+CHAIN=${LUMERA_CHAIN_ID:-lumera-local-1}
 ROUTER=/tmp/lumera-mcp-router
 echo "### building lumerad + mcp-router"
 go build -o "$LD" ./cmd/lumera && go build -o "$ROUTER" ./poc/mcp-router || { echo "build failed"; exit 1; }
 
-pkill -f "lumerad start --home /tmp/lnode" 2>/dev/null || true; sleep 2; rm -rf "$HM"
+# Kill ONLY this demo's own node (exact home). A loose prefix like "/tmp/lnode"
+# would also match other PoC nodes (e.g. the web localnet) and silently kill them.
+pkill -f "lumerad start --home $HM " 2>/dev/null || true; sleep 2; rm -rf "$HM"
 KR=(--keyring-backend test --home "$HM")
-C=(--home "$HM" --node "$NODE" --chain-id lumera-local-1 --keyring-backend test --gas 700000 --fees 200000ulume -y)
-"$LD" init val --chain-id lumera-local-1 --home "$HM" >/dev/null 2>&1
+C=(--home "$HM" --node "$NODE" --chain-id "$CHAIN" --keyring-backend test --gas 700000 --fees 200000ulume -y)
+"$LD" init val --chain-id "$CHAIN" --home "$HM" >/dev/null 2>&1
 for k in val pub chl; do "$LD" keys add "$k" "${KR[@]}" --algo eth_secp256k1 >/dev/null 2>&1; done
 VAL=$("$LD" keys show val -a "${KR[@]}"); PUB=$("$LD" keys show pub -a "${KR[@]}"); CHL=$("$LD" keys show chl -a "${KR[@]}")
 VALOPER=$("$LD" keys show val --bech val -a "${KR[@]}")
@@ -35,7 +38,7 @@ inc['metric_snapshots']=[{"tool_id":"pubtool","block_height":"0","timestamp":"20
 json.dump(d,open(p,'w'),indent=1)
 PY
 "$LD" genesis add-genesis-account "$VAL" 100000000000000ulume "${KR[@]}" >/dev/null 2>&1
-"$LD" genesis gentx val 1000000000ulume --chain-id lumera-local-1 "${KR[@]}" >/dev/null 2>&1
+"$LD" genesis gentx val 1000000000ulume --chain-id "$CHAIN" "${KR[@]}" >/dev/null 2>&1
 "$LD" genesis collect-gentxs --home "$HM" >/dev/null 2>&1
 nohup "$LD" start --home "$HM" --minimum-gas-prices=0ulume --log_level error > "$HM/node.log" 2>&1 &
 for _ in $(seq 1 40); do "$LD" status --node "$NODE" >/dev/null 2>&1 && break; sleep 0.7; done
@@ -51,6 +54,9 @@ bal(){ "$LD" query bank balances "$1" --node "$NODE" -o json 2>/dev/null | py "i
 bond(){ "$LD" query registry get-bond pubtool --node "$NODE" -o json 2>/dev/null | py "import sys,json;b=json.load(sys.stdin).get('bond',{});print(next((c['amount'] for c in b.get('$1',[]) if c['denom']=='ulume'),'0'))"; }
 badge(){ "$LD" query incentives badge pubtool --node "$NODE" -o json 2>/dev/null | py "import sys,json;b=json.load(sys.stdin).get('badge',{});print('%s (score %s)'%(b.get('tier','NONE'),b.get('composite_score','-')))"; }
 ok(){ [ "$1" = "0" ] && echo "OK" || echo "FAIL(code=$1)"; }
+# guard fails loudly if the node went away mid-run (almost always another script's
+# `pkill -f lumerad` matching this home) instead of emitting confusing JSON errors.
+guard(){ "$LD" status --node "$NODE" >/dev/null 2>&1 || { echo; echo "!! node $NODE is unreachable — it was likely killed by a colliding 'pkill -f lumerad' from another script. Aborting."; exit 1; }; }
 
 echo; echo "### node up @h$(height)   agent/supernode=val  publisher=pub  challenger=chl"
 wt "$("$LD" tx supernode register-supernode "$VALOPER" 127.0.0.1 "$VAL" --from val "${C[@]}" -o json|hash)" >/dev/null
@@ -77,11 +83,19 @@ echo "   receipt: BLAKE3 -> $RID"
 PUB0=$(bal "$PUB" ulac)
 echo "   settle: $(ok "$(wt "$("$LD" tx credits settle-credits --lock-id "$LID" --actual-cost 800000ulac --publisher "$PUB" --receipt-id "$RID" --tool-id pubtool --from val "${C[@]}" -o json|hash)"|code)")  publisher paid $(( $(bal "$PUB" ulac) - PUB0 ))ulac"
 
+echo; echo "## 4b. A receipt is BOUND to its lock — it cannot be replayed on another lock"
+LR2=$(wt "$("$LD" tx credits lock-credits --amount 1000000ulac --session-id d2 --tool-id pubtool --quote-id q2 --policy-version policy-v1 --intent-hash i2 --from val "${C[@]}" -o json|hash)")
+LID2=$(echo "$LR2"|py "import sys,json;d=json.load(sys.stdin);print(next((a['value'] for e in d.get('events',[]) for a in e.get('attributes',[]) if a.get('key')=='lock_id'),''))")
+RP=$(wt "$("$LD" tx credits settle-credits --lock-id "$LID2" --actual-cost 800000ulac --publisher "$PUB" --receipt-id "$RID" --tool-id pubtool --from val "${C[@]}" -o json|hash)")
+echo "   settle $LID2 with $LID's receipt: code=$(echo "$RP"|code) (rejected — receipt bound to its own lock)"
+
 echo; echo "## 5. Reputation is EARNED from real receipts (self-feed)"
+guard
 for i in 2 3; do wt "$("$LD" tx registry submit-receipt pubtool --model gpt-x --input "q$i" --result "a$i" --from val "${C[@]}" -o json|hash)" >/dev/null; done
 echo "   evaluate: $(ok "$(wt "$("$LD" tx incentives request-evaluation pubtool --from pub "${C[@]}" -o json|hash)"|code)")  ->  badge: $(badge)"
 
 echo; echo "## 6. A bad call is DISPUTED and upheld — the publisher's bond is slashed"
+guard
 CR=$(wt "$("$LD" tx registry challenge-receipt "$RID" 500000ulume --from chl "${C[@]}" -o json|hash)")
 UR=$(wt "$("$LD" tx registry resolve-dispute "$RID" --from val "${C[@]}" -o json|hash)")
 echo "   uphold: $(ok "$(echo "$UR"|code)")  slash: amount=$(echo "$UR"|ev slash amount) burn=$(echo "$UR"|ev slash burned) insurance=$(echo "$UR"|ev slash insurance) treasury=$(echo "$UR"|ev slash treasury)"
@@ -95,14 +109,19 @@ wt "$("$LD" tx incentives request-evaluation pubtool --from pub "${C[@]}" -o jso
 echo "   re-evaluate (grace expired) -> badge: $(badge)  (now LOWER than step 5 — the dispute cost reputation)"
 
 echo; echo "## 8. An AI agent calls the tool over MCP (discover -> meter -> prove -> settle)"
+guard
 CALL='{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"pubtool","arguments":{"input":"hello from an AI agent"}}}'
+# Keep the router's stderr (its [mcp-router] diagnostics) in a log instead of
+# discarding it, so a failed call is debuggable.
 printf '%s\n%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize"}' "$CALL" \
-  | LUMERA_HOME="$HM" LUMERA_AGENT=val LUMERA_SUPERNODE=val "$ROUTER" 2>/dev/null \
+  | LUMERA_HOME="$HM" LUMERA_AGENT=val LUMERA_SUPERNODE=val "$ROUTER" 2>"$HM/mcp-router.log" \
   | py "import sys,json
 for ln in sys.stdin:
     d=json.loads(ln)
     if d.get('id')==3:
-        print('  '+d['result']['content'][0]['text'].replace(chr(10),chr(10)+'  '))"
+        r=d.get('result',{})
+        txt=(r.get('content') or [{}])[0].get('text','(no content)')
+        print('  '+txt.replace(chr(10),chr(10)+'  '))" || echo "  (MCP call failed — see $HM/mcp-router.log)"
 
 echo; echo "### DEMO COMPLETE — discover -> meter -> execute -> prove -> settle, with a self-reinforcing trust graph."
-pkill -f "lumerad start --home /tmp/lnode" 2>/dev/null || true
+pkill -f "lumerad start --home $HM " 2>/dev/null || true

@@ -29,7 +29,7 @@ Boots a fresh local node and narrates the whole flywheel:
 | Path | What it is |
 |---|---|
 | `poc/demo.sh` | the narrated full-vision walkthrough + regression (above) |
-| `poc/web/` | a browser dashboard that drives the flywheel over HTTP (`run-localnet.sh` boots a prepared node; `go run ./poc/web` serves it on :8787) |
+| `poc/web/` | a browser dashboard that drives the **whole** flywheel over HTTP — swap → register+bond → lock → prove → settle → reputation → **dispute → slash → reputation erosion** — step-by-step or via one "Run the whole flywheel" button. `run-localnet.sh` boots a prepared node (agent/supernode `val`, publisher `pub`, challenger `chl`); `go run ./poc/web` serves it on :8787 |
 | `poc/mcp-router/` | the **MCP server** — the off-chain "router". Any MCP-compatible AI agent (Claude Desktop, an Agent SDK app) discovers + calls on-chain tools through the standard protocol; each call runs lock → execute → Proof-of-Service → settle. See its README for a Claude-Desktop config. |
 
 ## What's real vs. PoC

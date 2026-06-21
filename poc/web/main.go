@@ -40,6 +40,7 @@ type config struct {
 	ChainID     string
 	Agent       string // key name: agent + router + supernode (val)
 	Publisher   string // key name: tool publisher (pub)
+	Challenger  string // key name: dispute challenger (chl)
 	Tool        string // demo tool id
 	Fees        string
 	Gas         string
@@ -56,11 +57,12 @@ func envOr(k, d string) string {
 
 var cfg = config{
 	Bin:         envOr("LUMERAD", "/tmp/lumerad"),
-	Home:        envOr("LUMERA_HOME", "/tmp/lnode_web"),
+	Home:        envOr("LUMERA_HOME", "/tmp/lumera-web"),
 	Node:        envOr("LUMERA_NODE", "tcp://localhost:26657"),
 	ChainID:     envOr("LUMERA_CHAIN_ID", "lumera-local-1"),
 	Agent:       envOr("LUMERA_AGENT", "val"),
 	Publisher:   envOr("LUMERA_PUBLISHER", "pub"),
+	Challenger:  envOr("LUMERA_CHALLENGER", "chl"),
 	Tool:        envOr("LUMERA_TOOL", "pubtool"),
 	Fees:        envOr("LUMERA_FEES", "200000ulume"),
 	Gas:         envOr("LUMERA_GAS", "700000"),
@@ -75,6 +77,12 @@ var session = struct {
 	LockID    string
 	ReceiptID string
 	Seq       int
+	// dispute demo state (set by /api/challenge and /api/resolve)
+	ChallengeOpen  bool
+	SlashAmount    string
+	SlashBurn      string
+	SlashInsurance string
+	SlashTreasury  string
 }{}
 
 func nextSeq() int {
@@ -109,6 +117,22 @@ func query(args ...string) (map[string]any, error) {
 	return m, nil
 }
 
+// queryRetry wraps query for reads that must succeed: the node can be briefly
+// busy right after a tx, so a single transient failure should not be reported
+// as missing data. It still surfaces a genuinely-down node after the attempts.
+func queryRetry(args ...string) (map[string]any, error) {
+	var lastErr error
+	for attempt := 0; attempt < 5; attempt++ {
+		m, err := query(args...)
+		if err == nil {
+			return m, nil
+		}
+		lastErr = err
+		time.Sleep(time.Duration(300+200*attempt) * time.Millisecond)
+	}
+	return nil, lastErr
+}
+
 type txResult struct {
 	OK     bool           `json:"ok"`
 	Code   int            `json:"code"`
@@ -124,8 +148,30 @@ type eventAttr struct {
 	Val  string `json:"value"`
 }
 
-// broadcast runs a tx, then polls for its result and returns code + events.
+// broadcast runs a tx and returns its committed result. It retries only failures
+// that are provably not committed (a CheckTx rejection such as a sequence
+// mismatch, or a CLI error before broadcast), so a non-idempotent message is
+// never silently double-submitted.
 func broadcast(fromKey string, txArgs ...string) (*txResult, error) {
+	var lastErr error
+	for attempt := 0; attempt < 4; attempt++ {
+		res, retryable, err := broadcastOnce(fromKey, txArgs...)
+		if err == nil {
+			return res, nil
+		}
+		if !retryable {
+			return nil, err
+		}
+		lastErr = err
+		log.Printf("transient broadcast failure (attempt %d): %v — retrying", attempt+1, err)
+		time.Sleep(time.Duration(1200+600*attempt) * time.Millisecond)
+	}
+	return nil, fmt.Errorf("after retries: %w", lastErr)
+}
+
+// broadcastOnce performs a single submission. retryable is true only when the tx
+// definitely did not enter a block.
+func broadcastOnce(fromKey string, txArgs ...string) (*txResult, bool, error) {
 	args := append([]string{"tx"}, txArgs...)
 	args = append(args,
 		"--from", fromKey,
@@ -135,25 +181,49 @@ func broadcast(fromKey string, txArgs ...string) (*txResult, error) {
 	)
 	out, err := run(args...)
 	if err != nil {
-		return nil, fmt.Errorf("broadcast: %w", err)
+		// CLI failed before/at broadcast — nothing entered the mempool.
+		return nil, isTransient(err.Error()), fmt.Errorf("broadcast: %w", err)
 	}
 	var bc map[string]any
 	if err := json.Unmarshal([]byte(out), &bc); err != nil {
-		return nil, fmt.Errorf("decode broadcast json: %w (%.160s)", err, out)
+		return nil, false, fmt.Errorf("decode broadcast json: %w (%.160s)", err, out)
 	}
 	hash, _ := bc["txhash"].(string)
 	if hash == "" {
-		return nil, fmt.Errorf("no txhash in broadcast response: %.160s", out)
+		return nil, false, fmt.Errorf("no txhash in broadcast response: %.160s", out)
 	}
-	// Poll for inclusion.
-	for i := 0; i < 30; i++ {
+	// CheckTx verdict from the sync broadcast: a non-zero code means the tx was
+	// rejected and will never be indexed — surface it now instead of polling.
+	if c, ok := bc["code"].(float64); ok && c != 0 {
+		rawLog, _ := bc["raw_log"].(string)
+		return nil, isTransient(rawLog), fmt.Errorf("tx rejected at checktx (code %d): %s", int(c), rawLog)
+	}
+	// Accepted into the mempool — poll for the committed result.
+	for i := 0; i < 40; i++ {
 		m, qerr := query("tx", hash)
 		if qerr == nil && m != nil {
-			return parseTx(hash, m), nil
+			return parseTx(hash, m), false, nil
 		}
 		time.Sleep(700 * time.Millisecond)
 	}
-	return &txResult{TxHash: hash, RawLog: "tx not yet indexed", Code: -1}, nil
+	// Accepted but not seen in time (e.g. the node restarted): do NOT retry —
+	// re-sending could double-submit a non-idempotent tx.
+	return nil, false, fmt.Errorf("tx %s accepted but not committed within ~28s (node may have restarted)", hash)
+}
+
+// isTransient reports whether a failure message describes a recoverable
+// condition where the tx is known not to have committed.
+func isTransient(msg string) bool {
+	m := strings.ToLower(msg)
+	for _, s := range []string{
+		"account sequence mismatch", "connection refused", "timed out",
+		"timeout", "context deadline exceeded", "i/o timeout", "eof",
+	} {
+		if strings.Contains(m, s) {
+			return true
+		}
+	}
+	return false
 }
 
 func parseTx(hash string, m map[string]any) *txResult {
@@ -221,6 +291,29 @@ func balance(addr, denom string) string {
 	return "0"
 }
 
+// bondAmounts returns the publisher's (bonded, totalSlashed) ulume for a tool,
+// read from the registry bond record.
+func bondAmounts(tool string) (bonded, slashed string) {
+	bonded, slashed = "0", "0"
+	m, err := query("registry", "get-bond", tool)
+	if err != nil {
+		return
+	}
+	b, _ := m["bond"].(map[string]any)
+	pick := func(field string) string {
+		coins, _ := b[field].([]any)
+		for _, c := range coins {
+			cm, _ := c.(map[string]any)
+			if d, _ := cm["denom"].(string); d == cfg.LumeDenom {
+				amt, _ := cm["amount"].(string)
+				return amt
+			}
+		}
+		return "0"
+	}
+	return pick("bonded_amount"), pick("total_slashed")
+}
+
 func moduleAddr(name string) string {
 	m, err := query("auth", "module-account", name)
 	if err != nil {
@@ -270,8 +363,9 @@ func main() {
 	mux.HandleFunc("/api/config", func(w http.ResponseWriter, r *http.Request) {
 		agentAddr, _ := keyAddr(cfg.Agent)
 		pubAddr, _ := keyAddr(cfg.Publisher)
+		chlAddr, _ := keyAddr(cfg.Challenger)
 		writeJSON(w, map[string]any{
-			"ok": true, "agent": agentAddr, "publisher": pubAddr,
+			"ok": true, "agent": agentAddr, "publisher": pubAddr, "challenger": chlAddr,
 			"tool": cfg.Tool, "lumeDenom": cfg.LumeDenom, "creditDenom": cfg.CreditDenom,
 			"node": cfg.Node, "chainId": cfg.ChainID, "registryModule": moduleAddr("registry"),
 		})
@@ -280,18 +374,25 @@ func main() {
 	mux.HandleFunc("/api/state", func(w http.ResponseWriter, r *http.Request) {
 		agentAddr, _ := keyAddr(cfg.Agent)
 		pubAddr, _ := keyAddr(cfg.Publisher)
+		chlAddr, _ := keyAddr(cfg.Challenger)
 		regAddr := moduleAddr("registry")
 		st := map[string]any{
-			"ok":            true,
-			"agentLume":     balance(agentAddr, cfg.LumeDenom),
-			"agentLac":      balance(agentAddr, cfg.CreditDenom),
-			"publisherLac":  balance(pubAddr, cfg.CreditDenom),
-			"publisherLume": balance(pubAddr, cfg.LumeDenom),
-			"registryBond":  balance(regAddr, cfg.LumeDenom),
+			"ok":             true,
+			"agentLume":      balance(agentAddr, cfg.LumeDenom),
+			"agentLac":       balance(agentAddr, cfg.CreditDenom),
+			"publisherLac":   balance(pubAddr, cfg.CreditDenom),
+			"publisherLume":  balance(pubAddr, cfg.LumeDenom),
+			"challengerLume": balance(chlAddr, cfg.LumeDenom),
+			"registryBond":   balance(regAddr, cfg.LumeDenom),
 		}
 		session.Lock()
 		st["lockId"], st["receiptId"] = session.LockID, session.ReceiptID
+		st["challengeOpen"] = session.ChallengeOpen
+		st["slashAmount"], st["slashBurn"] = session.SlashAmount, session.SlashBurn
+		st["slashInsurance"], st["slashTreasury"] = session.SlashInsurance, session.SlashTreasury
 		session.Unlock()
+		// publisher bond: bonded vs cumulatively slashed (skin-in-the-game gauge).
+		st["bondBonded"], st["bondSlashed"] = bondAmounts(cfg.Tool)
 		// tool + receipt status (best-effort)
 		if m, err := query("registry", "get-tool", cfg.Tool); err == nil {
 			if t, ok := m["tool"].(map[string]any); ok {
@@ -401,6 +502,7 @@ func main() {
 		if res.OK && rid != "" {
 			session.Lock()
 			session.ReceiptID = rid
+			session.ChallengeOpen = false // a fresh receipt starts a new dispute cycle
 			session.Unlock()
 		}
 		writeJSON(w, map[string]any{"ok": res.OK && rid != "", "step": "submit-receipt", "tx": res,
@@ -452,6 +554,70 @@ func main() {
 		}
 		writeJSON(w, map[string]any{"ok": res.OK, "step": "request-badge", "tx": res,
 			"note": "Publisher requested a reputation evaluation; a badge is awarded from the tool's metrics."})
+	})
+
+	// Step 7 — Challenger disputes the receipt: escrows a stake and locks an
+	// equal slice of the publisher's bond (both sides now have skin in the game).
+	mux.HandleFunc("/api/challenge", func(w http.ResponseWriter, r *http.Request) {
+		session.Lock()
+		receiptID := session.ReceiptID
+		session.Unlock()
+		if receiptID == "" {
+			fail(w, errors.New("no receipt to dispute — submit a receipt first"))
+			return
+		}
+		// Guard with a clear message if the receipt is no longer challengeable
+		// (already disputed, or its 10-minute dispute window has closed).
+		if m, err := queryRetry("registry", "get-receipt", receiptID); err == nil {
+			if status, _ := m["status"].(string); status != "" && status != "attested" {
+				fail(w, fmt.Errorf("receipt is %q, no longer open to challenge", status))
+				return
+			}
+		}
+		res, err := broadcast(cfg.Challenger,
+			"registry", "challenge-receipt", receiptID, "500000ulume")
+		if err != nil {
+			fail(w, err)
+			return
+		}
+		if res.OK {
+			session.Lock()
+			session.ChallengeOpen = true
+			session.Unlock()
+		}
+		writeJSON(w, map[string]any{"ok": res.OK, "step": "challenge", "tx": res,
+			"note": "Challenger escrowed a 500,000 ulume stake and locked an equal slice of the publisher's bond. The receipt is now disputed — settlement against it is frozen."})
+	})
+
+	// Step 8 — Adjudicator (val: an active SuperNode, disjoint from challenger and
+	// publisher) upholds the challenge → the locked bond is slashed + restitution-routed.
+	mux.HandleFunc("/api/resolve", func(w http.ResponseWriter, r *http.Request) {
+		session.Lock()
+		receiptID, open := session.ReceiptID, session.ChallengeOpen
+		session.Unlock()
+		if receiptID == "" || !open {
+			fail(w, errors.New("no open dispute — run Challenge first"))
+			return
+		}
+		res, err := broadcast(cfg.Agent, "registry", "resolve-dispute", receiptID)
+		if err != nil {
+			fail(w, err)
+			return
+		}
+		amount := eventValue(res, "slash", "amount")
+		burn := eventValue(res, "slash", "burned")
+		ins := eventValue(res, "slash", "insurance")
+		treas := eventValue(res, "slash", "treasury")
+		if res.OK {
+			session.Lock()
+			session.ChallengeOpen = false
+			session.SlashAmount, session.SlashBurn = amount, burn
+			session.SlashInsurance, session.SlashTreasury = ins, treas
+			session.Unlock()
+		}
+		writeJSON(w, map[string]any{"ok": res.OK, "step": "resolve", "tx": res,
+			"slashAmount": amount, "slashBurn": burn, "slashInsurance": ins, "slashTreasury": treas,
+			"note": "Challenge upheld — the publisher's bond was slashed (5% burn / 85% insurance / 10% treasury) and the receipt invalidated. Re-evaluate reputation to watch it erode."})
 	})
 
 	// Negative — settle with a never-submitted receipt id → must be rejected.

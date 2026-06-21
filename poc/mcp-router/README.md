@@ -29,13 +29,13 @@ part of the router was only telemetry; its real form is this daemon.
 2. **Publish a tool** (the publisher escrows a bond):
    ```sh
    /tmp/lumerad tx registry register-tool pubtool --from pub \
-     --home /tmp/lnode_web --node tcp://localhost:26657 --chain-id lumera-local-1 \
+     --home /tmp/lumera-web --node tcp://localhost:26657 --chain-id lumera-local-1 \
      --keyring-backend test --gas 700000 --fees 200000ulume -y
    ```
 3. **Build + run the router** (it speaks JSON-RPC over stdio):
    ```sh
    go build -o /tmp/lumera-mcp-router ./poc/mcp-router
-   LUMERA_HOME=/tmp/lnode_web /tmp/lumera-mcp-router
+   LUMERA_HOME=/tmp/lumera-web /tmp/lumera-mcp-router
    ```
 
 ## Connect an AI agent (e.g. Claude Desktop)
@@ -46,7 +46,7 @@ Add to your MCP client config:
   "mcpServers": {
     "lumera": {
       "command": "/tmp/lumera-mcp-router",
-      "env": { "LUMERA_HOME": "/tmp/lnode_web", "LUMERA_AGENT": "val", "LUMERA_SUPERNODE": "val" }
+      "env": { "LUMERA_HOME": "/tmp/lumera-web", "LUMERA_AGENT": "val", "LUMERA_SUPERNODE": "val" }
     }
   }
 }
@@ -60,7 +60,7 @@ on-chain proof (`receipt_id`, publisher paid, "settlement gated on the receipt")
 | var | default | meaning |
 |---|---|---|
 | `LUMERAD` | `/tmp/lumerad` | node binary |
-| `LUMERA_HOME` | `/tmp/lnode_web` | node home (holds the test keyring) |
+| `LUMERA_HOME` | `/tmp/lumera-web` | node home (holds the test keyring) |
 | `LUMERA_NODE` | `tcp://localhost:26657` | RPC endpoint |
 | `LUMERA_CHAIN_ID` | `lumera-local-1` | chain id |
 | `LUMERA_AGENT` | `val` | key that pays (locks + settles) |

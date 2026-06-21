@@ -48,7 +48,7 @@ func envOr(k, d string) string {
 
 var cfg = config{
 	Bin:        envOr("LUMERAD", "/tmp/lumerad"),
-	Home:       envOr("LUMERA_HOME", "/tmp/lnode_web"),
+	Home:       envOr("LUMERA_HOME", "/tmp/lumera-web"),
 	Node:       envOr("LUMERA_NODE", "tcp://localhost:26657"),
 	ChainID:    envOr("LUMERA_CHAIN_ID", "lumera-local-1"),
 	Agent:      envOr("LUMERA_AGENT", "val"),
@@ -87,45 +87,116 @@ func query(args ...string) (map[string]any, error) {
 	return m, nil
 }
 
-// broadcast runs a tx from key `from`, waits for inclusion, returns (code, events).
+// queryRetry wraps query for reads that must succeed (tool discovery, balances):
+// the node can be briefly busy right after a burst of txs, so a single transient
+// failure should not be mistaken for "no data". It does NOT mask a node that is
+// truly down — after the attempts it returns the last error.
+func queryRetry(args ...string) (map[string]any, error) {
+	var lastErr error
+	for attempt := 0; attempt < 5; attempt++ {
+		m, err := query(args...)
+		if err == nil {
+			return m, nil
+		}
+		lastErr = err
+		time.Sleep(time.Duration(300+200*attempt) * time.Millisecond)
+	}
+	return nil, lastErr
+}
+
+// broadcast runs a tx from key `from`, waits for inclusion, and returns
+// (code, events, rawlog). It retries only failures that are provably *not*
+// committed (a CheckTx rejection or a tx that never left the client), so a
+// non-idempotent message (lock/settle) is never silently double-submitted.
 func broadcast(from string, txArgs ...string) (int, []map[string]any, string, error) {
+	var lastErr error
+	for attempt := 0; attempt < 4; attempt++ {
+		code, events, rawlog, retryable, err := broadcastOnce(from, txArgs...)
+		if err == nil {
+			return code, events, rawlog, nil
+		}
+		if !retryable {
+			return code, events, rawlog, err
+		}
+		lastErr = err
+		logf("transient broadcast failure (attempt %d): %v — retrying", attempt+1, err)
+		time.Sleep(time.Duration(1200+600*attempt) * time.Millisecond)
+	}
+	return -1, nil, "", fmt.Errorf("after retries: %w", lastErr)
+}
+
+// broadcastOnce performs a single tx submission. retryable is true only when the
+// tx definitely did not make it into a block (the CLI errored before broadcast,
+// or CheckTx rejected it for a recoverable reason such as a sequence mismatch).
+func broadcastOnce(from string, txArgs ...string) (code int, events []map[string]any, rawlog string, retryable bool, err error) {
 	args := append([]string{"tx"}, txArgs...)
 	args = append(args, "--from", from, "--home", cfg.Home, "--node", cfg.Node,
 		"--chain-id", cfg.ChainID, "--keyring-backend", "test", "--gas", cfg.Gas,
 		"--fees", cfg.Fees, "-y", "-o", "json")
-	out, err := run(args...)
-	if err != nil {
-		return -1, nil, "", err
+	out, runErr := run(args...)
+	if runErr != nil {
+		// The CLI failed before/at broadcast — nothing entered the mempool.
+		return -1, nil, "", isTransient(runErr.Error()), runErr
 	}
 	var bc map[string]any
-	if err := json.Unmarshal([]byte(out), &bc); err != nil {
-		return -1, nil, "", fmt.Errorf("decode broadcast: %w", err)
+	if jerr := json.Unmarshal([]byte(out), &bc); jerr != nil {
+		return -1, nil, "", false, fmt.Errorf("decode broadcast: %w", jerr)
 	}
 	hash, _ := bc["txhash"].(string)
 	if hash == "" {
-		return -1, nil, "", fmt.Errorf("no txhash")
+		return -1, nil, "", false, fmt.Errorf("no txhash in broadcast response")
 	}
-	for i := 0; i < 30; i++ {
+	// CheckTx verdict carried in the sync broadcast response: a non-zero code
+	// here means the tx was rejected and will never be indexed — surface it now
+	// instead of polling for 20s. Sequence mismatches are recoverable.
+	if c, ok := bc["code"].(float64); ok && c != 0 {
+		rl, _ := bc["raw_log"].(string)
+		return int(c), nil, rl, isTransient(rl), fmt.Errorf("tx rejected at checktx (code %d): %s", int(c), rl)
+	}
+	// Accepted into the mempool — poll for the committed result.
+	for i := 0; i < 40; i++ {
 		m, qerr := query("tx", hash)
 		if qerr == nil && m != nil {
-			code := 0
+			cd := 0
 			if c, ok := m["code"].(float64); ok {
-				code = int(c)
+				cd = int(c)
 			}
-			rawlog, _ := m["raw_log"].(string)
-			var events []map[string]any
-			if evs, ok := m["events"].([]any); ok {
-				for _, e := range evs {
+			rl, _ := m["raw_log"].(string)
+			var evs []map[string]any
+			if raw, ok := m["events"].([]any); ok {
+				for _, e := range raw {
 					if em, ok := e.(map[string]any); ok {
-						events = append(events, em)
+						evs = append(evs, em)
 					}
 				}
 			}
-			return code, events, rawlog, nil
+			return cd, evs, rl, false, nil
 		}
 		time.Sleep(700 * time.Millisecond)
 	}
-	return -1, nil, "", fmt.Errorf("tx %s not indexed", hash)
+	// Accepted but not seen within the window (e.g. the node restarted mid-poll).
+	// Do NOT retry — the tx may yet be committed; re-sending could double-spend.
+	return -1, nil, "", false, fmt.Errorf("tx %s accepted but not committed within ~28s (node may have restarted)", hash)
+}
+
+// isTransient reports whether a failure message describes a recoverable
+// condition where the tx is known not to have committed.
+func isTransient(msg string) bool {
+	m := strings.ToLower(msg)
+	for _, s := range []string{
+		"account sequence mismatch",
+		"connection refused",
+		"timed out",
+		"timeout",
+		"context deadline exceeded",
+		"i/o timeout",
+		"eof",
+	} {
+		if strings.Contains(m, s) {
+			return true
+		}
+	}
+	return false
 }
 
 func eventAttr(events []map[string]any, etype, key string) string {
@@ -176,11 +247,12 @@ type tool struct {
 	Badge string
 }
 
-func listTools() []tool {
-	m, err := query("registry", "list-tools")
+func listTools() ([]tool, error) {
+	m, err := queryRetry("registry", "list-tools")
 	if err != nil {
-		logf("list-tools failed: %v", err)
-		return nil
+		// Distinguish "node unreachable" from "no tools" so a caller never
+		// reports a real tool as missing just because a query blipped.
+		return nil, fmt.Errorf("discover tools (registry list-tools): %w", err)
 	}
 	var tools []tool
 	raw, _ := m["tools"].([]any)
@@ -199,7 +271,7 @@ func listTools() []tool {
 		}
 		tools = append(tools, tool{ID: id, Owner: owner, Badge: badge})
 	}
-	return tools
+	return tools, nil
 }
 
 // ---- the call loop: meter -> execute -> prove -> settle ---------------------
@@ -241,8 +313,12 @@ func ensureCredits(agent string, need int64) error {
 }
 
 func callTool(toolID, input string) (*callResult, error) {
+	tools, err := listTools()
+	if err != nil {
+		return nil, err
+	}
 	t := tool{ID: toolID}
-	for _, x := range listTools() {
+	for _, x := range tools {
 		if x.ID == toolID {
 			t = x
 			break
@@ -267,7 +343,7 @@ func callTool(toolID, input string) (*callResult, error) {
 	if code != 0 {
 		return nil, fmt.Errorf("lock failed: %s", rawlog)
 	}
-	lockID := eventAttr(events, "credits.lock_created", "lock_id")
+	lockID := eventAttr(events, "credit_lock", "lock_id")
 	if lockID == "" {
 		// fall back: scan any event for lock_id
 		for _, e := range events {
@@ -364,7 +440,12 @@ func mcpTools() []map[string]any {
 		"required": []string{"input"},
 	}
 	var tools []map[string]any
-	for _, t := range listTools() {
+	onchain, err := listTools()
+	if err != nil {
+		logf("tools/list discovery failed: %v", err)
+		return []map[string]any{}
+	}
+	for _, t := range onchain {
 		desc := fmt.Sprintf("Lumera on-chain tool %q (publisher %s). Each call is metered, executed, "+
 			"proven with a SuperNode Proof-of-Service receipt, and settled on-chain.", t.ID, short(t.Owner))
 		if t.Badge != "" && t.Badge != "BADGE_TIER_NONE" {

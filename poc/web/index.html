@@ -8,6 +8,7 @@
   :root{
     --bg:#0b0e14; --panel:#131823; --panel2:#1a2030; --line:#222a3a;
     --txt:#e6ebf5; --muted:#8b97ad; --acc:#5db0ff; --good:#37d39b; --bad:#ff6b6b; --warn:#ffce6b;
+    --burn:#ff6b6b; --ins:#5db0ff; --treas:#ffce6b;
   }
   *{box-sizing:border-box}
   body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -15,20 +16,22 @@
   header{padding:18px 24px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
   header h1{margin:0;font-size:18px;font-weight:650}
   header .sub{color:var(--muted);font-size:12px}
-  .wrap{display:grid;grid-template-columns:1.35fr 1fr;gap:18px;padding:18px 24px;max-width:1200px;margin:0 auto}
+  .wrap{display:grid;grid-template-columns:1.35fr 1fr;gap:18px;padding:18px 24px;max-width:1240px;margin:0 auto}
   @media(max-width:900px){.wrap{grid-template-columns:1fr}}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:18px}
   .card h2{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
-  .actors{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .actors{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  @media(max-width:520px){.actors{grid-template-columns:1fr}}
   .actor{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px}
-  .actor .role{font-weight:650;font-size:13px}
-  .actor .addr{color:var(--muted);font-size:11px;word-break:break-all;margin-top:2px}
-  .bal{display:flex;justify-content:space-between;margin-top:8px;font-variant-numeric:tabular-nums}
+  .actor .role{font-weight:650;font-size:12.5px}
+  .actor .addr{color:var(--muted);font-size:10.5px;word-break:break-all;margin-top:2px}
+  .bal{display:flex;justify-content:space-between;margin-top:8px;font-variant-numeric:tabular-nums;font-size:12.5px}
   .bal b{color:var(--acc)}
   .step{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}
   .step:first-of-type{border-top:none}
   .num{flex:0 0 26px;height:26px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);
        display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+  .step.done .num{background:rgba(55,211,155,.15);border-color:#2c6b56;color:var(--good)}
   .step .body{flex:1}
   .step .title{font-weight:600}
   .step .desc{color:var(--muted);font-size:12.5px;margin:2px 0 8px}
@@ -37,19 +40,29 @@
   button:disabled{opacity:.45;cursor:not-allowed}
   button.ghost{background:transparent;color:var(--txt);border:1px solid var(--line)}
   button.danger{background:transparent;color:var(--bad);border:1px solid #50313a}
+  button.big{background:linear-gradient(90deg,#5db0ff,#37d39b);color:#04111f;font-size:13.5px;padding:10px 18px}
   .kv{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px dashed var(--line);font-size:12.5px}
   .kv:first-child{border-top:none}
   .kv .k{color:var(--muted)} .kv .v{font-variant-numeric:tabular-nums;word-break:break-all;text-align:right}
   .pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:650}
   .pill.ok{background:rgba(55,211,155,.15);color:var(--good)}
   .pill.no{background:rgba(255,107,107,.15);color:var(--bad)}
+  .pill.warn{background:rgba(255,206,107,.15);color:var(--warn)}
   .pill.idle{background:rgba(139,151,173,.15);color:var(--muted)}
   #log{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:#0a0d13;border:1px solid var(--line);
        border-radius:10px;padding:12px;max-height:340px;overflow:auto;white-space:pre-wrap}
   .logline{padding:2px 0}
-  .logline.ok{color:var(--good)} .logline.bad{color:var(--bad)} .logline.info{color:var(--muted)}
+  .logline.ok{color:var(--good)} .logline.bad{color:var(--bad)} .logline.info{color:var(--muted)} .logline.head{color:var(--txt);font-weight:650}
   .flywheel{color:var(--muted);font-size:12.5px;margin-top:6px}
   .flywheel b{color:var(--txt)}
+  /* bond gauge */
+  .gauge{height:14px;border-radius:7px;background:var(--panel2);overflow:hidden;display:flex;margin:6px 0 4px;border:1px solid var(--line)}
+  .gauge .bonded{background:var(--good)} .gauge .slashed{background:var(--bad)}
+  .split{display:flex;gap:6px;margin-top:8px}
+  .split .seg{flex:1;text-align:center;border-radius:7px;padding:6px 4px;font-size:11px;border:1px solid var(--line);background:var(--panel2)}
+  .split .seg b{display:block;font-size:12.5px;font-variant-numeric:tabular-nums}
+  .split .burn b{color:var(--burn)} .split .ins b{color:var(--ins)} .split .treas b{color:var(--treas)}
+  .seg .lbl{color:var(--muted)}
 </style>
 </head>
 <body>
@@ -67,14 +80,19 @@
         <b>Agent</b> buys credits → <b>Publisher</b> lists a tool with a bond →
         <b>Router</b> locks payment → <b>SuperNode</b> proves the work
         (<code>BLAKE3(input,model,output)</code>) → <b>Settlement</b> pays the publisher
-        <i>only against that proof</i>.
+        <i>only against that proof</i> → reputation is <b>earned</b> from real receipts →
+        a bad call is <b>disputed</b>, the bond is <b>slashed</b>, reputation <b>erodes</b>.
+      </div>
+      <div style="margin-top:12px">
+        <button class="big" onclick="runAll(this)">▶ Run the whole flywheel</button>
+        <span class="sub" style="margin-left:8px">drives every step against the live chain</span>
       </div>
     </div>
 
     <div class="card">
-      <h2>Run the loop</h2>
+      <h2>Run the loop · step by step</h2>
 
-      <div class="step">
+      <div class="step" id="s-swap">
         <div class="num">1</div>
         <div class="body">
           <div class="title">Agent buys credits — swap LUME → LAC</div>
@@ -83,16 +101,16 @@
         </div>
       </div>
 
-      <div class="step">
+      <div class="step" id="s-register">
         <div class="num">2</div>
         <div class="body">
           <div class="title">Publisher lists a tool — register + bond</div>
-          <div class="desc">Registers <code id="toolName">pubtool</code> and escrows a 2,000,000 ulume bond (skin-in-the-game / Step 3).</div>
+          <div class="desc">Registers <code id="toolName">pubtool</code> and escrows a 2,000,000 ulume bond (skin-in-the-game).</div>
           <button onclick="act('register',this)">Register tool + bond</button>
         </div>
       </div>
 
-      <div class="step">
+      <div class="step" id="s-lock">
         <div class="num">3</div>
         <div class="body">
           <div class="title">Router locks payment — quote → lock</div>
@@ -101,38 +119,56 @@
         </div>
       </div>
 
-      <div class="step">
+      <div class="step" id="s-submit-receipt">
         <div class="num">4</div>
         <div class="body">
-          <div class="title">SuperNode proves the work — Proof-of-Service (Step 4)</div>
+          <div class="title">SuperNode proves the work — Proof-of-Service</div>
           <div class="desc">An active SuperNode anchors <code>receipt_id = pos1&lt;BLAKE3(input,model,output)&gt;</code> on-chain.</div>
           <button onclick="act('submit-receipt',this)">Submit PoS receipt</button>
         </div>
       </div>
 
-      <div class="step">
+      <div class="step" id="s-settle">
         <div class="num">5</div>
         <div class="body">
           <div class="title">Settlement — gated on the proof</div>
-          <div class="desc">Pays the publisher <b>only if</b> the receipt verifies for this tool.</div>
+          <div class="desc">Pays the publisher <b>only if</b> the receipt verifies for this tool &amp; lock.</div>
           <button onclick="act('settle',this)">Settle (verified) → pay publisher</button>
           <button class="danger" onclick="act('settle-noproof',this)" title="Demonstrates the gate">Try settle without proof ✗</button>
         </div>
       </div>
 
-      <div class="step">
+      <div class="step" id="s-request-badge">
         <div class="num">6</div>
         <div class="body">
-          <div class="title">Reputation — earn a verification badge (incentives)</div>
-          <div class="desc">The publisher's tool is scored from its metrics into a tiered, on-chain badge.</div>
+          <div class="title">Reputation — earn a verification badge</div>
+          <div class="desc">The tool is scored from its on-chain metrics into a tiered badge (incentives).</div>
           <button onclick="act('request-badge',this)">Request badge evaluation</button>
+        </div>
+      </div>
+
+      <div class="step" id="s-challenge">
+        <div class="num">7</div>
+        <div class="body">
+          <div class="title">A bad call is disputed — challenge the receipt</div>
+          <div class="desc">The <b>challenger</b> escrows a stake and locks an equal slice of the publisher's bond. Settlement freezes.</div>
+          <button onclick="act('challenge',this)">Challenge receipt</button>
+        </div>
+      </div>
+
+      <div class="step" id="s-resolve">
+        <div class="num">8</div>
+        <div class="body">
+          <div class="title">Dispute upheld — the bond is slashed</div>
+          <div class="desc">An adjudicator (active SuperNode, disjoint from both parties) upholds it → bond slashed, restitution-routed (5% burn / 85% insurance / 10% treasury). Re-run step 6 to watch reputation erode.</div>
+          <button onclick="act('resolve',this)">Uphold → slash bond</button>
         </div>
       </div>
     </div>
 
     <div class="card">
       <h2>Activity log</h2>
-      <div id="log"><div class="logline info">Ready. Click the steps in order.</div></div>
+      <div id="log"><div class="logline info">Ready. Hit “Run the whole flywheel”, or click steps in order.</div></div>
     </div>
   </div>
 
@@ -145,7 +181,7 @@
           <div class="role">Agent / Router / SuperNode</div>
           <div class="addr" id="agentAddr">…</div>
           <div class="bal"><span>LUME</span><b id="agentLume">—</b></div>
-          <div class="bal"><span>LAC credits</span><b id="agentLac">—</b></div>
+          <div class="bal"><span>LAC</span><b id="agentLac">—</b></div>
         </div>
         <div class="actor">
           <div class="role">Publisher</div>
@@ -153,13 +189,31 @@
           <div class="bal"><span>LUME</span><b id="pubLume">—</b></div>
           <div class="bal"><span>LAC earned</span><b id="pubLac">—</b></div>
         </div>
+        <div class="actor">
+          <div class="role">Challenger</div>
+          <div class="addr" id="chlAddr">…</div>
+          <div class="bal"><span>LUME</span><b id="chlLume">—</b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Publisher bond — skin in the game</h2>
+      <div class="gauge"><div class="bonded" id="gBonded" style="width:100%"></div><div class="slashed" id="gSlashed" style="width:0%"></div></div>
+      <div class="kv"><span class="k">Bonded (at risk)</span><span class="v" id="bondBonded">—</span></div>
+      <div class="kv"><span class="k">Cumulatively slashed</span><span class="v" id="bondSlashed">—</span></div>
+      <div id="slashSplit" style="display:none">
+        <div class="split">
+          <div class="seg burn"><span class="lbl">burn 5%</span><b id="sBurn">—</b></div>
+          <div class="seg ins"><span class="lbl">insurance 85%</span><b id="sIns">—</b></div>
+          <div class="seg treas"><span class="lbl">treasury 10%</span><b id="sTreas">—</b></div>
+        </div>
       </div>
     </div>
 
     <div class="card">
       <h2>On-chain state</h2>
       <div class="kv"><span class="k">Tool owner</span><span class="v" id="toolOwner">—</span></div>
-      <div class="kv"><span class="k">Bond escrowed (registry acct)</span><span class="v" id="bond">—</span></div>
       <div class="kv"><span class="k">Active lock</span><span class="v" id="lockId">—</span></div>
       <div class="kv"><span class="k">Receipt</span><span class="v" id="receiptId">—</span></div>
       <div class="kv"><span class="k">Receipt status</span><span class="v" id="receiptStatus"><span class="pill idle">none</span></span></div>
@@ -169,10 +223,12 @@
     <div class="card">
       <h2>What this proves</h2>
       <div class="flywheel">
-        Verifiable Execution → Economic Coordination. Settlement is contingent on a
-        SuperNode-attested proof, so the agent pays for <b>verified</b> work — the trust unlock.
-        <br><br>Not yet wired (enhancements, not prerequisites): reputation badges
-        (<code>incentives</code>) and dispute → bond slashing.
+        <b>Verifiable Execution → Economic Coordination.</b> Settlement is contingent on a
+        SuperNode-attested proof bound to the exact lock, so the agent only ever pays for
+        <b>verified</b> work — and a receipt can't be replayed against another lock.
+        <br><br>The trust graph then <b>self-reinforces</b>: real receipts raise reputation
+        (a tiered badge), while an upheld dispute slashes the publisher's bond
+        (restitution-routed) and erodes that reputation. Every primitive here is real and on-chain.
       </div>
     </div>
   </div>
@@ -180,15 +236,20 @@
 
 <script>
 const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
 function logLine(msg, cls){
   const d = document.createElement('div');
   d.className = 'logline ' + (cls||'');
   d.textContent = msg;
   $('log').prepend(d);
 }
-function fmtAmt(v){ if(v==null||v==='?') return '—'; const n=Number(v); return isNaN(n)? v : n.toLocaleString(); }
+function fmtAmt(v){ if(v==null||v==='?') return '—'; const n=Number(String(v).replace(/[^0-9.-]/g,'')); return isNaN(n)? v : n.toLocaleString(); }
 function shortAddr(a){ return a && a.length>16 ? a.slice(0,12)+'…'+a.slice(-6) : (a||'—'); }
 function shortId(a){ return a && a.length>22 ? a.slice(0,14)+'…'+a.slice(-6) : (a||'—'); }
+
+// tiers, to detect reputation erosion across evaluations
+const TIERS = ['NONE','BRONZE','SILVER','GOLD','PLATINUM'];
+let peakTier = null; // highest tier seen, so the "eroded from" hint is sticky
 
 async function loadConfig(){
   try{
@@ -196,6 +257,7 @@ async function loadConfig(){
     $('cfg').textContent = `chain ${c.chainId} · node ${c.node}`;
     $('agentAddr').textContent = shortAddr(c.agent);
     $('pubAddr').textContent = shortAddr(c.publisher);
+    $('chlAddr').textContent = shortAddr(c.challenger);
     if(c.tool) $('toolName').textContent = c.tool;
   }catch(e){ $('cfg').textContent = 'node unreachable — is lumerad running?'; }
 }
@@ -208,19 +270,72 @@ async function refresh(){
     $('agentLac').textContent  = fmtAmt(s.agentLac);
     $('pubLume').textContent   = fmtAmt(s.publisherLume);
     $('pubLac').textContent    = fmtAmt(s.publisherLac);
-    $('bond').textContent      = fmtAmt(s.registryBond) + ' ulume';
+    $('chlLume').textContent   = fmtAmt(s.challengerLume!=null?s.challengerLume:'');
     $('toolOwner').textContent = s.toolOwner ? shortAddr(s.toolOwner) : '— (not registered)';
     $('lockId').textContent    = s.lockId || '—';
     $('receiptId').textContent = shortId(s.receiptId);
+
+    // bond gauge
+    const bonded = Number(s.bondBonded||0), slashed = Number(s.bondSlashed||0);
+    const total = bonded+slashed || 1;
+    $('gBonded').style.width  = (100*bonded/total)+'%';
+    $('gSlashed').style.width = (100*slashed/total)+'%';
+    $('bondBonded').textContent  = fmtAmt(bonded)+' ulume';
+    $('bondSlashed').textContent = slashed>0 ? fmtAmt(slashed)+' ulume' : '0';
+    if(Number(s.slashAmount||0) > 0){
+      $('slashSplit').style.display='block';
+      $('sBurn').textContent  = fmtAmt(s.slashBurn);
+      $('sIns').textContent   = fmtAmt(s.slashInsurance);
+      $('sTreas').textContent = fmtAmt(s.slashTreasury);
+    }
+
+    // receipt status pill
     const rs = s.receiptStatus;
     $('receiptStatus').innerHTML = rs
-      ? `<span class="pill ok">${rs}</span>`
+      ? `<span class="pill ${rs==='attested'?'ok':(rs==='disputed'?'warn':'no')}">${rs}</span>`
       : `<span class="pill idle">none</span>`;
-    const bt = s.badgeTier;
-    $('badge').innerHTML = (bt && bt !== 'BADGE_TIER_NONE' && bt !== 'BADGE_TIER_UNSPECIFIED')
-      ? `<span class="pill ok">${bt.replace('BADGE_TIER_','')}</span> <span style="color:var(--muted)">score ${s.badgeScore||''}</span>`
-      : `<span class="pill idle">none</span>`;
+
+    // reputation badge + sticky erosion hint (vs the highest tier ever earned)
+    const bt = (s.badgeTier||'').replace('BADGE_TIER_','');
+    if(bt && bt!=='NONE' && bt!=='UNSPECIFIED'){
+      const idx = TIERS.indexOf(bt);
+      if(peakTier===null || idx > TIERS.indexOf(peakTier)) peakTier = bt;
+      const hint = (idx >= 0 && idx < TIERS.indexOf(peakTier))
+        ? ` <span style="color:var(--bad)">↓ eroded from ${peakTier}</span>` : '';
+      $('badge').innerHTML = `<span class="pill ok">${bt}</span> <span style="color:var(--muted)">score ${s.badgeScore||''}</span>${hint}`;
+    } else {
+      $('badge').innerHTML = `<span class="pill idle">none</span>`;
+    }
   }catch(e){}
+}
+
+function markDone(step){ const el = $('s-'+step); if(el) el.classList.add('done'); }
+
+// runOne POSTs a step and returns the parsed result; logs nothing itself.
+async function runOne(step){
+  const r = await (await fetch('/api/'+step, {method:'POST'})).json();
+  return r;
+}
+
+function logResult(step, r){
+  if(r.error){ logLine('✗ '+step+': '+r.error, 'bad'); return false; }
+  const tx = r.tx || {};
+  if(step === 'settle-noproof'){
+    logLine((r.rejected? '✓ rejected as expected — ':'⚠ NOT rejected — ') + (r.note||''), r.rejected?'ok':'bad');
+    if(tx.raw_log) logLine('   chain: '+tx.raw_log, 'info');
+    return r.rejected;
+  }
+  if(r.ok){
+    logLine('✓ '+step+' (code 0) '+(r.note||''), 'ok');
+    if(r.lockId) logLine('   lock_id='+r.lockId,'info');
+    if(r.receiptId) logLine('   receipt_id='+r.receiptId,'info');
+    if(step==='resolve' && r.slashAmount) logLine('   slashed '+fmtAmt(r.slashAmount)+' → burn '+fmtAmt(r.slashBurn)+' / insurance '+fmtAmt(r.slashInsurance)+' / treasury '+fmtAmt(r.slashTreasury),'info');
+    if(tx.txhash) logLine('   tx '+tx.txhash,'info');
+    markDone(step);
+    return true;
+  }
+  logLine('✗ '+step+' (code '+tx.code+') '+(tx.raw_log||r.note||''),'bad');
+  return false;
 }
 
 async function act(step, btn){
@@ -228,29 +343,50 @@ async function act(step, btn){
   all.forEach(b=>b.disabled=true);
   const old = btn.textContent; btn.textContent = '…';
   try{
-    const r = await (await fetch('/api/'+step, {method:'POST'})).json();
-    if(r.error){ logLine('✗ '+step+': '+r.error, 'bad'); }
-    else {
-      const tx = r.tx || {};
-      const code = tx.code;
-      if(step === 'settle-noproof'){
-        logLine((r.rejected? '✓ rejected as expected — ':'⚠ NOT rejected — ') + (r.note||''), r.rejected?'ok':'bad');
-        if(tx.raw_log) logLine('   chain: '+tx.raw_log, 'info');
-      } else if(r.ok){
-        logLine('✓ '+step+' (code 0) '+(r.note||''), 'ok');
-        if(r.lockId) logLine('   lock_id='+r.lockId,'info');
-        if(r.receiptId) logLine('   receipt_id='+r.receiptId,'info');
-        if(tx.txhash) logLine('   tx '+tx.txhash,'info');
-      } else {
-        logLine('✗ '+step+' (code '+code+') '+(tx.raw_log||r.note||''),'bad');
-      }
-    }
+    const r = await runOne(step);
+    logResult(step, r);
   }catch(e){ logLine('✗ '+step+': '+e,'bad'); }
   finally{
     btn.textContent = old;
     all.forEach(b=>b.disabled=false);
     refresh();
   }
+}
+
+// runAll drives the entire flywheel against the live chain, in order.
+async function runAll(btn){
+  const all = document.querySelectorAll('button');
+  all.forEach(b=>b.disabled=true);
+  const old = btn.textContent; btn.textContent = 'running…';
+  const plan = [
+    ['swap',           'Agent buys credits',                                900],
+    ['register',       'Publisher lists a tool + bond',                     900],
+    ['lock',           'Router locks payment',                              900],
+    ['submit-receipt', 'SuperNode proves the work',                         900],
+    ['settle',         'Settlement pays the publisher',                     900],
+    ['request-badge',  'Reputation earned from receipts',                  1400],
+    ['challenge',      'A bad call is disputed',                            1400],
+    ['resolve',        'Dispute upheld → bond slashed',                     1400],
+    ['request-badge',  'Reputation re-evaluated — downgrade enters grace', 2500],
+    ['request-badge',  'Grace expired → reputation downgraded',            1400],
+  ];
+  logLine('━━ running the whole flywheel ━━','head');
+  for(const [step,label,wait] of plan){
+    logLine('▶ '+label,'head');
+    try{
+      const r = await runOne(step);
+      const okStep = logResult(step, r);
+      // 'register' may fail on a re-run (tool already exists) — keep going.
+      if(!okStep && step!=='register' && step!=='settle-noproof'){
+        logLine('   (continuing despite the above)','info');
+      }
+    }catch(e){ logLine('✗ '+step+': '+e,'bad'); }
+    await refresh();
+    await sleep(wait);
+  }
+  logLine('━━ flywheel complete: discover → meter → prove → settle, with a self-reinforcing trust graph ━━','head');
+  btn.textContent = old;
+  all.forEach(b=>b.disabled=false);
 }
 
 loadConfig();
