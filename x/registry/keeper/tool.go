@@ -100,3 +100,9 @@ func (k Keeper) GetToolPublisher(ctx context.Context, toolID string) (sdk.AccAdd
 	}
 	return addr, nil
 }
+
+// IsToolRegistered reports whether a tool exists. Consumed by the incentives
+// module (reputation engine) to validate evaluation requests.
+func (k Keeper) IsToolRegistered(ctx context.Context, toolID string) (bool, error) {
+	return k.HasTool(sdk.UnwrapSDKContext(ctx), toolID), nil
+}

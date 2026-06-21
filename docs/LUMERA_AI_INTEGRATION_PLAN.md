@@ -395,7 +395,35 @@ generated. Added (all in `x/registry`):
   settlement still blocked. **Deferred (next slice):** reject-on-expiry (registry EndBlocker
   `ProcessExpiredChallenges`), the challenger bonus, and a disjoint-quorum adjudicator.
 
-### Next: `incentives` (trust-graph reputation engine) — port queued
+### `incentives` (trust-graph reputation engine) — FULL MODULE PORT: BUILT + WIRED + VERIFIED (2026-06-21)
+The reward side of the trust graph (complements dispute→slash, the punishment side). First **full new
+module** ported (not a slice): proto-gen + ~1,400-LOC keeper + module wiring, all green + booting.
+- **proto-gen**: copied lumera_ai `incentives.proto`/`tx.proto` → `proto/lumera/incentives/v1/`, added
+  gogo `stdtime` annotations + `go_package`, generated gogo types with `buf generate
+  --template proto/buf.gen.gogo.yaml --path ...` (the **`--path` flag scopes generation to incentives
+  only — no other module's `.pb.go` is touched**). Same gogo template generated the appconfig
+  `module.pb.go` from a copied `module.proto`. This proves the new-module proto-gen path end-to-end.
+- **keeper conversion**: copied `types/` + `keeper/` (stripped `//go:build cosmos` tags, rewrote
+  `lumera-ai`→`lumera`). The collections are pointer-typed (`Map[string, *types.Badge]`), so the codec
+  swap was `codec.CollValueV2[T]()` → `collPtrValue[T](cdc)` (the same adapter registry uses).
+  `cosmossdk.io/log/v2`→`log`; `timestamppb.New(t)`→`t`, `*timestamppb.Timestamp`→`time.Time`,
+  `.AsTime()` dropped, `!= nil`→`.IsZero()`; `protobuf-go proto.Clone`→gogo. Hand-wrote `codec.go`
+  (registry style), keeper `genesis.go`, `module.go` (+EndBlock `ProcessExpiredBadges`), `module/
+  depinject.go`, and minimal CLI.
+- **router dep**: passed `nil` to `NewKeeper` — the badge path never invokes it (metrics come from
+  authority / Proof-of-Service, not router). Added registry `IsToolRegistered` (the one method the
+  incentives `RegistryKeeper` interface needed beyond `GetToolPublisher`).
+- **app wiring**: import + all 3 order lists + module config + `IncentivesKeeper` field + depinject
+  `&app.IncentivesKeeper`. No maccPerms (holds no coins).
+- **Verified e2e**: node boots with incentives wired → `query incentives params` ok → seed a
+  high-quality metric snapshot in genesis → register tool → `query incentives score` = **9607 →
+  eligible PLATINUM** → publisher `request-evaluation` → **badge awarded `BADGE_TIER_PLATINUM`**.
+- **Phase 2 (the thesis self-feed):** feed `RecordMetrics` from PoS receipts + dispute outcomes so the
+  trust graph self-feeds without router (today the demo seeds metrics via genesis;
+  `RecordMetrics` is gov-authority-gated). `GetRoutingMultiplier`/`GetInsuranceDiscount`/`GetLACBonus`
+  are ready for router/insurance/credits to consume.
+
+### Then: continue to `router` = the maximum pivot
 Grounded assessment done: modern KVStoreService keeper; hard deps (registry/bank/account) all ported;
 the `router` dep is **soft** (stored, never invoked in the badge path → pass nil). Focused slice =
 the badge engine (RecordMetrics → RequestEvaluation → tiered badges → GetRoutingMultiplier/
@@ -433,7 +461,7 @@ Legend: ☐ todo · ◐ in progress · ☑ done (builds + boots + tx + tests + n
 | insurance | ☑ | ☑ | ☑ | ☑ | ☑ | ◐ | ☐ | n/a | ◐ |
 | router | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | DEFER (integration surface, post-PoS) |
 | payment_rails | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | DEFER (on-ramp/liquidity, Phase-2 IBC) |
-| incentives | ☑ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | ◐ PORTING — gogo types generated + compile (keeper next) |
+| incentives | ☑ | ☑ | ☑ | ☑ | ☑ | ☑ (badge award ✓) | ☐ | n/a | ◐ BUILT+WIRED+VERIFIED |
 | auction | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | DEFER (blocked on priority) |
 | challenges | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | DEFER (no real trust signal today) |
 | oracle | ☑ | ☑ | ☑ | ☑ | ☑ | ☑ (query ✓) | ☐ | n/a | ◐ |

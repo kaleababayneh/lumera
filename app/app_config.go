@@ -44,22 +44,24 @@ import (
 	claimmoduletypes "github.com/LumeraProtocol/lumera/x/claim/types"
 	creditsmodulev1 "github.com/LumeraProtocol/lumera/x/credits/module"
 	creditstypes "github.com/LumeraProtocol/lumera/x/credits/types"
+	_ "github.com/LumeraProtocol/lumera/x/evmigration/module"
+	evmigrationmoduletypes "github.com/LumeraProtocol/lumera/x/evmigration/types"
+	incentivesmodulev1 "github.com/LumeraProtocol/lumera/x/incentives/module"
+	incentivestypes "github.com/LumeraProtocol/lumera/x/incentives/types"
 	insurancemodulev1 "github.com/LumeraProtocol/lumera/x/insurance/module"
 	insurancetypes "github.com/LumeraProtocol/lumera/x/insurance/types"
+	lumeraidmodulev1 "github.com/LumeraProtocol/lumera/x/lumeraid/module"
+	lumeraidmoduletypes "github.com/LumeraProtocol/lumera/x/lumeraid/types"
+	nftmodulev1 "github.com/LumeraProtocol/lumera/x/nft/module"
+	nfttypes "github.com/LumeraProtocol/lumera/x/nft/types"
 	oraclemodulev1 "github.com/LumeraProtocol/lumera/x/oracle/module"
 	oracletypes "github.com/LumeraProtocol/lumera/x/oracle/types"
 	policiesmodulev1 "github.com/LumeraProtocol/lumera/x/policies/module"
 	policiestypes "github.com/LumeraProtocol/lumera/x/policies/types"
 	registrymodulev1 "github.com/LumeraProtocol/lumera/x/registry/module"
 	registrytypes "github.com/LumeraProtocol/lumera/x/registry/types"
-	nftmodulev1 "github.com/LumeraProtocol/lumera/x/nft/module"
-	nfttypes "github.com/LumeraProtocol/lumera/x/nft/types"
 	reservemodulev1 "github.com/LumeraProtocol/lumera/x/reserve/module"
 	reservetypes "github.com/LumeraProtocol/lumera/x/reserve/types"
-	_ "github.com/LumeraProtocol/lumera/x/evmigration/module"
-	evmigrationmoduletypes "github.com/LumeraProtocol/lumera/x/evmigration/types"
-	lumeraidmodulev1 "github.com/LumeraProtocol/lumera/x/lumeraid/module"
-	lumeraidmoduletypes "github.com/LumeraProtocol/lumera/x/lumeraid/types"
 	supernodemodulev1 "github.com/LumeraProtocol/lumera/x/supernode/v1/module"
 	supernodemoduletypes "github.com/LumeraProtocol/lumera/x/supernode/v1/types"
 	_ "github.com/cosmos/cosmos-sdk/x/auth/tx/config" // import for side-effects
@@ -158,6 +160,7 @@ var (
 		registrytypes.ModuleName,
 		nfttypes.ModuleName,
 		reservetypes.ModuleName,
+		incentivestypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis
 	}
 
@@ -200,6 +203,7 @@ var (
 		registrytypes.ModuleName,
 		nfttypes.ModuleName,
 		reservetypes.ModuleName,
+		incentivestypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/beginBlockers
 	}
 
@@ -234,6 +238,7 @@ var (
 		registrytypes.ModuleName,
 		nfttypes.ModuleName,
 		reservetypes.ModuleName,
+		incentivestypes.ModuleName,
 		// NOTE: feemarket EndBlocker should be last to get the full block gas used
 		feemarkettypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/endBlockers
@@ -451,6 +456,10 @@ var (
 			{
 				Name:   reservetypes.ModuleName,
 				Config: appconfig.WrapAny(&reservemodulev1.Module{}),
+			},
+			{
+				Name:   incentivestypes.ModuleName,
+				Config: appconfig.WrapAny(&incentivesmodulev1.Module{}),
 			},
 			// this line is used by starport scaffolding # stargate/app/moduleConfig
 		},

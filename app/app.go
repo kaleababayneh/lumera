@@ -105,14 +105,15 @@ import (
 	auditmodulekeeper "github.com/LumeraProtocol/lumera/x/audit/v1/keeper"
 	claimmodulekeeper "github.com/LumeraProtocol/lumera/x/claim/keeper"
 	creditsmodulekeeper "github.com/LumeraProtocol/lumera/x/credits/keeper"
+	evmigrationmodulekeeper "github.com/LumeraProtocol/lumera/x/evmigration/keeper"
+	evmigrationmodule "github.com/LumeraProtocol/lumera/x/evmigration/module"
+	incentivesmodulekeeper "github.com/LumeraProtocol/lumera/x/incentives/keeper"
+	lumeraidmodulekeeper "github.com/LumeraProtocol/lumera/x/lumeraid/keeper"
+	nftmodulekeeper "github.com/LumeraProtocol/lumera/x/nft/keeper"
 	oraclemodulekeeper "github.com/LumeraProtocol/lumera/x/oracle/keeper"
 	policiesmodulekeeper "github.com/LumeraProtocol/lumera/x/policies/keeper"
 	registrymodulekeeper "github.com/LumeraProtocol/lumera/x/registry/keeper"
-	nftmodulekeeper "github.com/LumeraProtocol/lumera/x/nft/keeper"
 	reservemodulekeeper "github.com/LumeraProtocol/lumera/x/reserve/keeper"
-	evmigrationmodulekeeper "github.com/LumeraProtocol/lumera/x/evmigration/keeper"
-	evmigrationmodule "github.com/LumeraProtocol/lumera/x/evmigration/module"
-	lumeraidmodulekeeper "github.com/LumeraProtocol/lumera/x/lumeraid/keeper"
 	supernodekeeper "github.com/LumeraProtocol/lumera/x/supernode/v1/keeper"
 	sntypes "github.com/LumeraProtocol/lumera/x/supernode/v1/types"
 	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
@@ -217,17 +218,18 @@ type App struct {
 	// CosmWasm
 	WasmKeeper *wasmkeeper.Keeper
 
-	LumeraidKeeper  lumeraidmodulekeeper.Keeper
-	ClaimKeeper     claimmodulekeeper.Keeper
-	SupernodeKeeper sntypes.SupernodeKeeper
-	AuditKeeper     auditmodulekeeper.Keeper
-	ActionKeeper    actionmodulekeeper.Keeper
-	CreditsKeeper   *creditsmodulekeeper.Keeper
-	OracleKeeper    *oraclemodulekeeper.Keeper
-	PoliciesKeeper  *policiesmodulekeeper.Keeper
-	RegistryKeeper  registrymodulekeeper.Keeper
-	NFTKeeper       nftmodulekeeper.Keeper
-	ReserveKeeper   *reservemodulekeeper.Keeper
+	LumeraidKeeper   lumeraidmodulekeeper.Keeper
+	ClaimKeeper      claimmodulekeeper.Keeper
+	SupernodeKeeper  sntypes.SupernodeKeeper
+	AuditKeeper      auditmodulekeeper.Keeper
+	ActionKeeper     actionmodulekeeper.Keeper
+	CreditsKeeper    *creditsmodulekeeper.Keeper
+	OracleKeeper     *oraclemodulekeeper.Keeper
+	PoliciesKeeper   *policiesmodulekeeper.Keeper
+	RegistryKeeper   registrymodulekeeper.Keeper
+	NFTKeeper        nftmodulekeeper.Keeper
+	ReserveKeeper    *reservemodulekeeper.Keeper
+	IncentivesKeeper incentivesmodulekeeper.Keeper
 
 	// EVM keepers
 	FeeMarketKeeper    feemarketkeeper.Keeper
@@ -354,6 +356,7 @@ func New(
 		&app.RegistryKeeper,
 		&app.NFTKeeper,
 		&app.ReserveKeeper,
+		&app.IncentivesKeeper,
 
 		// this line is used by starport scaffolding # stargate/app/keeperDefinition
 	); err != nil {
