@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"cosmossdk.io/collections"
@@ -472,6 +473,72 @@ func (k *Keeper) AllocateReserve(ctx context.Context, owner, policyID, toolID st
 	allocation.Applied = true
 	allocation.CommitmentID = chosenCommit.ID
 	allocation.DiscountedPrice = discounted
+	return allocation, nil
+}
+
+// AllocateCommitment draws `amount` from a specific reserve commitment by id
+// (used by the vaults module, which holds a vault against one commitment). It
+// decrements the commitment's remaining capacity and returns the discounted
+// price. Distinct from AllocateReserve, which searches a policy's commitments.
+func (k *Keeper) AllocateCommitment(ctx context.Context, commitmentID string, amount sdk.Coin) (types.ReserveAllocation, error) {
+	allocation := types.ReserveAllocation{Applied: false, DiscountedPrice: amount}
+	commitmentID = strings.TrimSpace(commitmentID)
+	if commitmentID == "" {
+		return allocation, types.ErrCommitmentNotFound.Wrap("commitment id required")
+	}
+	if amount.Amount.IsZero() {
+		return allocation, nil
+	}
+	if !amount.IsValid() || amount.Amount.IsNegative() {
+		return allocation, types.ErrInvalidCommitment.Wrapf("invalid allocation amount: %s", amount)
+	}
+
+	params, err := k.GetParams(ctx)
+	if err != nil {
+		return allocation, err
+	}
+	if amount.Denom != params.CreditDenom {
+		return allocation, types.ErrCreditDenomMismatch
+	}
+
+	now := sdk.UnwrapSDKContext(ctx).BlockTime()
+	if now.IsZero() {
+		return allocation, fmt.Errorf("reserve: block time must be set")
+	}
+
+	bz, err := k.state.Commitments.Get(ctx, commitmentID)
+	if err != nil {
+		if errors.Is(err, collections.ErrNotFound) {
+			return allocation, types.ErrCommitmentNotFound.Wrapf("%s", commitmentID)
+		}
+		return allocation, err
+	}
+	commitment, err := unmarshalCommitment(bz)
+	if err != nil {
+		return allocation, err
+	}
+	if !commitment.ExpireTime.After(now) {
+		return allocation, types.ErrCommitmentExpired.Wrapf("%s", commitmentID)
+	}
+	if commitment.RemainingAmount.Denom != amount.Denom {
+		return allocation, types.ErrCreditDenomMismatch
+	}
+	if !commitment.RemainingAmount.Amount.GTE(amount.Amount) {
+		return allocation, types.ErrInsufficientCapacity
+	}
+
+	commitment.RemainingAmount = commitment.RemainingAmount.Sub(amount)
+	updatedBytes, err := marshalCommitment(commitment)
+	if err != nil {
+		return allocation, err
+	}
+	if err := k.state.Commitments.Set(ctx, commitment.ID, updatedBytes); err != nil {
+		return allocation, err
+	}
+
+	allocation.Applied = true
+	allocation.CommitmentID = commitment.ID
+	allocation.DiscountedPrice = types.ApplyDiscount(amount, commitment.DiscountBps)
 	return allocation, nil
 }
 

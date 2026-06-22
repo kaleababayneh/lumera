@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package lumera.vaults.v1;
+
+import "lumera/vaults/v1/vault.proto";
+
+option go_package = "x/vaults/types";
+
+service Query {
+  rpc Vault(QueryVaultRequest) returns (QueryVaultResponse);
+  rpc Vaults(QueryVaultsRequest) returns (QueryVaultsResponse);
+}
+
+message QueryVaultRequest { string id = 1; }
+
+message QueryVaultResponse { Vault vault = 1; }
+
+message QueryVaultsRequest { string owner = 1; }
+
+message QueryVaultsResponse { repeated Vault vaults = 1; }

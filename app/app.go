@@ -116,6 +116,7 @@ import (
 	reservemodulekeeper "github.com/LumeraProtocol/lumera/x/reserve/keeper"
 	supernodekeeper "github.com/LumeraProtocol/lumera/x/supernode/v1/keeper"
 	sntypes "github.com/LumeraProtocol/lumera/x/supernode/v1/types"
+	vaultsmodulekeeper "github.com/LumeraProtocol/lumera/x/vaults/keeper"
 	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
@@ -230,6 +231,7 @@ type App struct {
 	NFTKeeper        nftmodulekeeper.Keeper
 	ReserveKeeper    *reservemodulekeeper.Keeper
 	IncentivesKeeper incentivesmodulekeeper.Keeper
+	VaultsKeeper     *vaultsmodulekeeper.Keeper
 
 	// EVM keepers
 	FeeMarketKeeper    feemarketkeeper.Keeper
@@ -357,6 +359,7 @@ func New(
 		&app.NFTKeeper,
 		&app.ReserveKeeper,
 		&app.IncentivesKeeper,
+		&app.VaultsKeeper,
 
 		// this line is used by starport scaffolding # stargate/app/keeperDefinition
 	); err != nil {

@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package lumera.vaults.v1;
+
+import "cosmos/base/v1beta1/coin.proto";
+import "google/protobuf/timestamp.proto";
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+
+option go_package = "x/vaults/types";
+
+// Vault represents a prepaid capacity commitment purchased by a policy owner.
+message Vault {
+  string id = 1;
+  string owner = 2;
+  string policy_id = 3;
+  string tool_id = 4;
+  string tier = 5;
+  cosmos.base.v1beta1.Coin prepaid_amount = 6
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  cosmos.base.v1beta1.Coin remaining_amount = 7
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  uint32 discount_bps = 8;
+  google.protobuf.Timestamp start_time = 9
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  google.protobuf.Timestamp expire_time = 10
+      [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  bool rollover_allowed = 11;
+  string commitment_id = 12;
+}

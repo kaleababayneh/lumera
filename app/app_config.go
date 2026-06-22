@@ -64,6 +64,8 @@ import (
 	reservetypes "github.com/LumeraProtocol/lumera/x/reserve/types"
 	supernodemodulev1 "github.com/LumeraProtocol/lumera/x/supernode/v1/module"
 	supernodemoduletypes "github.com/LumeraProtocol/lumera/x/supernode/v1/types"
+	vaultsmodulev1 "github.com/LumeraProtocol/lumera/x/vaults/module"
+	vaultstypes "github.com/LumeraProtocol/lumera/x/vaults/types"
 	_ "github.com/cosmos/cosmos-sdk/x/auth/tx/config" // import for side-effects
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	_ "github.com/cosmos/cosmos-sdk/x/auth/vesting" // import for side-effects
@@ -161,6 +163,7 @@ var (
 		nfttypes.ModuleName,
 		reservetypes.ModuleName,
 		incentivestypes.ModuleName,
+		vaultstypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis
 	}
 
@@ -204,6 +207,7 @@ var (
 		nfttypes.ModuleName,
 		reservetypes.ModuleName,
 		incentivestypes.ModuleName,
+		vaultstypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/beginBlockers
 	}
 
@@ -239,6 +243,7 @@ var (
 		nfttypes.ModuleName,
 		reservetypes.ModuleName,
 		incentivestypes.ModuleName,
+		vaultstypes.ModuleName,
 		// NOTE: feemarket EndBlocker should be last to get the full block gas used
 		feemarkettypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/endBlockers
@@ -276,6 +281,8 @@ var (
 		// registry holds escrowed publisher bonds + challenger stakes, and burns the
 		// 5% restitution share when an upheld dispute slashes a bond (Burner).
 		{Account: registrytypes.ModuleName, Permissions: []string{authtypes.Burner}},
+		// vaults escrows prepaid capacity (and refunds it on expiry) — custody only.
+		{Account: vaultstypes.ModuleName},
 		// this line is used by starport scaffolding # stargate/app/maccPerms
 	}
 
@@ -460,6 +467,10 @@ var (
 			{
 				Name:   incentivestypes.ModuleName,
 				Config: appconfig.WrapAny(&incentivesmodulev1.Module{}),
+			},
+			{
+				Name:   vaultstypes.ModuleName,
+				Config: appconfig.WrapAny(&vaultsmodulev1.Module{}),
 			},
 			// this line is used by starport scaffolding # stargate/app/moduleConfig
 		},
