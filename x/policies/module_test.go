@@ -10,15 +10,16 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/require"
 
-	"cosmossdk.io/log/v2"
+	"cosmossdk.io/log"
+	"cosmossdk.io/store/metrics"
+	"cosmossdk.io/store/rootmulti"
+	storetypes "cosmossdk.io/store/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
-	"github.com/cosmos/cosmos-sdk/store/v2/rootmulti"
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	"google.golang.org/protobuf/proto"
+	"github.com/cosmos/gogoproto/proto"
 
 	"github.com/LumeraProtocol/lumera/x/policies/keeper"
 	"github.com/LumeraProtocol/lumera/x/policies/types"
@@ -53,7 +54,7 @@ func setupAppModuleTest(t *testing.T) (sdk.Context, codec.JSONCodec, AppModule) 
 
 	db := dbm.NewMemDB()
 	logger := log.NewNopLogger()
-	cms := rootmulti.NewStore(db, logger)
+	cms := rootmulti.NewStore(db, logger, metrics.NewNoOpMetrics())
 	cms.MountStoreWithDB(storeKey, storetypes.StoreTypeIAVL, db)
 	require.NoError(t, cms.LoadLatestVersion())
 

@@ -7,7 +7,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/LumeraProtocol/lumera/x/credits/types"
 )
@@ -105,7 +104,7 @@ func populateAdaptiveBurnSettlements(t *testing.T, ctx sdk.Context, keeper *Keep
 		settlement := &types.SettlementRecord{
 			Id:          fmt.Sprintf("adaptive-burn-%03d", i),
 			Status:      types.SettlementStatus_SETTLEMENT_STATUS_COMPLETED,
-			CompletedAt: timestamppb.New(completedAt),
+			CompletedAt: &completedAt,
 			BurnAmount:  types.CoinsToProto(sdk.NewCoins(sdk.NewInt64Coin(denom, burnPerSettlement))),
 		}
 		require.NoError(t, keeper.CreateSettlement(ctx, settlement))

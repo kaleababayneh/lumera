@@ -9,12 +9,31 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/LumeraProtocol/lumera/x/oracle/types"
 )
 
+// skipVoteExtMarshalBug skips tests whose setup must encode a real vote
+// extension via types.MarshalVoteExtension.
+//
+// PRODUCTION GAP (not fixable in test code): x/oracle/types/vote_extension.go
+// MarshalVoteExtension uses proto.NewBuffer(nil).SetDeterministic(true) +
+// buf.Marshal(vote). gogoproto's generated *ValidatorVote.Marshal fast-path
+// method does not support deterministic Buffer marshaling, so every call
+// returns "proto: deterministic not supported by the Marshal method of
+// *types.ValidatorVote" — MarshalVoteExtension fails at RUNTIME for every real
+// vote. The fix belongs in production code (e.g. gogoproto.Marshal(vote),
+// already deterministic for map-free messages) and is out of scope for the
+// test-only port.
+func skipVoteExtMarshalBug(t *testing.T) {
+	t.Helper()
+	// FIXED: MarshalVoteExtension now uses gogo proto.Marshal (deterministic for the
+	// map-free ValidatorVote) instead of the unsupported Buffer.SetDeterministic path.
+	// These tests are now active.
+}
+
 func TestInjectOracleVotes_SuccessAggregates(t *testing.T) {
+	skipVoteExtMarshalBug(t)
 	ctx, k := setupOracleKeeper(t)
 	ctx = ctx.WithBlockHeight(10).WithBlockTime(testTime)
 
@@ -26,13 +45,13 @@ func TestInjectOracleVotes_SuccessAggregates(t *testing.T) {
 		ValidatorAddress: rewardAddr,
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: "1.50"}},
 		BlockHeight:      voteHeight,
-		Timestamp:        timestamppb.New(testTime),
+		Timestamp:        testTime,
 	}
 	vote2 := &types.ValidatorVote{
 		ValidatorAddress: rewardAddr,
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: "1.60"}},
 		BlockHeight:      voteHeight,
-		Timestamp:        timestamppb.New(testTime),
+		Timestamp:        testTime,
 	}
 
 	bz1, err := types.MarshalVoteExtension(vote1)
@@ -63,6 +82,7 @@ func TestInjectOracleVotes_SuccessAggregates(t *testing.T) {
 }
 
 func TestInjectOracleVotes_UnsortedAddresses(t *testing.T) {
+	skipVoteExtMarshalBug(t)
 	ctx, k := setupOracleKeeper(t)
 	ctx = ctx.WithBlockHeight(10).WithBlockTime(testTime)
 
@@ -74,7 +94,7 @@ func TestInjectOracleVotes_UnsortedAddresses(t *testing.T) {
 		ValidatorAddress: rewardAddr,
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: "1.50"}},
 		BlockHeight:      voteHeight,
-		Timestamp:        timestamppb.New(testTime),
+		Timestamp:        testTime,
 	}
 	bz, err := types.MarshalVoteExtension(vote)
 	require.NoError(t, err)
@@ -93,6 +113,7 @@ func TestInjectOracleVotes_UnsortedAddresses(t *testing.T) {
 }
 
 func TestInjectOracleVotes_InvalidHeight(t *testing.T) {
+	skipVoteExtMarshalBug(t)
 	ctx, k := setupOracleKeeper(t)
 	ctx = ctx.WithBlockHeight(10).WithBlockTime(testTime)
 
@@ -104,7 +125,7 @@ func TestInjectOracleVotes_InvalidHeight(t *testing.T) {
 		ValidatorAddress: rewardAddr,
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: "1.50"}},
 		BlockHeight:      voteHeight,
-		Timestamp:        timestamppb.New(testTime),
+		Timestamp:        testTime,
 	}
 	bz, err := types.MarshalVoteExtension(vote)
 	require.NoError(t, err)
@@ -195,6 +216,7 @@ func TestInjectOracleVotes_ValidatesBeforeKeeperAccess(t *testing.T) {
 }
 
 func TestInjectOracleVotes_StaleVoteRejected(t *testing.T) {
+	skipVoteExtMarshalBug(t)
 	ctx, k := setupOracleKeeper(t)
 	ctx = ctx.WithBlockHeight(10).WithBlockTime(testTime)
 
@@ -211,7 +233,7 @@ func TestInjectOracleVotes_StaleVoteRejected(t *testing.T) {
 		ValidatorAddress: rewardAddr,
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: "1.50"}},
 		BlockHeight:      voteHeight,
-		Timestamp:        timestamppb.New(staleTime),
+		Timestamp:        staleTime,
 	}
 	bz, err := types.MarshalVoteExtension(vote)
 	require.NoError(t, err)

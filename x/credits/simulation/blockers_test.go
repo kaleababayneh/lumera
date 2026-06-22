@@ -8,18 +8,18 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"cosmossdk.io/log"
 	sdkmath "cosmossdk.io/math"
+	"cosmossdk.io/store/metrics"
+	"cosmossdk.io/store/rootmulti"
+	storetypes "cosmossdk.io/store/types"
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"github.com/cosmos/cosmos-sdk/runtime"
-	"github.com/cosmos/cosmos-sdk/store/v2/rootmulti"
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
@@ -79,9 +79,9 @@ func TestBeginBlockerRespectsIterationLimits(t *testing.T) {
 			CacheHit:     false,
 			OriginToolId: "",
 			Status:       credtypes.SettlementStatus_SETTLEMENT_STATUS_PENDING,
-			Timestamp:    timestamppb.New(ctx.BlockTime().Add(-48 * time.Hour)),
+			Timestamp:    ctx.BlockTime().Add(-48 * time.Hour),
 		}
-		settlement.SetTotalCostCoins(sdk.NewCoins(costCoin))
+		settlement.TotalCost = sdk.NewCoins(costCoin)
 		require.NoError(t, k.CreateSettlement(ctx, settlement))
 		settlementIDs = append(settlementIDs, settlementID)
 	}
@@ -139,7 +139,7 @@ func TestBeginBlockerMissingTimestampFailsSettlement(t *testing.T) {
 		RouterId:    router.String(),
 		Status:      credtypes.SettlementStatus_SETTLEMENT_STATUS_PENDING,
 	}
-	settlement.SetTotalCostCoins(sdk.NewCoins(sdk.NewInt64Coin(credtypes.DefaultCreditDenom, 1)))
+	settlement.TotalCost = sdk.NewCoins(sdk.NewInt64Coin(credtypes.DefaultCreditDenom, 1))
 	require.NoError(t, k.CreateSettlement(ctx, settlement))
 
 	ctx = ctx.WithGasMeter(storetypes.NewGasMeter(5_000_000))
@@ -158,7 +158,7 @@ func setupCreditsSimulationKeeper(t *testing.T) (sdk.Context, *keeper.Keeper, *m
 	storeKey := storetypes.NewKVStoreKey(credtypes.StoreKey)
 	db := dbm.NewMemDB()
 	logger := log.NewNopLogger()
-	cms := rootmulti.NewStore(db, logger)
+	cms := rootmulti.NewStore(db, logger, metrics.NewNoOpMetrics())
 	cms.MountStoreWithDB(storeKey, storetypes.StoreTypeIAVL, db)
 	require.NoError(t, cms.LoadLatestVersion())
 

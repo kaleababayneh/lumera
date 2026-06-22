@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	basev1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -34,9 +33,9 @@ func TestFileClaim_Success(t *testing.T) {
 		ReceiptId:   "receipt-001",
 		ToolId:      "tool-alpha",
 		PublisherId: "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "100",
+			Amount: sdkmath.NewInt(100),
 		},
 		Reason: "SLO violation - response time exceeded threshold",
 		Evidence: []*types.Evidence{
@@ -90,9 +89,9 @@ func TestFileClaim_DuplicateClaim(t *testing.T) {
 		ReceiptId:   "receipt-dup",
 		ToolId:      "tool-alpha",
 		PublisherId: "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "50",
+			Amount: sdkmath.NewInt(50),
 		},
 		Reason: "First claim",
 	}
@@ -108,9 +107,9 @@ func TestFileClaim_DuplicateClaim(t *testing.T) {
 		ReceiptId:   "receipt-dup", // Same receipt
 		ToolId:      "tool-beta",
 		PublisherId: "publisher-002",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "75",
+			Amount: sdkmath.NewInt(75),
 		},
 		Reason: "Different claim, same receipt",
 	}
@@ -140,9 +139,9 @@ func TestFileClaim_MultipleUniqueReceipts(t *testing.T) {
 			ReceiptId:   receiptID,
 			ToolId:      "tool-alpha",
 			PublisherId: "publisher-001",
-			ClaimedAmount: &basev1beta1.Coin{
+			ClaimedAmount: sdk.Coin{
 				Denom:  "ulac",
-				Amount: "100",
+				Amount: sdkmath.NewInt(100),
 			},
 			Reason: "Test claim",
 		}
@@ -179,9 +178,9 @@ func TestProcessClaim_Approve(t *testing.T) {
 		ReceiptId:   "receipt-approve-test",
 		ToolId:      "tool-alpha",
 		PublisherId: "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "500",
+			Amount: sdkmath.NewInt(500),
 		},
 		Reason: "SLO violation",
 	}
@@ -195,9 +194,9 @@ func TestProcessClaim_Approve(t *testing.T) {
 		Authority:  authority,
 		ClaimId:    claimID,
 		Resolution: "approve",
-		ApprovedAmount: &basev1beta1.Coin{
+		ApprovedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "500",
+			Amount: sdkmath.NewInt(500),
 		},
 		Notes: "Claim validated and approved",
 	}
@@ -210,7 +209,7 @@ func TestProcessClaim_Approve(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, types.ClaimStatus_CLAIM_STATUS_APPROVED, claim.Status)
 	assert.NotNil(t, claim.ApprovedAmount)
-	assert.Equal(t, "500", claim.ApprovedAmount.Amount)
+	assert.Equal(t, "500", claim.ApprovedAmount.Amount.String())
 	assert.NotNil(t, claim.ResolvedAt)
 }
 
@@ -228,9 +227,9 @@ func TestProcessClaim_Reject(t *testing.T) {
 		ReceiptId:   "receipt-reject-test",
 		ToolId:      "tool-alpha",
 		PublisherId: "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "1000",
+			Amount: sdkmath.NewInt(1000),
 		},
 		Reason: "False claim",
 	}
@@ -254,7 +253,9 @@ func TestProcessClaim_Reject(t *testing.T) {
 	claim, err := k.GetClaim(ctx, claimID)
 	require.NoError(t, err)
 	assert.Equal(t, types.ClaimStatus_CLAIM_STATUS_REJECTED, claim.Status)
-	assert.Nil(t, claim.ApprovedAmount)
+	// ApprovedAmount is a value sdk.Coin (nullable=false); a rejected claim leaves
+	// it unset, i.e. a nil/zero math.Int amount rather than a nil pointer.
+	assert.True(t, claim.ApprovedAmount.Amount.IsNil() || claim.ApprovedAmount.Amount.IsZero())
 }
 
 func TestProcessClaim_PartialApproval(t *testing.T) {
@@ -274,9 +275,9 @@ func TestProcessClaim_PartialApproval(t *testing.T) {
 		ReceiptId:   "receipt-partial-test",
 		ToolId:      "tool-alpha",
 		PublisherId: "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "1000",
+			Amount: sdkmath.NewInt(1000),
 		},
 		Reason: "Partial SLO violation",
 	}
@@ -290,9 +291,9 @@ func TestProcessClaim_PartialApproval(t *testing.T) {
 		Authority:  authority,
 		ClaimId:    claimID,
 		Resolution: "partial",
-		ApprovedAmount: &basev1beta1.Coin{
+		ApprovedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "300",
+			Amount: sdkmath.NewInt(300),
 		},
 		Notes: "Partial approval - only 30% of claim validated",
 	}
@@ -304,7 +305,7 @@ func TestProcessClaim_PartialApproval(t *testing.T) {
 	claim, err := k.GetClaim(ctx, claimID)
 	require.NoError(t, err)
 	assert.Equal(t, types.ClaimStatus_CLAIM_STATUS_APPROVED, claim.Status)
-	assert.Equal(t, "300", claim.ApprovedAmount.Amount)
+	assert.Equal(t, "300", claim.ApprovedAmount.Amount.String())
 }
 
 func TestProcessClaim_AlreadyProcessed(t *testing.T) {
@@ -323,9 +324,9 @@ func TestProcessClaim_AlreadyProcessed(t *testing.T) {
 		ReceiptId:   "receipt-double-process",
 		ToolId:      "tool-alpha",
 		PublisherId: "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "100",
+			Amount: sdkmath.NewInt(100),
 		},
 		Reason: "Test",
 	}
@@ -338,9 +339,9 @@ func TestProcessClaim_AlreadyProcessed(t *testing.T) {
 		Authority:  authority,
 		ClaimId:    claimID,
 		Resolution: "approve",
-		ApprovedAmount: &basev1beta1.Coin{
+		ApprovedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "100",
+			Amount: sdkmath.NewInt(100),
 		},
 	}
 
@@ -365,9 +366,9 @@ func TestProcessClaim_NotFound(t *testing.T) {
 		Authority:  authority,
 		ClaimId:    "nonexistent-claim",
 		Resolution: "approve",
-		ApprovedAmount: &basev1beta1.Coin{
+		ApprovedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "100",
+			Amount: sdkmath.NewInt(100),
 		},
 	}
 
@@ -390,9 +391,9 @@ func TestProcessClaim_Unauthorized(t *testing.T) {
 		ReceiptId:   "receipt-unauth",
 		ToolId:      "tool-alpha",
 		PublisherId: "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "100",
+			Amount: sdkmath.NewInt(100),
 		},
 		Reason: "Test",
 	}
@@ -405,9 +406,9 @@ func TestProcessClaim_Unauthorized(t *testing.T) {
 		Authority:  "cosmos1notauthorized",
 		ClaimId:    claimID,
 		Resolution: "approve",
-		ApprovedAmount: &basev1beta1.Coin{
+		ApprovedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "100",
+			Amount: sdkmath.NewInt(100),
 		},
 	}
 
@@ -430,9 +431,9 @@ func TestProcessClaim_ApproveWithoutAmount(t *testing.T) {
 		ReceiptId:   "receipt-no-amount",
 		ToolId:      "tool-alpha",
 		PublisherId: "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "100",
+			Amount: sdkmath.NewInt(100),
 		},
 		Reason: "Test",
 	}
@@ -445,7 +446,7 @@ func TestProcessClaim_ApproveWithoutAmount(t *testing.T) {
 		Authority:      authority,
 		ClaimId:        claimID,
 		Resolution:     "approve",
-		ApprovedAmount: nil, // Missing amount
+		ApprovedAmount: sdk.Coin{}, // Missing amount
 	}
 
 	err = k.ProcessClaim(ctx, processMsg)
@@ -467,9 +468,9 @@ func TestProcessClaim_InvalidResolution(t *testing.T) {
 		ReceiptId:   "receipt-invalid-res",
 		ToolId:      "tool-alpha",
 		PublisherId: "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "100",
+			Amount: sdkmath.NewInt(100),
 		},
 		Reason: "Test",
 	}
@@ -520,9 +521,9 @@ func TestGetClaimsByStatus(t *testing.T) {
 			ReceiptId:   receiptID,
 			ToolId:      "tool-alpha",
 			PublisherId: "publisher-001",
-			ClaimedAmount: &basev1beta1.Coin{
+			ClaimedAmount: sdk.Coin{
 				Denom:  "ulac",
-				Amount: "100",
+				Amount: sdkmath.NewInt(100),
 			},
 			Reason: "Test",
 		}
@@ -541,9 +542,9 @@ func TestGetClaimsByStatus(t *testing.T) {
 		Authority:  authority,
 		ClaimId:    "claim-1",
 		Resolution: "approve",
-		ApprovedAmount: &basev1beta1.Coin{
+		ApprovedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "100",
+			Amount: sdkmath.NewInt(100),
 		},
 	})
 	require.NoError(t, err)
@@ -572,9 +573,9 @@ func TestGetClaimsByReceipt(t *testing.T) {
 		ReceiptId:   "receipt-lookup",
 		ToolId:      "tool-alpha",
 		PublisherId: "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "100",
+			Amount: sdkmath.NewInt(100),
 		},
 		Reason: "Test",
 	}
@@ -646,9 +647,9 @@ func TestPoolFundAccounting_ReserveOnApproval(t *testing.T) {
 		ReceiptId:   "receipt-reserve-test",
 		ToolId:      "tool-alpha",
 		PublisherId: "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "500",
+			Amount: sdkmath.NewInt(500),
 		},
 		Reason: "Test",
 	}
@@ -661,9 +662,9 @@ func TestPoolFundAccounting_ReserveOnApproval(t *testing.T) {
 		Authority:  authority,
 		ClaimId:    claimID,
 		Resolution: "approve",
-		ApprovedAmount: &basev1beta1.Coin{
+		ApprovedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "500",
+			Amount: sdkmath.NewInt(500),
 		},
 	})
 	require.NoError(t, err)
@@ -693,9 +694,9 @@ func TestPoolFundAccounting_InsufficientFundsForReserve(t *testing.T) {
 		ReceiptId:   "receipt-insufficient",
 		ToolId:      "tool-alpha",
 		PublisherId: "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "500",
+			Amount: sdkmath.NewInt(500),
 		},
 		Reason: "Test",
 	}
@@ -710,9 +711,9 @@ func TestPoolFundAccounting_InsufficientFundsForReserve(t *testing.T) {
 		Authority:  authority,
 		ClaimId:    claimID,
 		Resolution: "approve",
-		ApprovedAmount: &basev1beta1.Coin{
+		ApprovedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "500",
+			Amount: sdkmath.NewInt(500),
 		},
 	})
 	require.Error(t, err)
@@ -740,9 +741,9 @@ func TestPendingClaimsCounter(t *testing.T) {
 			ReceiptId:   receiptID,
 			ToolId:      "tool-alpha",
 			PublisherId: "publisher-001",
-			ClaimedAmount: &basev1beta1.Coin{
+			ClaimedAmount: sdk.Coin{
 				Denom:  "ulac",
-				Amount: "100",
+				Amount: sdkmath.NewInt(100),
 			},
 			Reason: "Test",
 		}
@@ -761,9 +762,9 @@ func TestPendingClaimsCounter(t *testing.T) {
 		Authority:  authority,
 		ClaimId:    "claim-1",
 		Resolution: "approve",
-		ApprovedAmount: &basev1beta1.Coin{
+		ApprovedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "100",
+			Amount: sdkmath.NewInt(100),
 		},
 	})
 	require.NoError(t, err)
@@ -883,9 +884,9 @@ func TestEndBlocker_AutoApprovesExpiredClaims(t *testing.T) {
 		ReceiptId:   "receipt-auto-approve",
 		ToolId:      "tool-alpha",
 		PublisherId: "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "5", // Under threshold
+			Amount: sdkmath.NewInt(5), // Under threshold
 		},
 		Reason: "Small claim for auto-approval test",
 	}
@@ -931,9 +932,9 @@ func TestEndBlocker_LargeClaimsRequireReview(t *testing.T) {
 		ReceiptId:   "receipt-large-claim",
 		ToolId:      "tool-alpha",
 		PublisherId: "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "500", // Over threshold
+			Amount: sdkmath.NewInt(500), // Over threshold
 		},
 		Reason: "Large claim requiring manual review",
 	}
@@ -988,7 +989,7 @@ func TestEndBlocker_ExpiredReviewClaimsDoNotStarveLaterClaims(t *testing.T) {
 		ReceiptId:     "receipt-review-first",
 		ToolId:        "tool-alpha",
 		PublisherId:   "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "500"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(500)},
 		Reason:        "manual review first",
 	})
 	require.NoError(t, err)
@@ -998,7 +999,7 @@ func TestEndBlocker_ExpiredReviewClaimsDoNotStarveLaterClaims(t *testing.T) {
 		ReceiptId:     "receipt-small-second",
 		ToolId:        "tool-alpha",
 		PublisherId:   "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "5"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(5)},
 		Reason:        "small claim second",
 	})
 	require.NoError(t, err)
@@ -1041,7 +1042,7 @@ func TestProcessClaim_AllowsExpiredReviewClaims(t *testing.T) {
 		ReceiptId:     "receipt-expired-review",
 		ToolId:        "tool-alpha",
 		PublisherId:   "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "500"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(500)},
 		Reason:        "requires manual review",
 	})
 	require.NoError(t, err)
@@ -1058,7 +1059,7 @@ func TestProcessClaim_AllowsExpiredReviewClaims(t *testing.T) {
 		Authority:      authority,
 		ClaimId:        claimID,
 		Resolution:     "approve",
-		ApprovedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "500"},
+		ApprovedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(500)},
 		Notes:          "approved after review window expiry",
 	}))
 
@@ -1093,9 +1094,9 @@ func TestEndBlocker_MaxClaimsPerBlockLimit(t *testing.T) {
 			ReceiptId:   receiptID,
 			ToolId:      "tool-alpha",
 			PublisherId: "publisher-001",
-			ClaimedAmount: &basev1beta1.Coin{
+			ClaimedAmount: sdk.Coin{
 				Denom:  "ulac",
-				Amount: "10",
+				Amount: sdkmath.NewInt(10),
 			},
 			Reason: "Batch test",
 		}
@@ -1138,9 +1139,9 @@ func TestEventEmission_ClaimFiled(t *testing.T) {
 		ReceiptId:   "receipt-event-test",
 		ToolId:      "tool-alpha",
 		PublisherId: "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "100",
+			Amount: sdkmath.NewInt(100),
 		},
 		Reason: "Event test",
 	}
@@ -1185,9 +1186,9 @@ func TestEventEmission_ClaimProcessed(t *testing.T) {
 		ReceiptId:   "receipt-processed-event",
 		ToolId:      "tool-alpha",
 		PublisherId: "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "100",
+			Amount: sdkmath.NewInt(100),
 		},
 		Reason: "Process event test",
 	}
@@ -1204,9 +1205,9 @@ func TestEventEmission_ClaimProcessed(t *testing.T) {
 		Authority:  authority,
 		ClaimId:    claimID,
 		Resolution: "approve",
-		ApprovedAmount: &basev1beta1.Coin{
+		ApprovedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "100",
+			Amount: sdkmath.NewInt(100),
 		},
 	})
 	require.NoError(t, err)
@@ -1334,9 +1335,9 @@ func recordContributionForTests(t *testing.T, fixture *keeperFixture, receiptID,
 		ToolId:        toolID,
 		PublisherId:   publisherID,
 		PolicyVersion: "v1",
-		Amount: &basev1beta1.Coin{
+		Amount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: sdkmath.NewInt(amount).String(),
+			Amount: sdkmath.NewInt(amount),
 		},
 	})
 	require.NoError(t, err, "failed to record contribution for receipt %s", receiptID)

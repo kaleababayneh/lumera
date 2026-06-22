@@ -6,13 +6,22 @@ import (
 	"time"
 	"unicode/utf8"
 
-	v1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
+	sdkmath "cosmossdk.io/math"
+	"github.com/cosmos/gogoproto/proto"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/LumeraProtocol/lumera/x/credits/types"
 )
+
+// validNonNegativeAmount reports whether amountStr parses to a non-negative
+// sdk.Int. After the gogoproto migration Lock.Amount is a value sdk.Coin whose
+// Amount is a math.Int, so (unlike the old protobuf-go raw-string Coin) the
+// fuzzer cannot feed arbitrary/empty/negative amount strings — those inputs
+// can't form a valid coin and are skipped rather than panicking in protoCoin.
+func validNonNegativeAmount(amountStr string) bool {
+	v, ok := sdkmath.NewIntFromString(amountStr)
+	return ok && !v.IsNegative()
+}
 
 // allValidUTF8 returns true iff every input string is valid
 // UTF-8. Protobuf string fields REQUIRE valid UTF-8 per the
@@ -129,6 +138,9 @@ func FuzzLock_ProtoRoundTripPreservesEquality(f *testing.F) {
 			lastError, amountStr) {
 			return
 		}
+		if !validNonNegativeAmount(amountStr) {
+			return
+		}
 
 		// Construct the Lock. Skip nil Amount / Timestamp fields
 		// here — those are tested in a dedicated target.
@@ -140,9 +152,9 @@ func FuzzLock_ProtoRoundTripPreservesEquality(f *testing.F) {
 			QuoteId:       quoteID,
 			PolicyVersion: policyVersion,
 			IntentHash:    intentHash,
-			Amount:        &v1beta1.Coin{Denom: "ulac", Amount: amountStr},
-			CreatedAt:     timestamppb.New(time.Unix(createdAtSec, 0).UTC()),
-			ExpiresAt:     timestamppb.New(time.Unix(expiresAtSec, 0).UTC()),
+			Amount:        protoCoin("ulac", amountStr),
+			CreatedAt:     time.Unix(createdAtSec, 0).UTC(),
+			ExpiresAt:     time.Unix(expiresAtSec, 0).UTC(),
 			Status:        types.LockStatus(status),
 			LastError:     lastError,
 			ToolpackId:    toolpackID,
@@ -155,8 +167,16 @@ func FuzzLock_ProtoRoundTripPreservesEquality(f *testing.F) {
 		require.NoError(t, proto.Unmarshal(bz, &decoded),
 			"proto.Unmarshal failed")
 
-		if !proto.Equal(lock, &decoded) {
-			t.Fatalf("round-trip proto.Equal failed.\n"+
+		// Equality via re-marshaled bytes. gogoproto's proto.Equal is
+		// unreliable on messages with customtype fields (Lock.Amount is a
+		// math.Int, CreatedAt/ExpiresAt are time.Time) — it returns false
+		// even for byte-identical round-trips — so compare the canonical
+		// wire encoding instead, which is the property a reboot actually
+		// relies on.
+		bz2, err := proto.Marshal(&decoded)
+		require.NoError(t, err, "proto.Marshal of decoded failed")
+		if !bytes.Equal(bz, bz2) {
+			t.Fatalf("round-trip wire bytes differ.\n"+
 				"  original: %+v\n"+
 				"  decoded:  %+v",
 				lock, &decoded)
@@ -191,25 +211,27 @@ func FuzzLock_ProtoMarshalIsDeterministic(f *testing.F) {
 		if !allValidUTF8(lockID, router, amountStr) {
 			return
 		}
+		if !validNonNegativeAmount(amountStr) {
+			return
+		}
 		lock := &types.Lock{
 			LockId: lockID,
 			Router: router,
-			Amount: &v1beta1.Coin{Denom: "ulac", Amount: amountStr},
+			Amount: protoCoin("ulac", amountStr),
 			Status: types.LockStatus_LOCK_STATUS_ACTIVE,
 		}
 
-		// Use DETERMINISTIC marshal opts — proto.Marshal's
-		// default is NOT deterministic (map iteration order) but
-		// Lock has no map fields, so plain Marshal should be
-		// stable. Pin this.
-		opts := proto.MarshalOptions{Deterministic: true}
-
-		bz1, err := opts.Marshal(lock)
+		// gogoproto's proto.Marshal is deterministic for a schema
+		// with no map fields (Lock has none). Pin that repeated
+		// marshals of the SAME Lock produce byte-identical output —
+		// CONSENSUS-CRITICAL, since validators must compute identical
+		// state-root bytes.
+		bz1, err := proto.Marshal(lock)
 		require.NoError(t, err)
 
 		// 5 repetitions MUST produce byte-identical output.
 		for i := 0; i < 5; i++ {
-			bzN, err := opts.Marshal(lock)
+			bzN, err := proto.Marshal(lock)
 			require.NoError(t, err)
 			if !bytes.Equal(bz1, bzN) {
 				t.Fatalf("marshal iteration %d diverged from first. "+
@@ -217,25 +239,6 @@ func FuzzLock_ProtoMarshalIsDeterministic(f *testing.F) {
 					"would fragment validator state-root computations.",
 					i, len(bz1), len(bzN))
 			}
-		}
-
-		// Also pin that NON-deterministic option produces the
-		// same output since there are no map fields.
-		defaultOpts := proto.MarshalOptions{}
-		bzDefault, err := defaultOpts.Marshal(lock)
-		require.NoError(t, err)
-		// Note: deterministic and default may produce different
-		// outputs in general, but for a schema with no map
-		// fields they should match. Pin this as a sanity check.
-		// If this assertion ever fails, it's a signal that the
-		// schema acquired a map field that needs deterministic
-		// encoding in storage paths.
-		if !bytes.Equal(bz1, bzDefault) {
-			t.Fatalf("deterministic vs default marshal diverged — "+
-				"schema may have acquired a map field requiring "+
-				"deterministic marshaling in storage paths.\n"+
-				"  deterministic: %x\n"+
-				"  default:       %x", bz1, bzDefault)
 		}
 	})
 }
@@ -275,15 +278,18 @@ func FuzzLock_KeeperSaveLoadRoundTrip(f *testing.F) {
 		if !allValidUTF8(lockID, router, amountStr) {
 			return
 		}
+		if !validNonNegativeAmount(amountStr) {
+			return
+		}
 
 		ctx, keeper, _, _, _ := setupCreditsKeeper(t)
 
 		lock := &types.Lock{
 			LockId:    lockID,
 			Router:    router,
-			Amount:    &v1beta1.Coin{Denom: "ulac", Amount: amountStr},
-			CreatedAt: timestamppb.New(time.Unix(createdSec, 0).UTC()),
-			ExpiresAt: timestamppb.New(time.Unix(createdSec+3600, 0).UTC()),
+			Amount:    protoCoin("ulac", amountStr),
+			CreatedAt: time.Unix(createdSec, 0).UTC(),
+			ExpiresAt: time.Unix(createdSec+3600, 0).UTC(),
 			Status:    types.LockStatus_LOCK_STATUS_ACTIVE,
 		}
 
@@ -298,7 +304,13 @@ func FuzzLock_KeeperSaveLoadRoundTrip(f *testing.F) {
 			"just-saved lock must be retrievable by same ID")
 		require.NotNil(t, retrieved)
 
-		if !proto.Equal(lock, retrieved) {
+		// Compare canonical wire bytes rather than gogoproto's proto.Equal,
+		// which is unreliable on customtype fields (math.Int / time.Time).
+		bzSaved, err := proto.Marshal(lock)
+		require.NoError(t, err)
+		bzGot, err := proto.Marshal(retrieved)
+		require.NoError(t, err)
+		if !bytes.Equal(bzSaved, bzGot) {
 			t.Fatalf("keeper round-trip not byte-equal.\n"+
 				"  saved:     %+v\n"+
 				"  retrieved: %+v",
@@ -318,66 +330,12 @@ func FuzzLock_KeeperSaveLoadRoundTrip(f *testing.F) {
 // would change the observable state (e.g. CreatedAt epoch 0
 // vs nil means very different things to callers).
 func FuzzLock_NilTimestampFieldsSurviveRoundTrip(f *testing.F) {
-	// Seeds: various combinations of nil vs non-nil pointer fields.
-	f.Add(true, true, true)    // all nil
-	f.Add(false, true, true)   // Amount non-nil, rest nil
-	f.Add(true, false, true)   // CreatedAt non-nil, rest nil
-	f.Add(true, true, false)   // ExpiresAt non-nil, rest nil
-	f.Add(false, false, false) // none nil
-
-	f.Fuzz(func(t *testing.T, amountNil, createdNil, expiresNil bool) {
-		lock := &types.Lock{
-			LockId: "nil-test",
-			Router: "cosmos1rnil",
-			Status: types.LockStatus_LOCK_STATUS_ACTIVE,
-		}
-		if !amountNil {
-			lock.Amount = &v1beta1.Coin{Denom: "ulac", Amount: "100"}
-		}
-		if !createdNil {
-			lock.CreatedAt = timestamppb.New(time.Unix(1_700_000_000, 0).UTC())
-		}
-		if !expiresNil {
-			lock.ExpiresAt = timestamppb.New(time.Unix(1_700_003_600, 0).UTC())
-		}
-
-		bz, err := proto.Marshal(lock)
-		require.NoError(t, err)
-
-		var decoded types.Lock
-		require.NoError(t, proto.Unmarshal(bz, &decoded))
-
-		// Pin nil-ness per field.
-		if amountNil && decoded.Amount != nil {
-			t.Fatalf("Amount was nil, became %v after round-trip — "+
-				"codec auto-populated a zero-value default, "+
-				"changing observable state", decoded.Amount)
-		}
-		if !amountNil && decoded.Amount == nil {
-			t.Fatalf("Amount was %v, became nil after round-trip — "+
-				"data loss", lock.Amount)
-		}
-		if createdNil && decoded.CreatedAt != nil {
-			t.Fatalf("CreatedAt was nil, became %v after round-trip",
-				decoded.CreatedAt)
-		}
-		if !createdNil && decoded.CreatedAt == nil {
-			t.Fatalf("CreatedAt was %v, became nil after round-trip",
-				lock.CreatedAt)
-		}
-		if expiresNil && decoded.ExpiresAt != nil {
-			t.Fatalf("ExpiresAt was nil, became %v after round-trip",
-				decoded.ExpiresAt)
-		}
-		if !expiresNil && decoded.ExpiresAt == nil {
-			t.Fatalf("ExpiresAt was %v, became nil after round-trip",
-				lock.ExpiresAt)
-		}
-
-		// Overall equality too.
-		require.True(t, proto.Equal(lock, &decoded),
-			"overall proto.Equal failed")
-	})
+	f.Skip("not ported: this fuzz pinned nil-pointer survival for Lock.Amount / " +
+		"CreatedAt / ExpiresAt. After the gogoproto migration these fields are " +
+		"non-nullable value types (sdk.Coin, time.Time) rather than pointers, so " +
+		"\"nil vs zero-value default\" is no longer an observable distinction and " +
+		"the premise of the test does not apply. Zero-value round-trip fidelity is " +
+		"already covered by FuzzLock_KeeperSaveLoadRoundTrip.")
 }
 
 // --------------------------------------------------------------
@@ -415,7 +373,7 @@ func FuzzLock_LargeLastErrorStringSurvives(f *testing.F) {
 		lock := &types.Lock{
 			LockId:    "err-test",
 			Router:    "cosmos1rerr",
-			Amount:    &v1beta1.Coin{Denom: "ulac", Amount: "100"},
+			Amount:    protoCoin("ulac", "100"),
 			Status:    types.LockStatus_LOCK_STATUS_ACTIVE,
 			LastError: lastError,
 		}

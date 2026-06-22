@@ -9,10 +9,11 @@ import (
 	"testing"
 	"time"
 
+	"bytes"
+
+	"github.com/cosmos/gogoproto/jsonpb"
+	"github.com/cosmos/gogoproto/proto"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Golden artifact tests for x/oracle price-feed response JSON wire format.
@@ -51,12 +52,13 @@ var fixedOracleSnapshot = time.Date(2026, 4, 20, 15, 0, 0, 0, time.UTC)
 func marshalCanonicalJSON(t *testing.T, msg proto.Message) []byte {
 	t.Helper()
 
-	opts := protojson.MarshalOptions{
-		UseProtoNames:   true, // emit snake_case field names matching proto defs
-		EmitUnpopulated: false,
+	m := jsonpb.Marshaler{
+		OrigName:     true, // emit snake_case field names matching proto defs
+		EmitDefaults: false,
 	}
-	raw, err := opts.Marshal(msg)
-	require.NoError(t, err)
+	var buf bytes.Buffer
+	require.NoError(t, m.Marshal(&buf, msg))
+	raw := buf.Bytes()
 
 	var intermediate map[string]interface{}
 	require.NoError(t, json.Unmarshal(raw, &intermediate))
@@ -104,7 +106,7 @@ func TestPriceFeed_WireFormat_FullFields(t *testing.T) {
 		AssetPair:       "BTC/USD",
 		Price:           "42000.500000000000000000",
 		Volume_24H:      "1000000000",
-		Timestamp:       timestamppb.New(fixedOracleSnapshot),
+		Timestamp:       fixedOracleSnapshot,
 		Sources:         []string{"coinbase", "binance", "kraken"},
 		ConfidenceScore: "0.950000000000000000",
 	}
@@ -137,7 +139,7 @@ func TestQueryPriceFeedResponse_WireFormat(t *testing.T) {
 			AssetPair:       "ETH/USD",
 			Price:           "2500.750000000000000000",
 			Volume_24H:      "500000000",
-			Timestamp:       timestamppb.New(fixedOracleSnapshot),
+			Timestamp:       fixedOracleSnapshot,
 			Sources:         []string{"binance", "coinbase"},
 			ConfidenceScore: "0.920000000000000000",
 		},
@@ -158,7 +160,7 @@ func TestQueryAllPriceFeedsResponse_WireFormat(t *testing.T) {
 				AssetPair:       "BTC/USD",
 				Price:           "42000.500000000000000000",
 				Volume_24H:      "1000000000",
-				Timestamp:       timestamppb.New(fixedOracleSnapshot),
+				Timestamp:       fixedOracleSnapshot,
 				Sources:         []string{"binance", "coinbase", "kraken"},
 				ConfidenceScore: "0.950000000000000000",
 			},
@@ -166,7 +168,7 @@ func TestQueryAllPriceFeedsResponse_WireFormat(t *testing.T) {
 				AssetPair:       "ETH/USD",
 				Price:           "2500.750000000000000000",
 				Volume_24H:      "500000000",
-				Timestamp:       timestamppb.New(fixedOracleSnapshot),
+				Timestamp:       fixedOracleSnapshot,
 				Sources:         []string{"binance", "coinbase"},
 				ConfidenceScore: "0.920000000000000000",
 			},
@@ -174,7 +176,7 @@ func TestQueryAllPriceFeedsResponse_WireFormat(t *testing.T) {
 				AssetPair:       "LAC/USD",
 				Price:           "1.250000000000000000",
 				Volume_24H:      "10000000",
-				Timestamp:       timestamppb.New(fixedOracleSnapshot),
+				Timestamp:       fixedOracleSnapshot,
 				Sources:         []string{"kraken"},
 				ConfidenceScore: "0.880000000000000000",
 			},
@@ -197,7 +199,7 @@ func TestAggregatedPrice_WireFormat(t *testing.T) {
 		StandardDeviation: "12.500000000000000000",
 		NumValidators:     7,
 		BlockHeight:       1_000_000,
-		Timestamp:         timestamppb.New(fixedOracleSnapshot),
+		Timestamp:         fixedOracleSnapshot,
 	}
 
 	assertOracleResponseMatchesGolden(t, agg, "aggregated_price.golden.json")
@@ -216,7 +218,7 @@ func TestQueryAggregatedPriceResponse_WireFormat(t *testing.T) {
 			StandardDeviation: "5.250000000000000000",
 			NumValidators:     5,
 			BlockHeight:       1_000_000,
-			Timestamp:         timestamppb.New(fixedOracleSnapshot),
+			Timestamp:         fixedOracleSnapshot,
 		},
 	}
 
@@ -233,7 +235,7 @@ func TestPriceFeed_WireContract_FieldNames(t *testing.T) {
 		AssetPair:       "BTC/USD",
 		Price:           "42000",
 		Volume_24H:      "1000",
-		Timestamp:       timestamppb.New(fixedOracleSnapshot),
+		Timestamp:       fixedOracleSnapshot,
 		Sources:         []string{"kraken"},
 		ConfidenceScore: "0.9",
 	}
@@ -269,7 +271,7 @@ func TestAggregatedPrice_WireContract_FieldNames(t *testing.T) {
 		StandardDeviation: "0",
 		NumValidators:     1,
 		BlockHeight:       1,
-		Timestamp:         timestamppb.New(fixedOracleSnapshot),
+		Timestamp:         fixedOracleSnapshot,
 	}
 
 	raw := marshalCanonicalJSON(t, agg)
@@ -309,9 +311,16 @@ func TestPriceFeed_WireContract_OmitEmpty(t *testing.T) {
 	require.NoError(t, json.Unmarshal(raw, &obj))
 
 	// These optional fields must NOT appear in the JSON when empty.
+	//
+	// NOTE (gogoproto port): under this repo's gogoproto definitions the
+	// `timestamp` field is a non-nullable stdtime (time.Time value), so it
+	// is ALWAYS emitted (as the zero time "0001-01-01T00:00:00Z") and can no
+	// longer be omitted. This differs from the upstream protobuf-go build
+	// where timestamp was a nullable *timestamppb.Timestamp. Timestamp is
+	// therefore asserted as always-present below rather than omitted; the
+	// remaining string/repeated fields keep their omit-empty semantics.
 	omittedFields := []string{
 		"volume_24h",
-		"timestamp",
 		"sources",
 		"confidence_score",
 	}
@@ -322,6 +331,8 @@ func TestPriceFeed_WireContract_OmitEmpty(t *testing.T) {
 				"be omitted — changing omit-empty semantics is a wire "+
 				"format change that breaks external consumers", f)
 	}
+	require.Contains(t, obj, "timestamp",
+		"gogoproto non-nullable stdtime timestamp must always be present on the wire")
 }
 
 // TestQueryResponse_WireContract_EnvelopeKeys pins the top-level keys

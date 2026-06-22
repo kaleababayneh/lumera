@@ -6,9 +6,10 @@ import (
 	"testing"
 	"time"
 
-	basev1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
+	sdkmath "cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/codec"
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -109,7 +110,7 @@ func TestMsgProcessContribution_ValidateBasic_OnlySpacesAuthority(t *testing.T) 
 		ReceiptId:   "receipt-1",
 		ToolId:      "tool-1",
 		PublisherId: "pub-1",
-		Amount:      &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		Amount:      sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 	}
 	err := msg.ValidateBasic()
 	assert.Error(t, err)
@@ -122,7 +123,7 @@ func TestMsgProcessContribution_ValidateBasic_TabsInReceiptId(t *testing.T) {
 		ReceiptId:   "\t\t",
 		ToolId:      "tool-1",
 		PublisherId: "pub-1",
-		Amount:      &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		Amount:      sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 	}
 	err := msg.ValidateBasic()
 	assert.Error(t, err)
@@ -135,7 +136,7 @@ func TestMsgProcessContribution_ValidateBasic_NewlinesInToolId(t *testing.T) {
 		ReceiptId:   "receipt-1",
 		ToolId:      "\n\n",
 		PublisherId: "pub-1",
-		Amount:      &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		Amount:      sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 	}
 	err := msg.ValidateBasic()
 	assert.Error(t, err)
@@ -148,7 +149,7 @@ func TestMsgProcessContribution_ValidateBasic_MixedWhitespacePublisherId(t *test
 		ReceiptId:   "receipt-1",
 		ToolId:      "tool-1",
 		PublisherId: " \t\n ",
-		Amount:      &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		Amount:      sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 	}
 	err := msg.ValidateBasic()
 	assert.Error(t, err)
@@ -160,7 +161,7 @@ func TestMsgFileClaim_ValidateBasic_WhitespaceClaimant(t *testing.T) {
 		Claimant:      "  \t\n  ",
 		ReceiptId:     "receipt-1",
 		ToolId:        "tool-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 		Reason:        "test",
 	}
 	err := msg.ValidateBasic()
@@ -173,7 +174,7 @@ func TestMsgFileClaim_ValidateBasic_WhitespaceReceiptId(t *testing.T) {
 		Claimant:      validInsuranceAddress("insurance-boost-0002"),
 		ReceiptId:     "\t",
 		ToolId:        "tool-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 		Reason:        "test",
 	}
 	err := msg.ValidateBasic()
@@ -186,7 +187,7 @@ func TestMsgFileClaim_ValidateBasic_WhitespaceToolId(t *testing.T) {
 		Claimant:      validInsuranceAddress("insurance-boost-0002"),
 		ReceiptId:     "receipt-1",
 		ToolId:        "   ",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 		Reason:        "test",
 	}
 	err := msg.ValidateBasic()
@@ -199,7 +200,7 @@ func TestMsgFileClaim_ValidateBasic_WhitespaceReason(t *testing.T) {
 		Claimant:      validInsuranceAddress("insurance-boost-0002"),
 		ReceiptId:     "receipt-1",
 		ToolId:        "tool-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 		Reason:        "   ",
 	}
 	err := msg.ValidateBasic()
@@ -222,7 +223,7 @@ func TestMsgFileClaim_ValidateBasic_RejectsOversizedEvidenceSlice(t *testing.T) 
 		Claimant:      validInsuranceAddress("insurance-boost-0002"),
 		ReceiptId:     "receipt-1",
 		ToolId:        "tool-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 		Reason:        "test",
 		Evidence:      ev,
 	}
@@ -244,7 +245,7 @@ func TestMsgFileClaim_ValidateBasic_RejectsOversizedEvidenceField(t *testing.T) 
 		Claimant:      validInsuranceAddress("insurance-boost-0002"),
 		ReceiptId:     "receipt-1",
 		ToolId:        "tool-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 		Reason:        "test",
 		Evidence:      []*Evidence{{Type: "log", Description: string(huge)}},
 	}
@@ -265,7 +266,7 @@ func TestMsgFileClaim_ValidateBasic_AcceptsAtCapEvidence(t *testing.T) {
 		Claimant:      validInsuranceAddress("insurance-boost-0002"),
 		ReceiptId:     "receipt-1",
 		ToolId:        "tool-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 		Reason:        "test",
 		Evidence:      ev,
 	}
@@ -281,7 +282,7 @@ func TestMsgFileClaim_ValidateBasic_RejectsOversizedReason(t *testing.T) {
 		Claimant:      validInsuranceAddress("insurance-boost-0002"),
 		ReceiptId:     "receipt-1",
 		ToolId:        "tool-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 		Reason:        strings.Repeat("a", MaxClaimReasonLen+1),
 	}
 	err := msg.ValidateBasic()
@@ -297,7 +298,7 @@ func TestMsgFileClaim_ValidateBasic_RejectsOversizedClaimant(t *testing.T) {
 		Claimant:      strings.Repeat("a", MaxInsuranceIDLen+1),
 		ReceiptId:     "receipt-1",
 		ToolId:        "tool-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 		Reason:        "test",
 	}
 	err := msg.ValidateBasic()
@@ -317,7 +318,7 @@ func TestMsgProcessContribution_ValidateBasic_RejectsOversizedIDs(t *testing.T) 
 			ReceiptId:   "receipt-1",
 			ToolId:      "tool-1",
 			PublisherId: "pub-1",
-			Amount:      &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+			Amount:      sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 		}
 	}
 	for _, tc := range []struct {
@@ -374,7 +375,7 @@ func TestMsgProcessPayout_ValidateBasic_RejectsOversizedIDs(t *testing.T) {
 			Authority: validInsuranceAddress("insurance-boost-0004"),
 			ClaimId:   "claim-1",
 			Recipient: validInsuranceAddress("insurance-boost-0005"),
-			Amount:    &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+			Amount:    sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 		}
 	}
 	for _, tc := range []struct {
@@ -501,7 +502,7 @@ func TestMsgProcessPayout_ValidateBasic_WhitespaceAuthority(t *testing.T) {
 		Authority: "   ",
 		ClaimId:   "claim-1",
 		Recipient: validInsuranceAddress("insurance-boost-0005"),
-		Amount:    &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		Amount:    sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 	}
 	err := msg.ValidateBasic()
 	assert.Error(t, err)
@@ -513,7 +514,7 @@ func TestMsgProcessPayout_ValidateBasic_WhitespaceClaimId(t *testing.T) {
 		Authority: validInsuranceAddress("insurance-boost-0004"),
 		ClaimId:   "\n\t",
 		Recipient: validInsuranceAddress("insurance-boost-0005"),
-		Amount:    &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		Amount:    sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 	}
 	err := msg.ValidateBasic()
 	assert.Error(t, err)
@@ -525,7 +526,7 @@ func TestMsgProcessPayout_ValidateBasic_WhitespaceRecipient(t *testing.T) {
 		Authority: validInsuranceAddress("insurance-boost-0004"),
 		ClaimId:   "claim-1",
 		Recipient: "  ",
-		Amount:    &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		Amount:    sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 	}
 	err := msg.ValidateBasic()
 	assert.Error(t, err)
@@ -604,7 +605,7 @@ func TestGenesisState_Validate_NilPoolIsValid(t *testing.T) {
 func TestGenesisState_Validate_ClaimWithNilAmountIsValid(t *testing.T) {
 	gs := DefaultGenesis()
 	gs.Claims = []*Claim{
-		{Id: "claim-1", Status: ClaimStatus_CLAIM_STATUS_PENDING, ClaimedAmount: nil},
+		{Id: "claim-1", Status: ClaimStatus_CLAIM_STATUS_PENDING, ClaimedAmount: sdk.Coin{}},
 	}
 	err := gs.Validate()
 	assert.NoError(t, err)
@@ -614,12 +615,14 @@ func TestGenesisState_Validate_ClaimEmptyAmountStringParsesAsZero(t *testing.T) 
 	gs := DefaultGenesis()
 	gs.Claims = []*Claim{
 		{
-			Id:            "claim-1",
-			Status:        ClaimStatus_CLAIM_STATUS_PENDING,
-			ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: ""},
+			Id:     "claim-1",
+			Status: ClaimStatus_CLAIM_STATUS_PENDING,
+			// Post-gogoproto ClaimedAmount is a value sdk.Coin; an unset amount is
+			// a nil math.Int (IsNil), which genesis.go skips as valid — the gogo
+			// analogue of the old empty-amount-string-parses-as-zero case.
+			ClaimedAmount: sdk.Coin{Denom: "ulac"},
 		},
 	}
-	// Empty string parses to zero which is valid
 	err := gs.Validate()
 	assert.NoError(t, err)
 }

@@ -1,13 +1,10 @@
 package keeper
 
 import (
-	"testing"
-	"time"
-
-	v1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/timestamppb"
+	"testing"
+	"time"
 
 	"github.com/LumeraProtocol/lumera/x/credits/types"
 )
@@ -43,9 +40,9 @@ func TestLockStateInvariant_ValidActiveLockPasses(t *testing.T) {
 	lock := &types.Lock{
 		LockId:    "lock-valid",
 		Router:    "lumera1router",
-		Amount:    &v1beta1.Coin{Denom: types.DefaultCreditDenom, Amount: "1000000"},
+		Amount:    protoCoin(types.DefaultCreditDenom, "1000000"),
 		Status:    types.LockStatus_LOCK_STATUS_ACTIVE,
-		ExpiresAt: timestamppb.New(now.Add(time.Hour)),
+		ExpiresAt: now.Add(time.Hour),
 	}
 	require.NoError(t, keeper.SaveLock(ctx, lock))
 
@@ -67,9 +64,9 @@ func TestLockStateInvariant_NonPositiveAmountBreaks(t *testing.T) {
 	lock := &types.Lock{
 		LockId:    "lock-zero",
 		Router:    "lumera1router",
-		Amount:    &v1beta1.Coin{Denom: types.DefaultCreditDenom, Amount: "0"},
+		Amount:    protoCoin(types.DefaultCreditDenom, "0"),
 		Status:    types.LockStatus_LOCK_STATUS_ACTIVE,
-		ExpiresAt: timestamppb.New(now.Add(time.Hour)),
+		ExpiresAt: now.Add(time.Hour),
 	}
 	require.NoError(t, keeper.SaveLock(ctx, lock))
 
@@ -93,9 +90,9 @@ func TestLockStateInvariant_ActiveLockMissingExpiryBreaks(t *testing.T) {
 	lock := &types.Lock{
 		LockId:    "lock-no-expiry",
 		Router:    "lumera1router",
-		Amount:    &v1beta1.Coin{Denom: types.DefaultCreditDenom, Amount: "1000000"},
+		Amount:    protoCoin(types.DefaultCreditDenom, "1000000"),
 		Status:    types.LockStatus_LOCK_STATUS_ACTIVE,
-		ExpiresAt: nil, // intentionally missing
+		ExpiresAt: time.Time{}, // intentionally missing (zero value == unset)
 	}
 	require.NoError(t, keeper.SaveLock(ctx, lock))
 
@@ -121,9 +118,9 @@ func TestLockStateInvariant_ActiveLockAlreadyExpiredBreaks(t *testing.T) {
 	lock := &types.Lock{
 		LockId:    "lock-stale",
 		Router:    "lumera1router",
-		Amount:    &v1beta1.Coin{Denom: types.DefaultCreditDenom, Amount: "1000000"},
+		Amount:    protoCoin(types.DefaultCreditDenom, "1000000"),
 		Status:    types.LockStatus_LOCK_STATUS_ACTIVE,
-		ExpiresAt: timestamppb.New(now.Add(-time.Hour)), // expired 1h ago
+		ExpiresAt: now.Add(-time.Hour), // expired 1h ago
 	}
 	require.NoError(t, keeper.SaveLock(ctx, lock))
 
@@ -149,7 +146,7 @@ func TestLockStateInvariant_UnspecifiedStatusBreaks(t *testing.T) {
 	lock := &types.Lock{
 		LockId: "lock-unspecified",
 		Router: "lumera1router",
-		Amount: &v1beta1.Coin{Denom: types.DefaultCreditDenom, Amount: "1000000"},
+		Amount: protoCoin(types.DefaultCreditDenom, "1000000"),
 		Status: types.LockStatus_LOCK_STATUS_UNSPECIFIED, // zero value
 	}
 	require.NoError(t, keeper.SaveLock(ctx, lock))
@@ -177,16 +174,16 @@ func TestLockStateInvariant_NonActiveLocksSkipExpiryCheck(t *testing.T) {
 	released := &types.Lock{
 		LockId:    "lock-released",
 		Router:    "lumera1router",
-		Amount:    &v1beta1.Coin{Denom: types.DefaultCreditDenom, Amount: "1000000"},
+		Amount:    protoCoin(types.DefaultCreditDenom, "1000000"),
 		Status:    types.LockStatus_LOCK_STATUS_RELEASED,
-		ExpiresAt: timestamppb.New(now.Add(-time.Hour)), // past expiry, but released
+		ExpiresAt: now.Add(-time.Hour), // past expiry, but released
 	}
 	require.NoError(t, keeper.SaveLock(ctx, released))
 
 	burned := &types.Lock{
 		LockId: "lock-burned",
 		Router: "lumera1router",
-		Amount: &v1beta1.Coin{Denom: types.DefaultCreditDenom, Amount: "500000"},
+		Amount: protoCoin(types.DefaultCreditDenom, "500000"),
 		Status: types.LockStatus_LOCK_STATUS_BURNED,
 		// ExpiresAt intentionally nil
 	}
@@ -214,14 +211,14 @@ func TestLockStateInvariant_AggregatesMultipleIssues(t *testing.T) {
 	require.NoError(t, keeper.SaveLock(ctx, &types.Lock{
 		LockId:    "lock-bad-1",
 		Router:    "lumera1r1",
-		Amount:    &v1beta1.Coin{Denom: types.DefaultCreditDenom, Amount: "0"}, // bad
+		Amount:    protoCoin(types.DefaultCreditDenom, "0"), // bad
 		Status:    types.LockStatus_LOCK_STATUS_ACTIVE,
-		ExpiresAt: timestamppb.New(now.Add(time.Hour)),
+		ExpiresAt: now.Add(time.Hour),
 	}))
 	require.NoError(t, keeper.SaveLock(ctx, &types.Lock{
 		LockId: "lock-bad-2",
 		Router: "lumera1r2",
-		Amount: &v1beta1.Coin{Denom: types.DefaultCreditDenom, Amount: "1000"},
+		Amount: protoCoin(types.DefaultCreditDenom, "1000"),
 		Status: types.LockStatus_LOCK_STATUS_UNSPECIFIED, // bad
 	}))
 

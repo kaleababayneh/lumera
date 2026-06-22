@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	basev1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -40,7 +39,7 @@ func TestGenesisRoundtrip_FullState(t *testing.T) {
 		ReceiptId:     "receipt-genesis-1",
 		ToolId:        "tool-alpha",
 		PublisherId:   "pub-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "500"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(500)},
 		Reason:        "Test claim 1",
 	})
 	require.NoError(t, err)
@@ -52,7 +51,7 @@ func TestGenesisRoundtrip_FullState(t *testing.T) {
 		ReceiptId:     "receipt-genesis-2",
 		ToolId:        "tool-beta",
 		PublisherId:   "pub-2",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "1000"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(1000)},
 		Reason:        "Test claim 2",
 	})
 	require.NoError(t, err)
@@ -60,7 +59,7 @@ func TestGenesisRoundtrip_FullState(t *testing.T) {
 		Authority:      authority,
 		ClaimId:        claimID2,
 		Resolution:     "approve",
-		ApprovedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "1000"},
+		ApprovedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(1000)},
 	}))
 
 	// Claim 3: Paid (creates payout record)
@@ -74,7 +73,7 @@ func TestGenesisRoundtrip_FullState(t *testing.T) {
 		ReceiptId:     "receipt-genesis-3",
 		ToolId:        "tool-gamma",
 		PublisherId:   "pub-3",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "300"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(300)},
 		Reason:        "Test claim 3",
 	})
 	require.NoError(t, err)
@@ -82,7 +81,7 @@ func TestGenesisRoundtrip_FullState(t *testing.T) {
 		Authority:      authority,
 		ClaimId:        claimID3,
 		Resolution:     "approve",
-		ApprovedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "300"},
+		ApprovedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(300)},
 	}))
 	_, err = msgServer.ProcessPayout(ctx, &types.MsgProcessPayout{
 		Authority: authority,
@@ -100,7 +99,7 @@ func TestGenesisRoundtrip_FullState(t *testing.T) {
 			ReceiptId:     receiptID,
 			ToolId:        "tool-risky",
 			PublisherId:   "risky-publisher",
-			ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "50"},
+			ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(50)},
 			Reason:        "Risk building",
 		})
 		require.NoError(t, err)
@@ -108,7 +107,7 @@ func TestGenesisRoundtrip_FullState(t *testing.T) {
 			Authority:      authority,
 			ClaimId:        claimID,
 			Resolution:     "approve",
-			ApprovedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "50"},
+			ApprovedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(50)},
 		}))
 		_, err = msgServer.ProcessPayout(ctx, &types.MsgProcessPayout{
 			Authority: authority,
@@ -207,7 +206,7 @@ func TestReserveAccounting_Invariant_TotalEqAvailablePlusReserved(t *testing.T) 
 		ReceiptId:     "receipt-inv-1",
 		ToolId:        "tool-alpha",
 		PublisherId:   "pub-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "200"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(200)},
 		Reason:        "Invariant test",
 	})
 	require.NoError(t, err)
@@ -217,7 +216,7 @@ func TestReserveAccounting_Invariant_TotalEqAvailablePlusReserved(t *testing.T) 
 		Authority:      authority,
 		ClaimId:        claimID,
 		Resolution:     "approve",
-		ApprovedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "200"},
+		ApprovedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(200)},
 	})
 	require.NoError(t, err)
 	verifyInvariant("after approving claim (funds reserved)")
@@ -243,7 +242,7 @@ func TestReserveAccounting_Invariant_TotalEqAvailablePlusReserved(t *testing.T) 
 		ReceiptId:     "receipt-inv-2",
 		ToolId:        "tool-beta",
 		PublisherId:   "pub-2",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "150"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(150)},
 		Reason:        "To be rejected",
 	})
 	require.NoError(t, err)
@@ -285,7 +284,7 @@ func TestEndBlocker_LeverageCapAutoApproval(t *testing.T) {
 		ReceiptId:     "receipt-leverage-ok",
 		ToolId:        "tool-alpha",
 		PublisherId:   "pub-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "300"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(300)},
 		Reason:        "Under leverage cap",
 	})
 	require.NoError(t, err)
@@ -298,7 +297,7 @@ func TestEndBlocker_LeverageCapAutoApproval(t *testing.T) {
 		ReceiptId:     "receipt-leverage-high",
 		ToolId:        "tool-beta",
 		PublisherId:   "pub-2",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "500"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(500)},
 		Reason:        "Over leverage cap",
 	})
 	require.NoError(t, err)
@@ -346,7 +345,7 @@ func TestEndBlocker_LeverageCapBoundary(t *testing.T) {
 		ReceiptId:     "receipt-exact-4x",
 		ToolId:        "tool-alpha",
 		PublisherId:   "pub-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "400"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(400)},
 		Reason:        "Exactly 4x leverage",
 	})
 	require.NoError(t, err)
@@ -398,7 +397,7 @@ func TestRecidivism_AllTiers(t *testing.T) {
 			ReceiptId:     receiptID,
 			ToolId:        toolID,
 			PublisherId:   publisherID,
-			ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: sdkmath.NewInt(amount).String()},
+			ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(amount)},
 			Reason:        "Recidivism tier test",
 		})
 		require.NoError(t, err)
@@ -407,7 +406,7 @@ func TestRecidivism_AllTiers(t *testing.T) {
 			Authority:      authority,
 			ClaimId:        claimID,
 			Resolution:     "approve",
-			ApprovedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: sdkmath.NewInt(amount).String()},
+			ApprovedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(amount)},
 		}))
 
 		balanceBefore := bankKeeper.GetAllBalances(ctx, claimantAddr).AmountOf("ulac")
@@ -715,8 +714,8 @@ func TestGenesisValidation_ClaimDuplicates(t *testing.T) {
 	genesis := &types.GenesisState{
 		Params: types.DefaultParams(),
 		Claims: []*types.Claim{
-			{Id: "claim-1", Status: types.ClaimStatus_CLAIM_STATUS_PENDING, ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "100"}},
-			{Id: "claim-1", Status: types.ClaimStatus_CLAIM_STATUS_PENDING, ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "200"}},
+			{Id: "claim-1", Status: types.ClaimStatus_CLAIM_STATUS_PENDING, ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)}},
+			{Id: "claim-1", Status: types.ClaimStatus_CLAIM_STATUS_PENDING, ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(200)}},
 		},
 		ClaimSequence:  1,
 		PayoutSequence: 1,
@@ -834,7 +833,7 @@ func TestContribution_ReceiptOwnershipVerification(t *testing.T) {
 		ReceiptId:     "receipt-owner",
 		ToolId:        "tool-alpha",
 		PublisherId:   "pub-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "500"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(500)},
 		Reason:        "Testing ownership",
 	})
 	// May succeed or fail depending on whether ownership was recorded
@@ -868,7 +867,7 @@ func TestEndBlocker_ModuleDisabled(t *testing.T) {
 		ReceiptId:     "receipt-disabled",
 		ToolId:        "tool-alpha",
 		PublisherId:   "pub-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "50"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(50)},
 		Reason:        "Should not auto-approve when disabled",
 	})
 	require.NoError(t, err)
@@ -912,7 +911,7 @@ func TestPayout_PartialOverride(t *testing.T) {
 		ReceiptId:     "receipt-partial-override",
 		ToolId:        "tool-alpha",
 		PublisherId:   "pub-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "1000"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(1000)},
 		Reason:        "Partial payout test",
 	})
 	require.NoError(t, err)
@@ -923,7 +922,7 @@ func TestPayout_PartialOverride(t *testing.T) {
 		Authority:      authority,
 		ClaimId:        claimID,
 		Resolution:     "approve",
-		ApprovedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "1000"},
+		ApprovedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(1000)},
 	}))
 
 	// Process payout with override amount (pay only 600 of 1000 approved)
@@ -932,9 +931,9 @@ func TestPayout_PartialOverride(t *testing.T) {
 		Authority: authority,
 		ClaimId:   claimID,
 		Recipient: claimantAddr.String(),
-		Amount: &basev1beta1.Coin{
+		Amount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "600",
+			Amount: sdkmath.NewInt(600),
 		},
 	})
 	require.NoError(t, err)
@@ -980,7 +979,7 @@ func TestGenesisValidation_NegativeClaimAmount(t *testing.T) {
 			{
 				Id:            "claim-neg",
 				Status:        types.ClaimStatus_CLAIM_STATUS_PENDING,
-				ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "-100"},
+				ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(-100)},
 			},
 		},
 		ClaimSequence:  1,

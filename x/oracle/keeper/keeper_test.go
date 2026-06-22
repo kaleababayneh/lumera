@@ -8,18 +8,18 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 
-	"cosmossdk.io/log/v2"
+	"cosmossdk.io/log"
 	sdkmath "cosmossdk.io/math"
+	"cosmossdk.io/store/metrics"
+	"cosmossdk.io/store/rootmulti"
+	storetypes "cosmossdk.io/store/types"
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
-	"github.com/cosmos/cosmos-sdk/store/v2/rootmulti"
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/LumeraProtocol/lumera/x/oracle/types"
 )
@@ -30,7 +30,7 @@ func setupOracleKeeper(t *testing.T) (sdk.Context, *Keeper) {
 	db := dbm.NewMemDB()
 	logger := log.NewNopLogger()
 
-	cms := rootmulti.NewStore(db, logger)
+	cms := rootmulti.NewStore(db, logger, metrics.NewNoOpMetrics())
 	cms.MountStoreWithDB(storeKey, storetypes.StoreTypeIAVL, db)
 	require.NoError(t, cms.LoadLatestVersion())
 
@@ -104,7 +104,7 @@ func TestSetGetPriceFeed(t *testing.T) {
 	feed := &types.PriceFeed{
 		AssetPair: "LAC/USD",
 		Price:     "1.50",
-		Timestamp: timestamppb.Now(),
+		Timestamp: time.Now(),
 	}
 	require.NoError(t, k.SetPriceFeed(ctx, feed))
 
@@ -323,7 +323,7 @@ func TestGetAllPriceFeeds(t *testing.T) {
 		require.NoError(t, k.SetPriceFeed(ctx, &types.PriceFeed{
 			AssetPair: pair,
 			Price:     "100.0",
-			Timestamp: timestamppb.Now(),
+			Timestamp: time.Now(),
 		}))
 	}
 	feeds, err := k.GetAllPriceFeeds(ctx)
@@ -343,7 +343,7 @@ func TestSetGetAggregatedPrice(t *testing.T) {
 		MeanPrice:     "3510.00",
 		NumValidators: 5,
 		BlockHeight:   10,
-		Timestamp:     timestamppb.Now(),
+		Timestamp:     time.Now(),
 	}
 	require.NoError(t, k.SetAggregatedPrice(ctx, ap))
 
@@ -471,7 +471,7 @@ func TestGetAllAggregatedPrices(t *testing.T) {
 		require.NoError(t, k.SetAggregatedPrice(ctx, &types.AggregatedPrice{
 			AssetPair:   pair,
 			MedianPrice: "1000",
-			Timestamp:   timestamppb.Now(),
+			Timestamp:   time.Now(),
 		}))
 	}
 	prices, err := k.GetAllAggregatedPrices(ctx)
@@ -489,7 +489,7 @@ func TestSetGetValidatorVote(t *testing.T) {
 		ValidatorAddress: "val1",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: "1.5"}},
 		BlockHeight:      1,
-		Timestamp:        timestamppb.Now(),
+		Timestamp:        time.Now(),
 	}
 	require.NoError(t, k.SetValidatorVote(ctx, vote))
 
@@ -521,20 +521,20 @@ func TestSetValidatorVoteZeroHeight(t *testing.T) {
 
 func TestSetValidatorVoteMonotonicHeight(t *testing.T) {
 	ctx, k := setupOracleKeeper(t)
-	vote1 := &types.ValidatorVote{ValidatorAddress: "val1", BlockHeight: 5, Timestamp: timestamppb.Now()}
+	vote1 := &types.ValidatorVote{ValidatorAddress: "val1", BlockHeight: 5, Timestamp: time.Now()}
 	require.NoError(t, k.SetValidatorVote(ctx, vote1))
 
-	vote2 := &types.ValidatorVote{ValidatorAddress: "val1", BlockHeight: 3, Timestamp: timestamppb.Now()}
+	vote2 := &types.ValidatorVote{ValidatorAddress: "val1", BlockHeight: 3, Timestamp: time.Now()}
 	err := k.SetValidatorVote(ctx, vote2)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "must be greater than")
 
 	// Same height should also fail
-	vote3 := &types.ValidatorVote{ValidatorAddress: "val1", BlockHeight: 5, Timestamp: timestamppb.Now()}
+	vote3 := &types.ValidatorVote{ValidatorAddress: "val1", BlockHeight: 5, Timestamp: time.Now()}
 	require.Error(t, k.SetValidatorVote(ctx, vote3))
 
 	// Higher height should succeed
-	vote4 := &types.ValidatorVote{ValidatorAddress: "val1", BlockHeight: 10, Timestamp: timestamppb.Now()}
+	vote4 := &types.ValidatorVote{ValidatorAddress: "val1", BlockHeight: 10, Timestamp: time.Now()}
 	require.NoError(t, k.SetValidatorVote(ctx, vote4))
 }
 
@@ -556,7 +556,7 @@ func TestGetAllValidatorVotes(t *testing.T) {
 		require.NoError(t, k.SetValidatorVote(ctx, &types.ValidatorVote{
 			ValidatorAddress: "val" + string(rune('0'+i)),
 			BlockHeight:      int64(i),
-			Timestamp:        timestamppb.Now(),
+			Timestamp:        time.Now(),
 		}))
 	}
 	votes, err := k.GetAllValidatorVotes(ctx)
@@ -570,7 +570,7 @@ func TestClearValidatorVotes(t *testing.T) {
 		require.NoError(t, k.SetValidatorVote(ctx, &types.ValidatorVote{
 			ValidatorAddress: "val" + string(rune('0'+i)),
 			BlockHeight:      int64(i),
-			Timestamp:        timestamppb.Now(),
+			Timestamp:        time.Now(),
 		}))
 	}
 	require.NoError(t, k.ClearValidatorVotes(ctx))
@@ -586,15 +586,15 @@ func TestClearValidatorVotes(t *testing.T) {
 
 func TestFilterStaleVotes(t *testing.T) {
 	now := time.Unix(1_700_000_100, 0).UTC()
-	ts := func(sec int64) *timestamppb.Timestamp {
-		return timestamppb.New(time.Unix(sec, 0).UTC())
+	ts := func(sec int64) time.Time {
+		return time.Unix(sec, 0).UTC()
 	}
 	votes := []*types.ValidatorVote{
 		{ValidatorAddress: "v1", Timestamp: ts(1_700_000_050)}, // 50s ago - ok
 		{ValidatorAddress: "v2", Timestamp: ts(1_700_000_000)}, // 100s ago - ok
 		{ValidatorAddress: "v3", Timestamp: ts(1_699_999_700)}, // 400s ago - stale
 		{ValidatorAddress: "v4", Timestamp: ts(1_700_000_200)}, // future - rejected
-		{ValidatorAddress: "v5", Timestamp: nil},               // nil ts - rejected
+		{ValidatorAddress: "v5", Timestamp: time.Time{}},       // zero ts - rejected
 		nil,                                                    // nil vote - skipped
 	}
 	valid := filterStaleVotes(votes, now, 300)
@@ -710,7 +710,7 @@ func TestAggregateVotesHappyPath(t *testing.T) {
 	require.NoError(t, k.SetParams(ctx, types.DefaultParams()))
 
 	now := ctx.BlockTime()
-	ts := timestamppb.New(now)
+	ts := now
 
 	for i, price := range []string{"100", "102", "101"} {
 		require.NoError(t, k.SetValidatorVote(ctx, &types.ValidatorVote{
@@ -744,7 +744,7 @@ func TestAggregateVotesAllStale(t *testing.T) {
 	ctx, k := setupOracleKeeper(t)
 	require.NoError(t, k.SetParams(ctx, types.DefaultParams()))
 
-	staleTime := timestamppb.New(ctx.BlockTime().Add(-10 * time.Minute))
+	staleTime := ctx.BlockTime().Add(-10 * time.Minute)
 	require.NoError(t, k.SetValidatorVote(ctx, &types.ValidatorVote{
 		ValidatorAddress: "val-stale",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: "100"}},
@@ -767,7 +767,7 @@ func TestAggregateVotesOutlierFiltering(t *testing.T) {
 	require.NoError(t, k.SetParams(ctx, p))
 
 	now := ctx.BlockTime()
-	ts := timestamppb.New(now)
+	ts := now
 
 	// 3 validators with similar prices, 1 outlier
 	prices := []string{"100", "101", "102", "500"}
@@ -793,7 +793,7 @@ func TestAggregateVotesMultipleAssets(t *testing.T) {
 	require.NoError(t, k.SetParams(ctx, types.DefaultParams()))
 
 	now := ctx.BlockTime()
-	ts := timestamppb.New(now)
+	ts := now
 
 	for i := 0; i < 3; i++ {
 		require.NoError(t, k.SetValidatorVote(ctx, &types.ValidatorVote{
@@ -828,7 +828,7 @@ func TestValidateVoteHappyPath(t *testing.T) {
 		ValidatorAddress: "val1",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: "1.5"}},
 		BlockHeight:      1,
-		Timestamp:        timestamppb.New(ctx.BlockTime()),
+		Timestamp:        ctx.BlockTime(),
 	}
 	require.NoError(t, k.ValidateVote(ctx, vote))
 }
@@ -846,7 +846,7 @@ func TestValidateVoteNoTimestamp(t *testing.T) {
 		ValidatorAddress: "val1",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: "1.5"}},
 		BlockHeight:      1,
-		Timestamp:        nil,
+		Timestamp:        time.Time{},
 	}
 	require.Error(t, k.ValidateVote(ctx, vote))
 }
@@ -859,7 +859,7 @@ func TestValidateVoteFutureTimestamp(t *testing.T) {
 		ValidatorAddress: "val1",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: "1.5"}},
 		BlockHeight:      1,
-		Timestamp:        timestamppb.New(ctx.BlockTime().Add(10 * time.Minute)),
+		Timestamp:        ctx.BlockTime().Add(10 * time.Minute),
 	}
 	require.Error(t, k.ValidateVote(ctx, vote))
 }
@@ -872,7 +872,7 @@ func TestValidateVoteStale(t *testing.T) {
 		ValidatorAddress: "val1",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: "1.5"}},
 		BlockHeight:      1,
-		Timestamp:        timestamppb.New(ctx.BlockTime().Add(-10 * time.Minute)),
+		Timestamp:        ctx.BlockTime().Add(-10 * time.Minute),
 	}
 	require.Error(t, k.ValidateVote(ctx, vote))
 }
@@ -885,7 +885,7 @@ func TestValidateVoteInvalidAssetPair(t *testing.T) {
 		ValidatorAddress: "val1",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "NOPE/NOPE", Price: "1.5"}},
 		BlockHeight:      1,
-		Timestamp:        timestamppb.New(ctx.BlockTime()),
+		Timestamp:        ctx.BlockTime(),
 	}
 	err := k.ValidateVote(ctx, vote)
 	require.Error(t, err)
@@ -900,7 +900,7 @@ func TestValidateVoteInvalidPrice(t *testing.T) {
 		ValidatorAddress: "val1",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: "-1"}},
 		BlockHeight:      1,
-		Timestamp:        timestamppb.New(ctx.BlockTime()),
+		Timestamp:        ctx.BlockTime(),
 	}
 	err := k.ValidateVote(ctx, vote)
 	require.Error(t, err)
@@ -914,7 +914,7 @@ func TestValidateVoteEmptyAssetPair(t *testing.T) {
 		ValidatorAddress: "val1",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "", Price: "1.5"}},
 		BlockHeight:      1,
-		Timestamp:        timestamppb.New(ctx.BlockTime()),
+		Timestamp:        ctx.BlockTime(),
 	}
 	require.Error(t, k.ValidateVote(ctx, vote))
 }
@@ -927,7 +927,7 @@ func TestValidateVoteNilFeed(t *testing.T) {
 		ValidatorAddress: "val1",
 		PriceFeeds:       []*types.PriceFeed{nil},
 		BlockHeight:      1,
-		Timestamp:        timestamppb.New(ctx.BlockTime()),
+		Timestamp:        ctx.BlockTime(),
 	}
 	require.Error(t, k.ValidateVote(ctx, vote))
 }
@@ -959,7 +959,7 @@ func TestQueryServerPriceFeed(t *testing.T) {
 	require.NoError(t, k.SetPriceFeed(ctx, &types.PriceFeed{
 		AssetPair: "LAC/USD",
 		Price:     "1.5",
-		Timestamp: timestamppb.Now(),
+		Timestamp: time.Now(),
 	}))
 
 	qs := NewQueryServerImpl(*k)
@@ -986,7 +986,7 @@ func TestQueryServerAllPriceFeeds(t *testing.T) {
 	ctx, k := setupOracleKeeper(t)
 	for _, pair := range []string{"LAC/USD", "ETH/USD"} {
 		require.NoError(t, k.SetPriceFeed(ctx, &types.PriceFeed{
-			AssetPair: pair, Price: "100", Timestamp: timestamppb.Now(),
+			AssetPair: pair, Price: "100", Timestamp: time.Now(),
 		}))
 	}
 	qs := NewQueryServerImpl(*k)
@@ -1008,7 +1008,7 @@ func TestQueryServerAggregatedPrice(t *testing.T) {
 		AssetPair:     "BTC/USD",
 		MedianPrice:   "50000",
 		NumValidators: 10,
-		Timestamp:     timestamppb.Now(),
+		Timestamp:     time.Now(),
 	}))
 
 	qs := NewQueryServerImpl(*k)

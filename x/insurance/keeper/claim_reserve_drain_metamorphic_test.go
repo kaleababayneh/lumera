@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	sdkmath "cosmossdk.io/math"
-	basev1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/shopspring/decimal"
@@ -104,9 +103,9 @@ func fileApprovePay(
 		ReceiptId:   receiptID,
 		ToolId:      toolID,
 		PublisherId: publisherID,
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: sdkmath.NewInt(approvedAmount).String(),
+			Amount: sdkmath.NewInt(approvedAmount),
 		},
 		Reason: "metamorphic test",
 	}
@@ -118,19 +117,21 @@ func fileApprovePay(
 		Authority:  authority,
 		ClaimId:    claimID,
 		Resolution: "approve",
-		ApprovedAmount: &basev1beta1.Coin{
+		ApprovedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: sdkmath.NewInt(approvedAmount).String(),
+			Amount: sdkmath.NewInt(approvedAmount),
 		},
 	}))
 
 	if payoutAmount > 0 {
 		recipient := sdk.AccAddress("recipient_xxxxxxxxxxx").String()
-		var amountField *basev1beta1.Coin
+		// Unset Amount (zero-value sdk.Coin) means "pay the full approved amount";
+		// only override when the requested payout differs.
+		var amountField sdk.Coin
 		if payoutAmount != approvedAmount {
-			amountField = &basev1beta1.Coin{
+			amountField = sdk.Coin{
 				Denom:  "ulac",
-				Amount: sdkmath.NewInt(payoutAmount).String(),
+				Amount: sdkmath.NewInt(payoutAmount),
 			}
 		}
 		msgServer := keeper.NewMsgServerImpl(fixture.keeper)
@@ -164,9 +165,9 @@ func fileApproveOnly(
 func payApprovedClaim(t *testing.T, fixture *keeperFixture, claimID string, payoutAmount int64) {
 	t.Helper()
 	authority := authtypes.NewModuleAddress("gov").String()
-	amountField := &basev1beta1.Coin{
+	amountField := sdk.Coin{
 		Denom:  "ulac",
-		Amount: sdkmath.NewInt(payoutAmount).String(),
+		Amount: sdkmath.NewInt(payoutAmount),
 	}
 	msgServer := keeper.NewMsgServerImpl(fixture.keeper)
 	_, err := msgServer.ProcessPayout(fixture.ctx, &types.MsgProcessPayout{

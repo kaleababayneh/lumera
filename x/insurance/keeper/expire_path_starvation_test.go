@@ -5,7 +5,8 @@ import (
 	"testing"
 	"time"
 
-	basev1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
+	sdkmath "cosmossdk.io/math"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -74,7 +75,7 @@ func TestEndBlocker_HighLeverageClaimsDoNotStarveLaterClaims(t *testing.T) {
 		ReceiptId:     "receipt-leverage-first",
 		ToolId:        "tool-alpha",
 		PublisherId:   "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "10"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(10)},
 		Reason:        "high-leverage first",
 	})
 	require.NoError(t, err)
@@ -86,7 +87,7 @@ func TestEndBlocker_HighLeverageClaimsDoNotStarveLaterClaims(t *testing.T) {
 		ReceiptId:     "receipt-small-second",
 		ToolId:        "tool-alpha",
 		PublisherId:   "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "5"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(5)},
 		Reason:        "small claim second",
 	})
 	require.NoError(t, err)
@@ -154,7 +155,7 @@ func TestEndBlocker_NoCoverageClaimsDoNotStarveLaterClaims(t *testing.T) {
 		ReceiptId:     "receipt-nocov-first",
 		ToolId:        "tool-alpha",
 		PublisherId:   "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "uother", Amount: "5"},
+		ClaimedAmount: sdk.Coin{Denom: "uother", Amount: sdkmath.NewInt(5)},
 		Reason:        "no-coverage first",
 	})
 	require.NoError(t, err)
@@ -166,7 +167,7 @@ func TestEndBlocker_NoCoverageClaimsDoNotStarveLaterClaims(t *testing.T) {
 		ReceiptId:     "receipt-small-second",
 		ToolId:        "tool-alpha",
 		PublisherId:   "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "5"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(5)},
 		Reason:        "small claim second",
 	})
 	require.NoError(t, err)

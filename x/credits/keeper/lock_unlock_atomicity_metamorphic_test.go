@@ -3,7 +3,6 @@ package keeper
 import (
 	"testing"
 
-	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,12 +37,8 @@ func computeActiveLockedSum(t *testing.T, ctx sdk.Context, k *Keeper) int64 {
 	t.Helper()
 	var sum int64
 	require.NoError(t, k.state.Locks.Walk(ctx, nil, func(_ string, lock *types.Lock) (bool, error) {
-		if lock != nil && lock.Status == types.LockStatus_LOCK_STATUS_ACTIVE && lock.Amount != nil {
-			amt, ok := sdkmath.NewIntFromString(lock.Amount.Amount)
-			if !ok {
-				return false, nil
-			}
-			sum += amt.Int64()
+		if lock != nil && lock.Status == types.LockStatus_LOCK_STATUS_ACTIVE && !lock.Amount.Amount.IsNil() {
+			sum += lock.Amount.Amount.Int64()
 		}
 		return false, nil
 	}))

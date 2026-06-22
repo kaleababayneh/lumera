@@ -9,7 +9,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/LumeraProtocol/lumera/x/oracle/types"
 )
@@ -80,7 +79,7 @@ func submitVote(t *testing.T, k *Keeper, ctx sdk.Context, validator, assetPair, 
 		ValidatorAddress: validator,
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: assetPair, Price: price}},
 		BlockHeight:      ctx.BlockHeight(),
-		Timestamp:        timestamppb.New(byzantineTestTime),
+		Timestamp:        byzantineTestTime,
 	}))
 }
 
@@ -316,7 +315,7 @@ func TestByzantineMR_DuplicateFeedIgnored(t *testing.T) {
 						{AssetPair: byzantineAssetPair, Price: "1000"},
 					},
 					BlockHeight: ctx.BlockHeight(),
-					Timestamp:   timestamppb.New(byzantineTestTime),
+					Timestamp:   byzantineTestTime,
 				}))
 			}
 

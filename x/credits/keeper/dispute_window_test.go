@@ -24,6 +24,10 @@ func (m disputeWindowRegistryKeeper) GetToolPublisher(context.Context, string) (
 	return nil, fmt.Errorf("publisher lookup not needed in dispute window tests")
 }
 
+func (m disputeWindowRegistryKeeper) ValidateReceipt(sdk.Context, string, string, string) error {
+	return nil
+}
+
 func (m disputeWindowRegistryKeeper) GetDisputeWindowSeconds(context.Context) uint32 {
 	return m.disputeWindowSeconds
 }
@@ -102,5 +106,5 @@ func TestSettleLockPartialFillUsesRegistryDisputeWindow(t *testing.T) {
 	require.True(t, found)
 	require.Equal(t, types.LockStatus_LOCK_STATUS_ACTIVE, lock.Status)
 	require.NotNil(t, lock.ExpiresAt)
-	require.Equal(t, ctx.BlockTime().Add(90*time.Second).Add(time.Hour), lock.ExpiresAt.AsTime())
+	require.Equal(t, ctx.BlockTime().Add(90*time.Second).Add(time.Hour), lock.ExpiresAt)
 }

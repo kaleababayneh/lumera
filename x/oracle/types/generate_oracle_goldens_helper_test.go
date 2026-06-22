@@ -8,19 +8,21 @@ import (
 	"path/filepath"
 	"testing"
 
+	"bytes"
+
+	"github.com/cosmos/gogoproto/jsonpb"
+	"github.com/cosmos/gogoproto/proto"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestGenerateOracleGoldens is gated by the generate_goldens build tag.
 // Run with: go test -tags='cosmos generate_goldens' -run TestGenerateOracleGoldens ./x/oracle/types/
 func TestGenerateOracleGoldens(t *testing.T) {
 	emit := func(filename string, msg proto.Message) {
-		opts := protojson.MarshalOptions{UseProtoNames: true, EmitUnpopulated: false}
-		raw, err := opts.Marshal(msg)
-		require.NoError(t, err)
+		m := jsonpb.Marshaler{OrigName: true, EmitDefaults: false}
+		var buf bytes.Buffer
+		require.NoError(t, m.Marshal(&buf, msg))
+		raw := buf.Bytes()
 		var intermediate map[string]interface{}
 		require.NoError(t, json.Unmarshal(raw, &intermediate))
 		canonical, err := json.Marshal(intermediate)
@@ -34,7 +36,7 @@ func TestGenerateOracleGoldens(t *testing.T) {
 		AssetPair:       "BTC/USD",
 		Price:           "42000.500000000000000000",
 		Volume_24H:      "1000000000",
-		Timestamp:       timestamppb.New(fixedOracleSnapshot),
+		Timestamp:       fixedOracleSnapshot,
 		Sources:         []string{"coinbase", "binance", "kraken"},
 		ConfidenceScore: "0.950000000000000000",
 	})
@@ -49,7 +51,7 @@ func TestGenerateOracleGoldens(t *testing.T) {
 			AssetPair:       "ETH/USD",
 			Price:           "2500.750000000000000000",
 			Volume_24H:      "500000000",
-			Timestamp:       timestamppb.New(fixedOracleSnapshot),
+			Timestamp:       fixedOracleSnapshot,
 			Sources:         []string{"binance", "coinbase"},
 			ConfidenceScore: "0.920000000000000000",
 		},
@@ -61,7 +63,7 @@ func TestGenerateOracleGoldens(t *testing.T) {
 				AssetPair:       "BTC/USD",
 				Price:           "42000.500000000000000000",
 				Volume_24H:      "1000000000",
-				Timestamp:       timestamppb.New(fixedOracleSnapshot),
+				Timestamp:       fixedOracleSnapshot,
 				Sources:         []string{"binance", "coinbase", "kraken"},
 				ConfidenceScore: "0.950000000000000000",
 			},
@@ -69,7 +71,7 @@ func TestGenerateOracleGoldens(t *testing.T) {
 				AssetPair:       "ETH/USD",
 				Price:           "2500.750000000000000000",
 				Volume_24H:      "500000000",
-				Timestamp:       timestamppb.New(fixedOracleSnapshot),
+				Timestamp:       fixedOracleSnapshot,
 				Sources:         []string{"binance", "coinbase"},
 				ConfidenceScore: "0.920000000000000000",
 			},
@@ -77,7 +79,7 @@ func TestGenerateOracleGoldens(t *testing.T) {
 				AssetPair:       "LAC/USD",
 				Price:           "1.250000000000000000",
 				Volume_24H:      "10000000",
-				Timestamp:       timestamppb.New(fixedOracleSnapshot),
+				Timestamp:       fixedOracleSnapshot,
 				Sources:         []string{"kraken"},
 				ConfidenceScore: "0.880000000000000000",
 			},
@@ -91,7 +93,7 @@ func TestGenerateOracleGoldens(t *testing.T) {
 		StandardDeviation: "12.500000000000000000",
 		NumValidators:     7,
 		BlockHeight:       1_000_000,
-		Timestamp:         timestamppb.New(fixedOracleSnapshot),
+		Timestamp:         fixedOracleSnapshot,
 	})
 
 	emit("query_aggregated_price_response.golden.json", &QueryAggregatedPriceResponse{
@@ -102,7 +104,7 @@ func TestGenerateOracleGoldens(t *testing.T) {
 			StandardDeviation: "5.250000000000000000",
 			NumValidators:     5,
 			BlockHeight:       1_000_000,
-			Timestamp:         timestamppb.New(fixedOracleSnapshot),
+			Timestamp:         fixedOracleSnapshot,
 		},
 	})
 }

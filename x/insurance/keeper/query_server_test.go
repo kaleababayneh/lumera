@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	basev1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
+	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
 	"github.com/stretchr/testify/require"
@@ -76,7 +76,7 @@ func TestQueryServer_PoolStatus_Empty(t *testing.T) {
 	require.NotNil(t, resp)
 	// Pool should have zero balance initially
 	for _, coin := range resp.Balance {
-		require.Equal(t, "0", coin.Amount)
+		require.Equal(t, "0", coin.Amount.String())
 	}
 }
 
@@ -104,7 +104,7 @@ func TestQueryServer_PoolStatus_WithContribution(t *testing.T) {
 	found := false
 	for _, coin := range resp.Balance {
 		if coin.Denom == "ulac" {
-			require.Equal(t, "500", coin.Amount)
+			require.Equal(t, "500", coin.Amount.String())
 			found = true
 		}
 	}
@@ -146,6 +146,9 @@ func TestQueryServer_PoolStatus_NilRequest(t *testing.T) {
 // --- GetClaim ---
 
 func TestQueryServer_GetClaim_HappyPath(t *testing.T) {
+	// FIXED: cloneClaim now deep-copies via a marshal/unmarshal round-trip
+	// (deepCopyProto) instead of proto.Clone, so a claim with a populated sdk.Coin
+	// amount no longer panics. Test re-enabled.
 	f := setupKeeperTest(t)
 
 	// Set up: fund module, contribute, then file claim
@@ -165,7 +168,7 @@ func TestQueryServer_GetClaim_HappyPath(t *testing.T) {
 		Claimant:      "lumera1claimant",
 		ToolId:        "tool-1",
 		PublisherId:   "pub-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "50"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(50)},
 		Reason:        "test claim",
 	})
 	require.NoError(t, err)
@@ -183,6 +186,9 @@ func TestQueryServer_GetClaim_HappyPath(t *testing.T) {
 }
 
 func TestQueryServer_GetClaim_CloneSafety(t *testing.T) {
+	// FIXED: cloneClaim now deep-copies via a marshal/unmarshal round-trip
+	// (deepCopyProto) instead of proto.Clone, so a claim with a populated sdk.Coin
+	// amount no longer panics. Test re-enabled.
 	f := setupKeeperTest(t)
 	claimID := seedQueryClaim(t, f, "receipt-claim-clone", "lumera1claimant")
 
@@ -193,13 +199,13 @@ func TestQueryServer_GetClaim_CloneSafety(t *testing.T) {
 
 	resp.Claim.Reason = "mutated"
 	resp.Claim.Status = types.ClaimStatus_CLAIM_STATUS_PAID
-	resp.Claim.ClaimedAmount.Amount = "999"
+	resp.Claim.ClaimedAmount.Amount = sdkmath.NewInt(999)
 
 	fresh, err := qs.GetClaim(f.ctx, &types.QueryGetClaimRequest{ClaimId: claimID})
 	require.NoError(t, err)
 	require.Equal(t, "test", fresh.Claim.Reason)
 	require.Equal(t, types.ClaimStatus_CLAIM_STATUS_PENDING, fresh.Claim.Status)
-	require.Equal(t, "50", fresh.Claim.ClaimedAmount.Amount)
+	require.Equal(t, "50", fresh.Claim.ClaimedAmount.Amount.String())
 }
 
 func TestQueryServer_GetClaim_NotFound(t *testing.T) {
@@ -439,6 +445,9 @@ func TestQueryServer_ListClaims_Empty(t *testing.T) {
 }
 
 func TestQueryServer_ListClaims_WithData(t *testing.T) {
+	// FIXED: cloneClaim now deep-copies via a marshal/unmarshal round-trip
+	// (deepCopyProto) instead of proto.Clone, so a claim with a populated sdk.Coin
+	// amount no longer panics. Test re-enabled.
 	f := setupKeeperTest(t)
 
 	// Set up two claims on different receipts
@@ -458,7 +467,7 @@ func TestQueryServer_ListClaims_WithData(t *testing.T) {
 			Claimant:      "lumera1claimant",
 			ToolId:        "tool-1",
 			PublisherId:   "pub-1",
-			ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "50"},
+			ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(50)},
 			Reason:        "test",
 		})
 		require.NoError(t, err)
@@ -471,6 +480,9 @@ func TestQueryServer_ListClaims_WithData(t *testing.T) {
 }
 
 func TestQueryServer_ListClaims_CloneSafety(t *testing.T) {
+	// FIXED: cloneClaim now deep-copies via a marshal/unmarshal round-trip
+	// (deepCopyProto) instead of proto.Clone, so a claim with a populated sdk.Coin
+	// amount no longer panics. Test re-enabled.
 	f := setupKeeperTest(t)
 	claimID := seedQueryClaim(t, f, "receipt-list-clone", "lumera1claimant")
 
@@ -481,16 +493,19 @@ func TestQueryServer_ListClaims_CloneSafety(t *testing.T) {
 
 	resp.Claims[0].Reason = "mutated"
 	resp.Claims[0].Status = types.ClaimStatus_CLAIM_STATUS_PAID
-	resp.Claims[0].ClaimedAmount.Amount = "999"
+	resp.Claims[0].ClaimedAmount.Amount = sdkmath.NewInt(999)
 
 	fresh, err := qs.GetClaim(f.ctx, &types.QueryGetClaimRequest{ClaimId: claimID})
 	require.NoError(t, err)
 	require.Equal(t, "test", fresh.Claim.Reason)
 	require.Equal(t, types.ClaimStatus_CLAIM_STATUS_PENDING, fresh.Claim.Status)
-	require.Equal(t, "50", fresh.Claim.ClaimedAmount.Amount)
+	require.Equal(t, "50", fresh.Claim.ClaimedAmount.Amount.String())
 }
 
 func TestQueryServer_ListClaims_PaginationKey(t *testing.T) {
+	// FIXED: cloneClaim now deep-copies via a marshal/unmarshal round-trip
+	// (deepCopyProto) instead of proto.Clone, so a claim with a populated sdk.Coin
+	// amount no longer panics. Test re-enabled.
 	f := setupKeeperTest(t)
 	claimIDs := make([]string, 0, 5)
 
@@ -529,6 +544,9 @@ func TestQueryServer_ListClaims_PaginationKey(t *testing.T) {
 }
 
 func TestQueryServer_ListClaims_CapsResponseAndCountsTotal(t *testing.T) {
+	// FIXED: cloneClaim now deep-copies via a marshal/unmarshal round-trip
+	// (deepCopyProto) instead of proto.Clone, so a claim with a populated sdk.Coin
+	// amount no longer panics. Test re-enabled.
 	const queryLimit = 1000
 	const totalClaims = queryLimit + 5
 
@@ -592,6 +610,9 @@ func TestQueryServer_ListClaims_RejectsMixedPaginationKeyAndOffset(t *testing.T)
 }
 
 func TestQueryServer_ListClaims_FilterByClaimant(t *testing.T) {
+	// FIXED: cloneClaim now deep-copies via a marshal/unmarshal round-trip
+	// (deepCopyProto) instead of proto.Clone, so a claim with a populated sdk.Coin
+	// amount no longer panics. Test re-enabled.
 	f := setupKeeperTest(t)
 
 	creditsAccount := f.accountKeeper.GetModuleAccount(f.ctx, creditstypes.ModuleName)
@@ -609,7 +630,7 @@ func TestQueryServer_ListClaims_FilterByClaimant(t *testing.T) {
 		Claimant:      "lumera1alice",
 		ToolId:        "tool-1",
 		PublisherId:   "pub-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "50"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(50)},
 		Reason:        "test",
 	})
 	require.NoError(t, err)
@@ -621,7 +642,7 @@ func TestQueryServer_ListClaims_FilterByClaimant(t *testing.T) {
 		Claimant:      "lumera1bob",
 		ToolId:        "tool-1",
 		PublisherId:   "pub-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "50"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(50)},
 		Reason:        "test",
 	})
 	require.NoError(t, err)
@@ -657,7 +678,7 @@ func seedQueryClaim(t *testing.T, f *keeperFixture, receiptID, claimant string) 
 		Claimant:      claimant,
 		ToolId:        "tool-1",
 		PublisherId:   "pub-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "50"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(50)},
 		Reason:        "test",
 	})
 	require.NoError(t, err)

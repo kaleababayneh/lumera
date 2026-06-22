@@ -5,17 +5,17 @@ import (
 	"testing"
 	"time"
 
-	basev1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
 	coreaddress "cosmossdk.io/core/address"
-	"cosmossdk.io/log/v2"
+	"cosmossdk.io/log"
 	sdkmath "cosmossdk.io/math"
+	"cosmossdk.io/store"
+	"cosmossdk.io/store/metrics"
+	storetypes "cosmossdk.io/store/types"
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
-	"github.com/cosmos/cosmos-sdk/store/v2"
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -80,7 +80,7 @@ func newKeeperFixture(t testing.TB) *keeperFixture {
 	t.Helper()
 
 	db := dbm.NewMemDB()
-	stateStore := store.NewCommitMultiStore(db, log.NewNopLogger())
+	stateStore := store.NewCommitMultiStore(db, log.NewNopLogger(), metrics.NewNoOpMetrics())
 
 	insuranceKey := storetypes.NewKVStoreKey(types.StoreKey)
 	authKey := storetypes.NewKVStoreKey(authtypes.StoreKey)
@@ -300,7 +300,7 @@ func (suite *KeeperTestSuite) TestCreditWorkflowWastedFeeToPool() {
 	require.Equal(suite.T(), "wf-failure", genesis.Contributions[0].ToolId)
 	require.Equal(suite.T(), "lumera1author", genesis.Contributions[0].PublisherId)
 	require.Equal(suite.T(), "policy@1", genesis.Contributions[0].PolicyVersion)
-	require.Equal(suite.T(), "3", genesis.Contributions[0].Amount.Amount)
+	require.Equal(suite.T(), "3", genesis.Contributions[0].Amount.Amount.String())
 
 	balance, err := suite.keeper.GetPoolBalance(suite.ctx)
 	require.NoError(suite.T(), err)
@@ -411,9 +411,9 @@ func (suite *KeeperTestSuite) TestCreditWorkflowWastedFeeToPoolFundsClaimsPayout
 		ReceiptId:   receiptID,
 		ToolId:      "wf-failure",
 		PublisherId: "lumera1author",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "2",
+			Amount: sdkmath.NewInt(2),
 		},
 		Reason: "workflow wasted-work fee refund",
 	})
@@ -425,9 +425,9 @@ func (suite *KeeperTestSuite) TestCreditWorkflowWastedFeeToPoolFundsClaimsPayout
 		Authority:  authority,
 		ClaimId:    claimID,
 		Resolution: "approve",
-		ApprovedAmount: &basev1beta1.Coin{
+		ApprovedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "2",
+			Amount: sdkmath.NewInt(2),
 		},
 	}))
 

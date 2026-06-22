@@ -11,17 +11,17 @@ import (
 	"cosmossdk.io/collections"
 	corestore "cosmossdk.io/core/store"
 	"cosmossdk.io/log"
+	"cosmossdk.io/store/metrics"
+	"cosmossdk.io/store/rootmulti"
+	storetypes "cosmossdk.io/store/types"
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
-	"github.com/cosmos/cosmos-sdk/store/v2/rootmulti"
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/LumeraProtocol/lumera/x/credits/types"
 )
@@ -175,7 +175,7 @@ func setupCreditsKeeperFaulty(t *testing.T) (sdk.Context, *Keeper, *mockBankKeep
 	storeKey := storetypes.NewKVStoreKey(types.StoreKey)
 	db := dbm.NewMemDB()
 	innerLogger := log.NewNopLogger()
-	cms := rootmulti.NewStore(db, innerLogger)
+	cms := rootmulti.NewStore(db, innerLogger, metrics.NewNoOpMetrics())
 	cms.MountStoreWithDB(storeKey, storetypes.StoreTypeIAVL, db)
 	require.NoError(t, cms.LoadLatestVersion())
 
@@ -258,14 +258,14 @@ func prepareBumpFixture(t *testing.T, ctx sdk.Context, keeper *Keeper, bank *moc
 	require.NoError(t, keeper.CreateSettlement(ctx, &types.SettlementRecord{
 		Id:        receiptID,
 		Status:    types.SettlementStatus_SETTLEMENT_STATUS_PENDING,
-		Timestamp: timestamppb.New(start),
+		Timestamp: start,
 		ToolId:    "tool-fault",
 		RouterId:  routerAddr.String(),
 	}))
 
 	lock, found := keeper.GetLock(ctx, lockID)
 	require.True(t, found)
-	originalExpiresAt := lock.ExpiresAt.AsTime()
+	originalExpiresAt := lock.ExpiresAt
 
 	// Advance past the lock's ExpiresAt so the expiry walk picks it up.
 	advancedTime := originalExpiresAt.Add(30 * time.Second)
@@ -446,7 +446,7 @@ func TestExpireLocks_LockExpirySetErrorIsLoggedNotSwallowed(t *testing.T) {
 	// instead of being orphaned.
 	bumped, found := keeper.GetLock(ctx, fx.lockID)
 	require.True(t, found)
-	require.WithinDuration(t, fx.originalExpiresAt, bumped.ExpiresAt.AsTime(), time.Second,
+	require.WithinDuration(t, fx.originalExpiresAt, bumped.ExpiresAt, time.Second,
 		"atomicity contract: when LockExpiry.Set fails, CacheContext.discard "+
 			"must roll back SaveLock too so lock.ExpiresAt stays at its original "+
 			"value — anything else would orphan the lock from the expiry walk")
@@ -585,7 +585,7 @@ func TestUnlockCredits_FinalizedIndexFailureRollsBackKeeperState(t *testing.T) {
 	require.Empty(t, lockAfter.LastError,
 		"late FinalizedLocks failure must not persist the unlock reason")
 
-	hasExpiry, err := keeper.state.LockExpiry.Has(ctx, collections.Join(lockBefore.ExpiresAt.AsTime(), lockID))
+	hasExpiry, err := keeper.state.LockExpiry.Has(ctx, collections.Join(lockBefore.ExpiresAt, lockID))
 	require.NoError(t, err)
 	require.True(t, hasExpiry,
 		"late FinalizedLocks failure must preserve the original expiry index entry")
@@ -656,7 +656,7 @@ func TestSettleLock_FinalizedIndexFailureRollsBackKeeperState(t *testing.T) {
 	require.Equal(t, types.LockStatus_LOCK_STATUS_ACTIVE, lockAfter.Status,
 		"late FinalizedLocks failure must discard the burned lock state")
 
-	hasExpiry, err := keeper.state.LockExpiry.Has(settleCtx, collections.Join(lockBefore.ExpiresAt.AsTime(), lockID))
+	hasExpiry, err := keeper.state.LockExpiry.Has(settleCtx, collections.Join(lockBefore.ExpiresAt, lockID))
 	require.NoError(t, err)
 	require.True(t, hasExpiry,
 		"late FinalizedLocks failure must preserve the original expiry index entry")

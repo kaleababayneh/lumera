@@ -83,7 +83,7 @@ func createLockWithTTL(
 
 	lock, found := keeper.GetLock(ctx, lockID)
 	require.True(t, found)
-	return lockID, lock.ExpiresAt.AsTime()
+	return lockID, lock.ExpiresAt
 }
 
 // lockInExpiryIndex reports whether the lock is in LockExpiry.

@@ -43,8 +43,8 @@ func TestRegisterServicesRegistersInsuranceQueryServer(t *testing.T) {
 
 	NewAppModule(keeper.Keeper{}).RegisterServices(cfg)
 
-	require.Contains(t, cfg.msgServer.GetServiceInfo(), types.Msg_ServiceDesc.ServiceName)
-	require.Contains(t, cfg.queryServer.GetServiceInfo(), types.Query_ServiceDesc.ServiceName)
+	require.Contains(t, cfg.msgServer.GetServiceInfo(), types.Msg_serviceDesc.ServiceName)
+	require.Contains(t, cfg.queryServer.GetServiceInfo(), types.Query_serviceDesc.ServiceName)
 }
 
 type captureConfigurator struct {

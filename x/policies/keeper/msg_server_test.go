@@ -663,8 +663,8 @@ func TestMsgServerDeprecatePolicyMigrationDeadline(t *testing.T) {
 	require.NotNil(t, resp.MigrationDeadline)
 
 	// Migration deadline must be deprecated_at + window_seconds
-	deprecatedTime := resp.DeprecatedAt.AsTime()
-	deadlineTime := resp.MigrationDeadline.AsTime()
+	deprecatedTime := *resp.DeprecatedAt
+	deadlineTime := *resp.MigrationDeadline
 	expectedDeadline := deprecatedTime.Add(time.Duration(windowSec) * time.Second)
 	require.Equal(t, expectedDeadline, deadlineTime,
 		"migration deadline should be deprecated_at + migration_window_seconds")
@@ -676,7 +676,7 @@ func TestMsgServerDeprecatePolicyMigrationDeadline(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, policy.Lifecycle.DeprecatedAt,
 		"deprecated_at must be persisted in policy lifecycle")
-	require.Equal(t, deprecatedTime.UTC(), policy.Lifecycle.DeprecatedAt.AsTime().UTC(),
+	require.Equal(t, deprecatedTime.UTC(), policy.Lifecycle.DeprecatedAt.UTC(),
 		"persisted deprecated_at must match response")
 	require.Equal(t, windowSec, policy.Lifecycle.MigrationWindowSeconds,
 		"migration_window_seconds must be persisted in policy lifecycle")
@@ -718,8 +718,8 @@ func TestMsgServerDeprecatePolicyDefaultMigrationWindow(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	deprecatedTime := resp.DeprecatedAt.AsTime()
-	deadlineTime := resp.MigrationDeadline.AsTime()
+	deprecatedTime := *resp.DeprecatedAt
+	deadlineTime := *resp.MigrationDeadline
 
 	params, err := k.GetParams(ctx)
 	require.NoError(t, err)

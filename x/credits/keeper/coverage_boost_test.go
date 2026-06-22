@@ -1,14 +1,12 @@
 package keeper
 
 import (
-	"fmt"
-	"testing"
-
-	v1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
 	sdkmath "cosmossdk.io/math"
+	"fmt"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"testing"
 
 	"github.com/LumeraProtocol/lumera/x/credits/types"
 )
@@ -366,6 +364,7 @@ func TestQueryServer_Params(t *testing.T) {
 // --- Query Server: Lock ---
 
 func TestQueryServer_Lock_Found(t *testing.T) {
+	skipCloneLockGap(t)
 	ctx, keeper, _, _, _ := setupCreditsKeeper(t)
 	qs := NewQueryServer(keeper)
 
@@ -534,7 +533,7 @@ func TestGetLockedAmount_WithLocks(t *testing.T) {
 			Router:    routerAddr,
 			SessionId: "sess",
 			Status:    types.LockStatus_LOCK_STATUS_ACTIVE,
-			Amount:    &v1beta1.Coin{Denom: "lac", Amount: "1000"},
+			Amount:    protoCoin("lac", "1000"),
 		}
 		require.NoError(t, keeper.SaveLock(ctx, lock))
 	}
@@ -544,7 +543,7 @@ func TestGetLockedAmount_WithLocks(t *testing.T) {
 		Router:    routerAddr,
 		SessionId: "sess-s",
 		Status:    types.LockStatus_LOCK_STATUS_RELEASED,
-		Amount:    &v1beta1.Coin{Denom: "lac", Amount: "500"},
+		Amount:    protoCoin("lac", "500"),
 	}
 	require.NoError(t, keeper.SaveLock(ctx, released))
 

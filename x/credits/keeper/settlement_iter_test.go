@@ -6,7 +6,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/LumeraProtocol/lumera/x/credits/types"
 )
@@ -19,9 +18,9 @@ func TestIteratePendingSettlementsDeterministic(t *testing.T) {
 		record := &types.SettlementRecord{
 			Id:        id,
 			Status:    types.SettlementStatus_SETTLEMENT_STATUS_PENDING,
-			Timestamp: timestamppb.New(now.Add(-48 * time.Hour)),
+			Timestamp: now.Add(-48 * time.Hour),
 		}
-		record.SetTotalCostCoins(sdk.NewCoins(sdk.NewInt64Coin(types.DefaultCreditDenom, 100)))
+		record.TotalCost = sdk.NewCoins(sdk.NewInt64Coin(types.DefaultCreditDenom, 100))
 		return record
 	}
 

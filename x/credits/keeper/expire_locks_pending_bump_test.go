@@ -7,7 +7,6 @@ import (
 	"cosmossdk.io/collections"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/LumeraProtocol/lumera/x/credits/types"
 )
@@ -58,7 +57,7 @@ func TestExpireLocks_PendingSettlementBumpsExpiry(t *testing.T) {
 	require.NoError(t, keeper.CreateSettlement(ctx, &types.SettlementRecord{
 		Id:        receiptID,
 		Status:    types.SettlementStatus_SETTLEMENT_STATUS_PENDING,
-		Timestamp: timestamppb.New(start),
+		Timestamp: start,
 		ToolId:    "tool-bump",
 		RouterId:  routerAddr.String(),
 	}))
@@ -66,7 +65,7 @@ func TestExpireLocks_PendingSettlementBumpsExpiry(t *testing.T) {
 	originalLock, found := keeper.GetLock(ctx, lockID)
 	require.True(t, found)
 	require.Equal(t, types.LockStatus_LOCK_STATUS_ACTIVE, originalLock.Status)
-	originalExpiresAt := originalLock.ExpiresAt.AsTime()
+	originalExpiresAt := originalLock.ExpiresAt
 
 	// Old expiry index entry must be present before expiry runs — this
 	// is the precondition the bump branch relies on.
@@ -93,10 +92,10 @@ func TestExpireLocks_PendingSettlementBumpsExpiry(t *testing.T) {
 	// Invariant 2: ExpiresAt must be bumped exactly one hour past the
 	// current BlockTime (the bump logic: `sdkCtx.BlockTime().Add(time.Hour)`).
 	expectedNewExpires := advanced.Add(time.Hour)
-	require.WithinDuration(t, expectedNewExpires, bumped.ExpiresAt.AsTime(),
+	require.WithinDuration(t, expectedNewExpires, bumped.ExpiresAt,
 		time.Second,
 		"ExpiresAt must be bumped to BlockTime + 1h; got %v want %v",
-		bumped.ExpiresAt.AsTime(), expectedNewExpires)
+		bumped.ExpiresAt, expectedNewExpires)
 
 	// Invariant 3: old expiry index entry must be removed.
 	oldPresentAfter, err := keeper.state.LockExpiry.Has(
@@ -111,7 +110,7 @@ func TestExpireLocks_PendingSettlementBumpsExpiry(t *testing.T) {
 	// added a Logger.Error on that Set failure; this assertion pins the
 	// happy-path requirement that the Set actually landed.
 	newPresentAfter, err := keeper.state.LockExpiry.Has(
-		ctx, collections.Join(bumped.ExpiresAt.AsTime(), lockID))
+		ctx, collections.Join(bumped.ExpiresAt, lockID))
 	require.NoError(t, err)
 	require.True(t, newPresentAfter,
 		"new LockExpiry index entry at bumped time must be set so the "+

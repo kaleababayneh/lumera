@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	basev1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -61,9 +60,9 @@ func TestPayout_BalanceChangesCorrectly(t *testing.T) {
 		ReceiptId:   "receipt-payout-test",
 		ToolId:      "tool-alpha",
 		PublisherId: "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: sdkmath.NewInt(claimAmount).String(),
+			Amount: sdkmath.NewInt(claimAmount),
 		},
 		Reason: "SLO violation - payout verification test",
 	}
@@ -78,9 +77,9 @@ func TestPayout_BalanceChangesCorrectly(t *testing.T) {
 		Authority:  authority,
 		ClaimId:    claimID,
 		Resolution: "approve",
-		ApprovedAmount: &basev1beta1.Coin{
+		ApprovedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: sdkmath.NewInt(claimAmount).String(),
+			Amount: sdkmath.NewInt(claimAmount),
 		},
 	})
 	require.NoError(t, err)
@@ -153,9 +152,9 @@ func TestPayout_InsufficientPoolFunds(t *testing.T) {
 		ReceiptId:   "receipt-insuff-funds",
 		ToolId:      "tool-alpha",
 		PublisherId: "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "10000", // Much more than pool
+			Amount: sdkmath.NewInt(10000), // Much more than pool
 		},
 		Reason: "Large claim test",
 	}
@@ -169,9 +168,9 @@ func TestPayout_InsufficientPoolFunds(t *testing.T) {
 		Authority:  authority,
 		ClaimId:    claimID,
 		Resolution: "approve",
-		ApprovedAmount: &basev1beta1.Coin{
+		ApprovedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "10000",
+			Amount: sdkmath.NewInt(10000),
 		},
 	})
 	// Should fail due to insufficient reserve capacity
@@ -221,9 +220,9 @@ func TestPayout_PartialPayoutAfterCap(t *testing.T) {
 		ReceiptId:   "receipt-capped-claim",
 		ToolId:      "tool-alpha",
 		PublisherId: "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "500",
+			Amount: sdkmath.NewInt(500),
 		},
 		Reason: "Large claim to test capping",
 	}
@@ -237,9 +236,9 @@ func TestPayout_PartialPayoutAfterCap(t *testing.T) {
 		Authority:  authority,
 		ClaimId:    claimID,
 		Resolution: "approve",
-		ApprovedAmount: &basev1beta1.Coin{
+		ApprovedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "500",
+			Amount: sdkmath.NewInt(500),
 		},
 	})
 	require.NoError(t, err)
@@ -296,9 +295,9 @@ func TestReserve_ApprovedAmountReserved(t *testing.T) {
 		ReceiptId:   "receipt-reserve-acct-test",
 		ToolId:      "tool-alpha",
 		PublisherId: "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "1000",
+			Amount: sdkmath.NewInt(1000),
 		},
 		Reason: "Reserve accounting test",
 	}
@@ -312,9 +311,9 @@ func TestReserve_ApprovedAmountReserved(t *testing.T) {
 		Authority:  authority,
 		ClaimId:    claimID,
 		Resolution: "approve",
-		ApprovedAmount: &basev1beta1.Coin{
+		ApprovedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "1000",
+			Amount: sdkmath.NewInt(1000),
 		},
 	})
 	require.NoError(t, err)
@@ -370,9 +369,9 @@ func TestMultiClaimPayout_SerialPayouts(t *testing.T) {
 			ReceiptId:   receiptID,
 			ToolId:      "tool-alpha",
 			PublisherId: "publisher-001",
-			ClaimedAmount: &basev1beta1.Coin{
+			ClaimedAmount: sdk.Coin{
 				Denom:  "ulac",
-				Amount: sdkmath.NewInt(claimAmounts[i]).String(),
+				Amount: sdkmath.NewInt(claimAmounts[i]),
 			},
 			Reason: "Multi-claim test",
 		}
@@ -385,9 +384,9 @@ func TestMultiClaimPayout_SerialPayouts(t *testing.T) {
 			Authority:  authority,
 			ClaimId:    claimID,
 			Resolution: "approve",
-			ApprovedAmount: &basev1beta1.Coin{
+			ApprovedAmount: sdk.Coin{
 				Denom:  "ulac",
-				Amount: sdkmath.NewInt(claimAmounts[i]).String(),
+				Amount: sdkmath.NewInt(claimAmounts[i]),
 			},
 		})
 		require.NoError(t, err)
@@ -513,9 +512,9 @@ func TestRecidivistPenalty_PayoutReduced(t *testing.T) {
 			ReceiptId:   receiptID,
 			ToolId:      "tool-recidivist",
 			PublisherId: publisherID,
-			ClaimedAmount: &basev1beta1.Coin{
+			ClaimedAmount: sdk.Coin{
 				Denom:  "ulac",
-				Amount: "100",
+				Amount: sdkmath.NewInt(100),
 			},
 			Reason: "Building claim history",
 		}
@@ -527,9 +526,9 @@ func TestRecidivistPenalty_PayoutReduced(t *testing.T) {
 			Authority:  authority,
 			ClaimId:    claimID,
 			Resolution: "approve",
-			ApprovedAmount: &basev1beta1.Coin{
+			ApprovedAmount: sdk.Coin{
 				Denom:  "ulac",
-				Amount: "100",
+				Amount: sdkmath.NewInt(100),
 			},
 		})
 		require.NoError(t, err)
@@ -555,9 +554,9 @@ func TestRecidivistPenalty_PayoutReduced(t *testing.T) {
 		ReceiptId:   "receipt-recidivist-penalty",
 		ToolId:      "tool-recidivist",
 		PublisherId: publisherID,
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "1000",
+			Amount: sdkmath.NewInt(1000),
 		},
 		Reason: "Should receive reduced payout",
 	}
@@ -569,9 +568,9 @@ func TestRecidivistPenalty_PayoutReduced(t *testing.T) {
 		Authority:  authority,
 		ClaimId:    claimID,
 		Resolution: "approve",
-		ApprovedAmount: &basev1beta1.Coin{
+		ApprovedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "1000",
+			Amount: sdkmath.NewInt(1000),
 		},
 	})
 	require.NoError(t, err)
@@ -633,9 +632,9 @@ func TestEndBlocker_AutoApprovalWithBalance(t *testing.T) {
 		ReceiptId:   "receipt-auto-approve-bal",
 		ToolId:      "tool-alpha",
 		PublisherId: "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "200",
+			Amount: sdkmath.NewInt(200),
 		},
 		Reason: "Should be auto-approved",
 	}
@@ -696,9 +695,9 @@ func TestPayout_DifferentRecipient(t *testing.T) {
 		ReceiptId:   "receipt-diff-recipient",
 		ToolId:      "tool-alpha",
 		PublisherId: "publisher-001",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "500",
+			Amount: sdkmath.NewInt(500),
 		},
 		Reason: "Payout to different recipient test",
 	}
@@ -712,9 +711,9 @@ func TestPayout_DifferentRecipient(t *testing.T) {
 		Authority:  authority,
 		ClaimId:    claimID,
 		Resolution: "approve",
-		ApprovedAmount: &basev1beta1.Coin{
+		ApprovedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "500",
+			Amount: sdkmath.NewInt(500),
 		},
 	})
 	require.NoError(t, err)

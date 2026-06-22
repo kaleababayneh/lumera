@@ -32,15 +32,15 @@ func MarshalVoteExtension(vote *ValidatorVote) ([]byte, error) {
 		return nil, errors.New("vote timestamp missing")
 	}
 
-	// Use a gogoproto Buffer with deterministic serialization so vote extension
-	// bytes are byte-stable across validators (ValidatorVote has no map fields,
-	// but we keep the explicit guarantee for forward-compat).
-	buf := proto.NewBuffer(nil)
-	buf.SetDeterministic(true)
-	if err := buf.Marshal(vote); err != nil {
+	// gogoproto's generated ValidatorVote.Marshal (driven by proto.Marshal) emits
+	// fields in tag order and is byte-stable across validators because the message
+	// has no map fields. The proto.Buffer.SetDeterministic path is NOT supported by
+	// gogo's generated fast-Marshal (it errors at runtime), so we use the
+	// package-level Marshal directly — symmetric with ParseVoteExtension's Unmarshal.
+	raw, err := proto.Marshal(vote)
+	if err != nil {
 		return nil, err
 	}
-	raw := buf.Bytes()
 	if len(raw) > MaxVoteExtensionBytes {
 		return nil, fmt.Errorf("vote extension bytes exceed %d-byte cap (got %d); outbound guard symmetric with ParseVoteExtension",
 			MaxVoteExtensionBytes, len(raw))

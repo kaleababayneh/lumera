@@ -9,7 +9,6 @@ import (
 	sdkmath "cosmossdk.io/math"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/LumeraProtocol/lumera/x/oracle/types"
 )
@@ -35,7 +34,7 @@ func TestAggregateVotes_MedianCalculation_OddCount(t *testing.T) {
 			ValidatorAddress: "val" + string(rune('1'+i)),
 			PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: price}},
 			BlockHeight:      int64(i + 1),
-			Timestamp:        timestamppb.New(testTime),
+			Timestamp:        testTime,
 		}))
 	}
 
@@ -64,7 +63,7 @@ func TestAggregateVotes_MedianCalculation_EvenCount(t *testing.T) {
 			ValidatorAddress: "val" + string(rune('1'+i)),
 			PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: price}},
 			BlockHeight:      int64(i + 1),
-			Timestamp:        timestamppb.New(testTime),
+			Timestamp:        testTime,
 		}))
 	}
 
@@ -93,7 +92,7 @@ func TestAggregateVotes_MeanCalculation(t *testing.T) {
 			ValidatorAddress: "val" + string(rune('1'+i)),
 			PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: price}},
 			BlockHeight:      int64(i + 1),
-			Timestamp:        timestamppb.New(testTime),
+			Timestamp:        testTime,
 		}))
 	}
 
@@ -118,7 +117,7 @@ func TestAggregateVotes_SingleValidator(t *testing.T) {
 		ValidatorAddress: "val1",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: "42.5"}},
 		BlockHeight:      1,
-		Timestamp:        timestamppb.New(testTime),
+		Timestamp:        testTime,
 	}))
 
 	require.NoError(t, k.AggregateVotes(ctx))
@@ -147,7 +146,7 @@ func TestAggregateVotes_MultipleAssetPairs(t *testing.T) {
 			{AssetPair: "LUME/USD", Price: "0.25"},
 		},
 		BlockHeight: 1,
-		Timestamp:   timestamppb.New(testTime),
+		Timestamp:   testTime,
 	}))
 	require.NoError(t, k.SetValidatorVote(ctx, &types.ValidatorVote{
 		ValidatorAddress: "val2",
@@ -156,7 +155,7 @@ func TestAggregateVotes_MultipleAssetPairs(t *testing.T) {
 			{AssetPair: "LUME/USD", Price: "0.30"},
 		},
 		BlockHeight: 1,
-		Timestamp:   timestamppb.New(testTime),
+		Timestamp:   testTime,
 	}))
 
 	require.NoError(t, k.AggregateVotes(ctx))
@@ -193,7 +192,7 @@ func TestAggregateVotes_StdDevFromFilteredPrices(t *testing.T) {
 			ValidatorAddress: "val" + string(rune('1'+i)),
 			PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: price}},
 			BlockHeight:      int64(i + 1),
-			Timestamp:        timestamppb.New(testTime),
+			Timestamp:        testTime,
 		}))
 	}
 
@@ -233,7 +232,7 @@ func TestAggregateVotes_OutlierFiltering_TightThreshold(t *testing.T) {
 			ValidatorAddress: "val" + string(rune('1'+i)),
 			PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: price}},
 			BlockHeight:      int64(i + 1),
-			Timestamp:        timestamppb.New(testTime),
+			Timestamp:        testTime,
 		}))
 	}
 
@@ -263,7 +262,7 @@ func TestAggregateVotes_OutlierFiltering_NoFiltering(t *testing.T) {
 			ValidatorAddress: "val" + string(rune('1'+i)),
 			PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: price}},
 			BlockHeight:      int64(i + 1),
-			Timestamp:        timestamppb.New(testTime),
+			Timestamp:        testTime,
 		}))
 	}
 
@@ -335,7 +334,7 @@ func TestValidateVote_RejectsDuplicateAssetPair(t *testing.T) {
 			{AssetPair: "LAC/USD", Price: "1.55"}, // Duplicate
 		},
 		BlockHeight: 1,
-		Timestamp:   timestamppb.New(testTime),
+		Timestamp:   testTime,
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "duplicate asset pair")
@@ -352,7 +351,7 @@ func TestValidateVote_RejectsDuplicateWithWhitespace(t *testing.T) {
 			{AssetPair: "  LAC/USD  ", Price: "1.55"}, // Duplicate with whitespace
 		},
 		BlockHeight: 1,
-		Timestamp:   timestamppb.New(testTime),
+		Timestamp:   testTime,
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "duplicate asset pair")
@@ -377,20 +376,20 @@ func TestAggregateVotes_IgnoresDuplicateFeedsFromValidator(t *testing.T) {
 			{AssetPair: "LAC/USD", Price: "500"},
 		},
 		BlockHeight: 1,
-		Timestamp:   timestamppb.New(testTime),
+		Timestamp:   testTime,
 	}))
 	// Honest validators
 	require.NoError(t, k.SetValidatorVote(ctx, &types.ValidatorVote{
 		ValidatorAddress: "val-honest-1",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: "100"}},
 		BlockHeight:      1,
-		Timestamp:        timestamppb.New(testTime),
+		Timestamp:        testTime,
 	}))
 	require.NoError(t, k.SetValidatorVote(ctx, &types.ValidatorVote{
 		ValidatorAddress: "val-honest-2",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: "102"}},
 		BlockHeight:      1,
-		Timestamp:        timestamppb.New(testTime),
+		Timestamp:        testTime,
 	}))
 
 	require.NoError(t, k.AggregateVotes(ctx))
@@ -423,7 +422,7 @@ func TestAggregateVotes_RejectsDuplicateAssetFromSingleValidator(t *testing.T) {
 			{AssetPair: "LAC/USD", Price: "2000"}, // Duplicate
 		},
 		BlockHeight: 1,
-		Timestamp:   timestamppb.New(testTime),
+		Timestamp:   testTime,
 	}))
 
 	require.NoError(t, k.AggregateVotes(ctx))
@@ -455,7 +454,7 @@ func TestAggregateVotes_ValidatorWithUniqueFeeds(t *testing.T) {
 			{AssetPair: "LUME/USD", Price: "0.25"}, // Different asset pair - OK
 		},
 		BlockHeight: 1,
-		Timestamp:   timestamppb.New(testTime),
+		Timestamp:   testTime,
 	}))
 
 	require.NoError(t, k.AggregateVotes(ctx))
@@ -507,7 +506,7 @@ func TestAggregateVotes_ExpiredVotes(t *testing.T) {
 		ValidatorAddress: "val1",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: "100"}},
 		BlockHeight:      1,
-		Timestamp:        timestamppb.New(oldTime), // Too old
+		Timestamp:        oldTime, // Too old
 	}))
 
 	require.NoError(t, k.AggregateVotes(ctx))
@@ -537,7 +536,7 @@ func TestAggregateVotes_PrecisionHandling(t *testing.T) {
 			ValidatorAddress: "val" + string(rune('1'+i)),
 			PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: price}},
 			BlockHeight:      int64(i + 1),
-			Timestamp:        timestamppb.New(testTime),
+			Timestamp:        testTime,
 		}))
 	}
 
@@ -567,7 +566,7 @@ func TestAggregateVotes_VeryLargePrices(t *testing.T) {
 			ValidatorAddress: "val" + string(rune('1'+i)),
 			PriceFeeds:       []*types.PriceFeed{{AssetPair: "BTC/USD", Price: price}},
 			BlockHeight:      int64(i + 1),
-			Timestamp:        timestamppb.New(testTime),
+			Timestamp:        testTime,
 		}))
 	}
 
@@ -595,7 +594,7 @@ func TestAggregateVotes_VerySmallPrices(t *testing.T) {
 			ValidatorAddress: "val" + string(rune('1'+i)),
 			PriceFeeds:       []*types.PriceFeed{{AssetPair: "SHIB/USD", Price: price}},
 			BlockHeight:      int64(i + 1),
-			Timestamp:        timestamppb.New(testTime),
+			Timestamp:        testTime,
 		}))
 	}
 

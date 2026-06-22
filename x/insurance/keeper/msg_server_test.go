@@ -6,7 +6,7 @@ import (
 	"crypto/sha256"
 	"testing"
 
-	basev1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
+	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/stretchr/testify/require"
@@ -45,7 +45,7 @@ func TestMsgServer_ValidatesStatelessFieldsBeforeKeeperAccess(t *testing.T) {
 					ReceiptId:   "receipt-1",
 					ToolId:      "tool-1",
 					PublisherId: "publisher-1",
-					Amount:      &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+					Amount:      sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 				})
 				return err
 			},
@@ -58,7 +58,7 @@ func TestMsgServer_ValidatesStatelessFieldsBeforeKeeperAccess(t *testing.T) {
 					Authority: authority,
 					ClaimId:   " claim-1",
 					Recipient: recipient,
-					Amount:    &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+					Amount:    sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 				})
 				return err
 			},
@@ -79,15 +79,19 @@ func TestMsgServer_ValidatesStatelessFieldsBeforeKeeperAccess(t *testing.T) {
 			want: "invalid premium_tier",
 		},
 		{
-			name: "params nil",
+			// Post-gogoproto MsgUpdateParams.Params is a value (nullable=false) and
+			// can no longer be nil; use an explicitly out-of-range Params instead.
+			// This still exercises the "params validated statelessly before keeper
+			// access" contract this test pins.
+			name: "params invalid",
 			call: func() error {
 				_, err := srv.UpdateParams(context.Background(), &types.MsgUpdateParams{
 					Authority: authority,
-					Params:    nil,
+					Params:    types.Params{InsurancePoolBps: 20_000},
 				})
 				return err
 			},
-			want: "params",
+			want: "insurance pool BPS must be between 0 and 10000",
 		},
 	}
 
@@ -122,7 +126,7 @@ func TestMsgServer_RejectsUninitializedKeeperBeforeStateAccess(t *testing.T) {
 					ReceiptId:   "receipt-1",
 					ToolId:      "tool-1",
 					PublisherId: "publisher-1",
-					Amount:      &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+					Amount:      sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 				})
 				return err
 			},
@@ -135,7 +139,7 @@ func TestMsgServer_RejectsUninitializedKeeperBeforeStateAccess(t *testing.T) {
 					ReceiptId:     "receipt-1",
 					ToolId:        "tool-1",
 					PublisherId:   "publisher-1",
-					ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+					ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 					Reason:        "covered failure",
 				})
 				return err
@@ -159,7 +163,7 @@ func TestMsgServer_RejectsUninitializedKeeperBeforeStateAccess(t *testing.T) {
 					Authority: authority,
 					ClaimId:   "claim-1",
 					Recipient: recipient,
-					Amount:    &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+					Amount:    sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 				})
 				return err
 			},
@@ -182,7 +186,7 @@ func TestMsgServer_RejectsUninitializedKeeperBeforeStateAccess(t *testing.T) {
 			call: func() error {
 				_, err := srv.UpdateParams(context.Background(), &types.MsgUpdateParams{
 					Authority: authority,
-					Params:    types.DefaultParams(),
+					Params:    *types.DefaultParams(),
 				})
 				return err
 			},
@@ -220,7 +224,7 @@ func TestMsgServer_ProcessContribution_WrongAuthority(t *testing.T) {
 		ReceiptId:   "receipt-1",
 		ToolId:      "tool-1",
 		PublisherId: "pub-1",
-		Amount:      &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		Amount:      sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 	})
 	require.Error(t, err)
 	require.Nil(t, resp)
@@ -234,7 +238,7 @@ func TestMsgServer_ProcessContribution_MissingReceiptID(t *testing.T) {
 	resp, err := srv.ProcessContribution(sdk.Context{}, &types.MsgProcessContribution{
 		Authority: authority,
 		ReceiptId: "",
-		Amount:    &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		Amount:    sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 	})
 	require.Error(t, err)
 	require.Nil(t, resp)
@@ -248,7 +252,7 @@ func TestMsgServer_ProcessContribution_NilAmount(t *testing.T) {
 	resp, err := srv.ProcessContribution(sdk.Context{}, &types.MsgProcessContribution{
 		Authority: authority,
 		ReceiptId: "receipt-1",
-		Amount:    nil,
+		Amount:    sdk.Coin{},
 	})
 	require.Error(t, err)
 	require.Nil(t, resp)
@@ -256,6 +260,10 @@ func TestMsgServer_ProcessContribution_NilAmount(t *testing.T) {
 }
 
 func TestMsgServer_ProcessContribution_InvalidAmount(t *testing.T) {
+	// Post-gogoproto, Amount is a value sdk.Coin (math.Int): a non-numeric string
+	// like "not-a-number" can no longer be constructed/decoded into the field.
+	// Preserve the intent (invalid amount must error) by exercising the nil-amount
+	// path, which ValidateBasic still rejects.
 	_, srv := newMsgSrv(t)
 	authority := authtypes.NewModuleAddress("gov").String()
 
@@ -264,7 +272,7 @@ func TestMsgServer_ProcessContribution_InvalidAmount(t *testing.T) {
 		ReceiptId:   "receipt-1",
 		ToolId:      "tool-1",
 		PublisherId: "pub-1",
-		Amount:      &basev1beta1.Coin{Denom: "ulac", Amount: "not-a-number"},
+		Amount:      sdk.Coin{Denom: "ulac"},
 	})
 	require.Error(t, err)
 	require.Nil(t, resp)
@@ -279,7 +287,7 @@ func TestMsgServer_ProcessContribution_ZeroAmount(t *testing.T) {
 		ReceiptId:   "receipt-1",
 		ToolId:      "tool-1",
 		PublisherId: "pub-1",
-		Amount:      &basev1beta1.Coin{Denom: "ulac", Amount: "0"},
+		Amount:      sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(0)},
 	})
 	require.Error(t, err)
 	require.Nil(t, resp)
@@ -330,13 +338,10 @@ func TestMsgServer_ProcessContribution_RejectsValidateBasicFailures(t *testing.T
 			},
 			want: "publisher_id must be canonical",
 		},
-		{
-			name: "unsafe amount exponent",
-			mutate: func(msg *types.MsgProcessContribution) {
-				msg.Amount = &basev1beta1.Coin{Denom: "ulac", Amount: "1e11100100"}
-			},
-			want: "magnitude out of range",
-		},
+		// "unsafe amount exponent" removed: not ported. Post-gogoproto, Amount is a
+		// value sdk.Coin (math.Int); symbolic exponents like "1e11100100" are
+		// rejected by the wire decoder before ValidateBasic runs, so the old
+		// exponent DoS guard no longer exists.
 	}
 
 	for _, tt := range tests {
@@ -346,7 +351,7 @@ func TestMsgServer_ProcessContribution_RejectsValidateBasicFailures(t *testing.T
 				ReceiptId:   "receipt-1",
 				ToolId:      "tool-1",
 				PublisherId: "pub-1",
-				Amount:      &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+				Amount:      sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 			}
 			tt.mutate(msg)
 
@@ -375,7 +380,7 @@ func TestMsgServer_ProcessContribution_HappyPath(t *testing.T) {
 		ReceiptId:   "receipt-happy",
 		ToolId:      "tool-1",
 		PublisherId: "pub-1",
-		Amount:      &basev1beta1.Coin{Denom: "ulac", Amount: "200"},
+		Amount:      sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(200)},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -397,7 +402,7 @@ func TestMsgServer_FileClaim_MissingReceiptID(t *testing.T) {
 	resp, err := srv.FileClaim(sdk.Context{}, &types.MsgFileClaim{
 		ReceiptId:     "",
 		Claimant:      "lumera1user",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "50"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(50)},
 	})
 	require.Error(t, err)
 	require.Nil(t, resp)
@@ -410,7 +415,7 @@ func TestMsgServer_FileClaim_MissingClaimant(t *testing.T) {
 	resp, err := srv.FileClaim(sdk.Context{}, &types.MsgFileClaim{
 		ReceiptId:     "receipt-1",
 		Claimant:      "",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "50"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(50)},
 	})
 	require.Error(t, err)
 	require.Nil(t, resp)
@@ -423,7 +428,7 @@ func TestMsgServer_FileClaim_NilClaimedAmount(t *testing.T) {
 	resp, err := srv.FileClaim(sdk.Context{}, &types.MsgFileClaim{
 		ReceiptId:     "receipt-1",
 		Claimant:      "lumera1user",
-		ClaimedAmount: nil,
+		ClaimedAmount: sdk.Coin{},
 	})
 	require.Error(t, err)
 	require.Nil(t, resp)
@@ -468,12 +473,10 @@ func TestMsgServer_FileClaim_RejectsValidateBasicFailures(t *testing.T) {
 			},
 			want: "reason must be canonical",
 		},
-		"unsafe amount exponent": {
-			mutate: func(msg *types.MsgFileClaim) {
-				msg.ClaimedAmount = &basev1beta1.Coin{Denom: "ulac", Amount: "1e11100100"}
-			},
-			want: "claimed_amount amount magnitude out of range",
-		},
+		// "unsafe amount exponent" removed: not ported. Post-gogoproto, ClaimedAmount
+		// is a value sdk.Coin (math.Int) and the wire decoder rejects symbolic
+		// exponents like "1e11100100" before they reach ValidateBasic, so the old
+		// shopspring-exponent DoS guard (validateCoinAmountExponent) was deleted.
 	}
 
 	for name, tc := range tests {
@@ -482,7 +485,7 @@ func TestMsgServer_FileClaim_RejectsValidateBasicFailures(t *testing.T) {
 				ReceiptId:     "receipt-fc",
 				Claimant:      claimant,
 				ToolId:        "tool-1",
-				ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "50"},
+				ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(50)},
 				Reason:        "service failure",
 			}
 			tc.mutate(msg)
@@ -514,7 +517,7 @@ func TestMsgServer_FileClaim_HappyPath(t *testing.T) {
 		Claimant:      sdk.AccAddress([]byte("claimant_msg_server_")).String(),
 		ToolId:        "tool-1",
 		PublisherId:   "pub-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "50"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(50)},
 		Reason:        "service failure",
 	})
 	require.NoError(t, err)
@@ -587,7 +590,7 @@ func TestMsgServer_ProcessPayout_WrongAuthority(t *testing.T) {
 		Authority: wrongAuthority,
 		ClaimId:   "claim-1",
 		Recipient: recipient,
-		Amount:    &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		Amount:    sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 	})
 	require.Error(t, err)
 	require.Nil(t, resp)
@@ -645,7 +648,7 @@ func TestMsgServer_ProcessPayout_RejectsPaddedClaimIDBeforeSDKContext(t *testing
 		Authority: authority,
 		ClaimId:   " claim-1",
 		Recipient: recipient,
-		Amount:    &basev1beta1.Coin{Denom: "ulac", Amount: "10"},
+		Amount:    sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(10)},
 	})
 	require.Error(t, err)
 	require.Nil(t, resp)
@@ -669,7 +672,7 @@ func TestMsgServer_UpdateParams_WrongAuthority(t *testing.T) {
 
 	resp, err := srv.UpdateParams(sdk.Context{}, &types.MsgUpdateParams{
 		Authority: wrongAuthority,
-		Params:    types.DefaultParams(),
+		Params:    *types.DefaultParams(),
 	})
 	require.Error(t, err)
 	require.Nil(t, resp)
@@ -677,16 +680,19 @@ func TestMsgServer_UpdateParams_WrongAuthority(t *testing.T) {
 }
 
 func TestMsgServer_UpdateParams_NilParams(t *testing.T) {
+	// Post-gogoproto MsgUpdateParams.Params is a value (nullable=false) and can no
+	// longer be nil; use an explicitly out-of-range Params to exercise the
+	// params-validation rejection path the test pins.
 	_, srv := newMsgSrv(t)
 	authority := authtypes.NewModuleAddress("gov").String()
 
 	resp, err := srv.UpdateParams(sdk.Context{}, &types.MsgUpdateParams{
 		Authority: authority,
-		Params:    nil,
+		Params:    types.Params{InsurancePoolBps: 20_000},
 	})
 	require.Error(t, err)
 	require.Nil(t, resp)
-	require.Contains(t, err.Error(), "params")
+	require.Contains(t, err.Error(), "insurance pool BPS must be between 0 and 10000")
 }
 
 func TestMsgServer_UpdateParams_PersistsParamsAndEmitsEvent(t *testing.T) {
@@ -698,7 +704,7 @@ func TestMsgServer_UpdateParams_PersistsParamsAndEmitsEvent(t *testing.T) {
 
 	resp, err := srv.UpdateParams(f.ctx, &types.MsgUpdateParams{
 		Authority: authority,
-		Params:    params,
+		Params:    *params,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)

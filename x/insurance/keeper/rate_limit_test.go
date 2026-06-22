@@ -4,13 +4,11 @@ package keeper_test
 import (
 	"testing"
 
-	basev1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	creditstypes "github.com/LumeraProtocol/lumera/x/credits/types"
 	"github.com/LumeraProtocol/lumera/x/insurance/keeper"
@@ -46,7 +44,7 @@ func TestRateLimiter_CheckClaimRate_ExistingClaim(t *testing.T) {
 		ReceiptId:     "receipt-claimed",
 		ToolId:        "tool-1",
 		PublisherId:   "pub-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "50"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(50)},
 		Reason:        "test",
 	})
 	require.NoError(t, err)
@@ -71,7 +69,7 @@ func TestRateLimiter_CheckClaimRate_DifferentReceipt(t *testing.T) {
 		ReceiptId:     "receipt-A",
 		ToolId:        "tool-1",
 		PublisherId:   "pub-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "50"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(50)},
 		Reason:        "test",
 	})
 	require.NoError(t, err)
@@ -154,7 +152,7 @@ func TestFileClaim_NoCoverage(t *testing.T) {
 		ReceiptId:     "receipt-no-coverage",
 		ToolId:        "tool-1",
 		PublisherId:   "pub-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 		Reason:        "no coverage exists",
 	})
 	require.Error(t, err)
@@ -187,7 +185,7 @@ func TestFileClaim_RejectsSpoofedPublisher(t *testing.T) {
 		ReceiptId:     "receipt-grief",
 		ToolId:        "tool-1",
 		PublisherId:   "pub-VICTIM",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "5"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(5)},
 		Reason:        "griefing attempt",
 	})
 	require.Error(t, err)
@@ -209,7 +207,7 @@ func TestFileClaim_FillsEmptyPublisherFromContribution(t *testing.T) {
 		ReceiptId: "receipt-empty-pub",
 		ToolId:    "tool-1",
 		// PublisherId omitted — should be filled in from contribution.
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "5"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(5)},
 		Reason:        "omitted publisher",
 	})
 	require.NoError(t, err)
@@ -251,7 +249,7 @@ func TestFileClaim_PublisherIsolation_EndToEnd(t *testing.T) {
 		Claimant:      claimantAddr.String(),
 		ReceiptId:     "receipt-isolation",
 		ToolId:        "tool-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "5"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(5)},
 		Reason:        "invariant check",
 	})
 	require.NoError(t, err)
@@ -261,7 +259,7 @@ func TestFileClaim_PublisherIsolation_EndToEnd(t *testing.T) {
 		Authority:      authority,
 		ClaimId:        claimID,
 		Resolution:     "approve",
-		ApprovedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "5"},
+		ApprovedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(5)},
 	}))
 
 	msgServer := keeper.NewMsgServerImpl(fixture.keeper)
@@ -310,7 +308,7 @@ func TestProcessPayout_AlreadyPaid(t *testing.T) {
 		ReceiptId:     "receipt-double-pay",
 		ToolId:        "tool-1",
 		PublisherId:   "pub-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "500"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(500)},
 		Reason:        "test",
 	})
 	require.NoError(t, err)
@@ -320,7 +318,7 @@ func TestProcessPayout_AlreadyPaid(t *testing.T) {
 		Authority:      authority,
 		ClaimId:        claimID,
 		Resolution:     "approve",
-		ApprovedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "500"},
+		ApprovedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(500)},
 	}))
 
 	// Pay once
@@ -363,7 +361,7 @@ func TestProcessPayout_ClaimNotApproved(t *testing.T) {
 		ReceiptId:     "receipt-not-approved",
 		ToolId:        "tool-1",
 		PublisherId:   "pub-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 		Reason:        "test",
 	})
 	require.NoError(t, err)
@@ -551,21 +549,7 @@ func TestInitGenesis_RejectsInvalidGenesis(t *testing.T) {
 }
 
 func TestInitGenesis_RejectsInvalidContributionTimestamp(t *testing.T) {
-	fixture := setupKeeperTest(t)
-	genesis := types.DefaultGenesis()
-	genesis.Contributions = []*types.Contribution{
-		{
-			Id:        "contrib-bad-time",
-			Timestamp: &timestamppb.Timestamp{Nanos: 1_000_000_000},
-		},
-	}
-
-	require.Panics(t, func() {
-		fixture.keeper.InitGenesis(fixture.ctx, genesis)
-	})
-
-	exported := fixture.keeper.ExportGenesis(fixture.ctx)
-	require.Empty(t, exported.Contributions)
+	t.Skip("not ported: Contribution.Timestamp is now *time.Time (gogoproto stdtime), which is always nil or a well-formed value; an \"out-of-range nanos\" invalid timestamp can no longer be constructed, so genesis validation no longer rejects it")
 }
 
 func TestInitGenesis_WithPoolAndMetrics(t *testing.T) {
@@ -616,7 +600,7 @@ func TestMsgServer_ProcessContribution_NegativeAmount(t *testing.T) {
 		ReceiptId:   "receipt-neg",
 		ToolId:      "tool-neg",
 		PublisherId: "pub-neg",
-		Amount:      &basev1beta1.Coin{Denom: "ulac", Amount: "-100"},
+		Amount:      sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(-100)},
 	})
 	require.Error(t, err)
 	require.Nil(t, resp)
@@ -639,7 +623,7 @@ func TestMsgServer_ProcessContribution_DuplicateReceiptRateLimited(t *testing.T)
 		ReceiptId:   "receipt-msg-dup",
 		ToolId:      "tool-1",
 		PublisherId: "pub-1",
-		Amount:      &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		Amount:      sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 	})
 	require.NoError(t, err)
 
@@ -648,7 +632,7 @@ func TestMsgServer_ProcessContribution_DuplicateReceiptRateLimited(t *testing.T)
 		ReceiptId:   "receipt-msg-dup",
 		ToolId:      "tool-1",
 		PublisherId: "pub-1",
-		Amount:      &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		Amount:      sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 	})
 	require.Error(t, err)
 	require.ErrorIs(t, err, types.ErrContributionRateLimitExceeded)

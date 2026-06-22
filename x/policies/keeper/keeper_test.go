@@ -11,20 +11,23 @@ import (
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	dbm "github.com/cosmos/cosmos-db"
 
-	"cosmossdk.io/log/v2"
+	"cosmossdk.io/log"
+	"cosmossdk.io/store/metrics"
+	"cosmossdk.io/store/rootmulti"
+	storetypes "cosmossdk.io/store/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
-	"github.com/cosmos/cosmos-sdk/store/v2/rootmulti"
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	"github.com/cosmos/gogoproto/proto"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/LumeraProtocol/lumera/x/policies/types"
 )
+
+// tsPtr returns a pointer to t, matching the gogoproto *time.Time fields.
+func tsPtr(t time.Time) *time.Time { return &t }
 
 func setupPoliciesKeeper(t *testing.T) (sdk.Context, *Keeper) {
 	t.Helper()
@@ -33,7 +36,7 @@ func setupPoliciesKeeper(t *testing.T) (sdk.Context, *Keeper) {
 
 	db := dbm.NewMemDB()
 	logger := log.NewNopLogger()
-	cms := rootmulti.NewStore(db, logger)
+	cms := rootmulti.NewStore(db, logger, metrics.NewNoOpMetrics())
 	cms.MountStoreWithDB(storeKey, storetypes.StoreTypeIAVL, db)
 	require.NoError(t, cms.LoadLatestVersion())
 
@@ -816,9 +819,9 @@ func TestImportStateRejectsOutOfOrderLifecycleTimestamp(t *testing.T) {
 				Lifecycle: &types.PolicyLifecycle{
 					State:        types.PolicyState_POLICY_STATE_DEPRECATED,
 					CreatedBy:    "lumera1owner",
-					CreatedAt:    timestamppb.New(base),
-					ActivatedAt:  timestamppb.New(base.Add(time.Hour)),
-					DeprecatedAt: timestamppb.New(base.Add(-time.Second)),
+					CreatedAt:    tsPtr(base),
+					ActivatedAt:  tsPtr(base.Add(time.Hour)),
+					DeprecatedAt: tsPtr(base.Add(-time.Second)),
 				},
 			},
 		},

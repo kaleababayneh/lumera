@@ -190,7 +190,7 @@ func runCooperativeStep(t *testing.T, ctx sdk.Context, k *Keeper, ledger *cooper
 // cooperative ledger total for that user.
 func readPerHourBudgetForUser(t *testing.T, ctx sdk.Context, k *Keeper, policyID, userID string) uint64 {
 	t.Helper()
-	policy, err := k.GetPolicy(ctx, policyID, "")
+	_, err := k.GetPolicy(ctx, policyID, "")
 	require.NoError(t, err)
 	periods := budgetUsagePeriods(ctx)
 	key := budgetUsageKey(policyID, userID, "per-hour", periods.hour)

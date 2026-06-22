@@ -400,18 +400,39 @@ func matchesHoldFilters(lock *types.Lock, req *types.QueryHoldsRequest) bool {
 	return true
 }
 
+// deepCopyProto returns an independent copy of a gogo message via a
+// marshal/unmarshal round-trip. proto.Clone must NOT be used: its reflective
+// table-merge panics ("merger not found for type:big.Word") on gogoproto
+// customtype fields (e.g. sdk.Coin.Amount = math.Int) once the message carries a
+// populated value — which would crash every Lock/Locks query in production.
+func deepCopyProto(src, dst proto.Message) bool {
+	bz, err := proto.Marshal(src)
+	if err != nil {
+		return false
+	}
+	return proto.Unmarshal(bz, dst) == nil
+}
+
 func cloneParams(params *types.Params) *types.Params {
 	if params == nil {
 		return nil
 	}
-	return proto.Clone(params).(*types.Params)
+	out := &types.Params{}
+	if !deepCopyProto(params, out) {
+		return params
+	}
+	return out
 }
 
 func cloneLock(lock *types.Lock) *types.Lock {
 	if lock == nil {
 		return nil
 	}
-	return proto.Clone(lock).(*types.Lock)
+	out := &types.Lock{}
+	if !deepCopyProto(lock, out) {
+		return lock
+	}
+	return out
 }
 
 func cloneLocks(locks []*types.Lock) []*types.Lock {

@@ -126,3 +126,14 @@ func (k Keeper) GetParams(ctx context.Context) types.Params {
 func (k Keeper) SetParams(ctx context.Context, p *types.Params) error {
 	return k.params.Set(ctx, p)
 }
+
+// GetDisputeWindowSeconds returns the registry-configured settlement dispute
+// window (seconds). The credits module consumes this (via an interface) so
+// settlement honours the registry's dispute window rather than its own default.
+func (k Keeper) GetDisputeWindowSeconds(ctx context.Context) uint32 {
+	secs := k.GetParams(ctx).DisputeWindowSeconds
+	if secs < 0 {
+		return 0
+	}
+	return uint32(secs)
+}

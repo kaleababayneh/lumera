@@ -9,19 +9,19 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 
-	"cosmossdk.io/log/v2"
+	"cosmossdk.io/log"
 	sdkmath "cosmossdk.io/math"
+	"cosmossdk.io/store/metrics"
+	"cosmossdk.io/store/rootmulti"
+	storetypes "cosmossdk.io/store/types"
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
-	"github.com/cosmos/cosmos-sdk/store/v2/rootmulti"
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	"github.com/cosmos/gogoproto/proto"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/LumeraProtocol/lumera/x/oracle/keeper"
 	"github.com/LumeraProtocol/lumera/x/oracle/types"
@@ -34,7 +34,7 @@ func setupOracleModuleTest(t *testing.T) (sdk.Context, AppModule, codec.Codec) {
 	db := dbm.NewMemDB()
 	logger := log.NewNopLogger()
 
-	cms := rootmulti.NewStore(db, logger)
+	cms := rootmulti.NewStore(db, logger, metrics.NewNoOpMetrics())
 	cms.MountStoreWithDB(storeKey, storetypes.StoreTypeIAVL, db)
 	require.NoError(t, cms.LoadLatestVersion())
 
@@ -61,7 +61,7 @@ func TestGenesisRoundTrip(t *testing.T) {
 		AssetPair:       "LAC/USD",
 		Price:           "1.23",
 		Volume_24H:      "1000000",
-		Timestamp:       timestamppb.New(now),
+		Timestamp:       now,
 		Sources:         []string{"binance", "coinbase"},
 		ConfidenceScore: "0.97",
 	}
@@ -69,7 +69,7 @@ func TestGenesisRoundTrip(t *testing.T) {
 		AssetPair:       "ATOM/USD",
 		Price:           "9.87",
 		Volume_24H:      "500000",
-		Timestamp:       timestamppb.New(now.Add(-time.Minute)),
+		Timestamp:       now.Add(-time.Minute),
 		Sources:         []string{"kraken"},
 		ConfidenceScore: "0.93",
 	}
@@ -81,7 +81,7 @@ func TestGenesisRoundTrip(t *testing.T) {
 		StandardDeviation: "0.01",
 		NumValidators:     7,
 		BlockHeight:       ctx.BlockHeight(),
-		Timestamp:         timestamppb.New(now),
+		Timestamp:         now,
 	}
 	aggregated2 := &types.AggregatedPrice{
 		AssetPair:         "ATOM/USD",
@@ -90,7 +90,7 @@ func TestGenesisRoundTrip(t *testing.T) {
 		StandardDeviation: "0.02",
 		NumValidators:     6,
 		BlockHeight:       ctx.BlockHeight(),
-		Timestamp:         timestamppb.New(now),
+		Timestamp:         now,
 	}
 
 	genesis := &types.GenesisState{
@@ -444,7 +444,11 @@ func TestGenesisValidatorRejectsInvalidTimestamps(t *testing.T) {
 					{
 						AssetPair: "BTC/USD",
 						Price:     "1",
-						Timestamp: &timestamppb.Timestamp{Seconds: 253402300800},
+						// year 10000 (> 9999) — out of the valid range
+						// validateGenesisTimestamp rejects. Under gogoproto the
+						// field is a time.Time value; the only "invalid" state it
+						// can represent is an out-of-range year.
+						Timestamp: time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC),
 					},
 				},
 			},
@@ -458,7 +462,12 @@ func TestGenesisValidatorRejectsInvalidTimestamps(t *testing.T) {
 					{
 						AssetPair:   "BTC/USD",
 						MedianPrice: "1",
-						Timestamp:   &timestamppb.Timestamp{Nanos: 1_000_000_000},
+						// year 0 (< 1) — out of the valid range
+						// validateGenesisTimestamp rejects. The upstream
+						// *timestamppb.Timestamp{Nanos: 1e9} malformation has no
+						// gogoproto time.Time equivalent, so we exercise the
+						// other out-of-range boundary instead.
+						Timestamp: time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC),
 					},
 				},
 			},

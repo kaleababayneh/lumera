@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/LumeraProtocol/lumera/x/credits/types"
 )
@@ -333,7 +332,7 @@ func TestImportState_RebuildsFailedSettlementTimeIndex(t *testing.T) {
 		Settlements: []*types.SettlementRecord{{
 			Id:          "settlement-failed-import",
 			Status:      types.SettlementStatus_SETTLEMENT_STATUS_FAILED,
-			CompletedAt: timestamppb.New(completedAt),
+			CompletedAt: &completedAt,
 		}},
 	}
 	require.NoError(t, fixture.keeper.ImportState(fixture.ctx, genesis))

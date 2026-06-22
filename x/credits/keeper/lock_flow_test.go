@@ -13,17 +13,18 @@ import (
 
 	"cosmossdk.io/log"
 	sdkmath "cosmossdk.io/math"
+	"cosmossdk.io/store/metrics"
+	"cosmossdk.io/store/rootmulti"
+	storetypes "cosmossdk.io/store/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"github.com/cosmos/cosmos-sdk/runtime"
-	"github.com/cosmos/cosmos-sdk/store/v2/rootmulti"
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/stretchr/testify/require"
 
-	"google.golang.org/protobuf/proto"
+	"github.com/cosmos/gogoproto/proto"
 
 	"github.com/LumeraProtocol/lumera/x/credits/types"
 	nfttypes "github.com/LumeraProtocol/lumera/x/nft/types"
@@ -901,7 +902,7 @@ func setupCreditsKeeperWithOptions(t *testing.T, opts keeperSetupOptions) (sdk.C
 	storeKey := storetypes.NewKVStoreKey(types.StoreKey)
 	db := dbm.NewMemDB()
 	logger := log.NewNopLogger()
-	cms := rootmulti.NewStore(db, logger)
+	cms := rootmulti.NewStore(db, logger, metrics.NewNoOpMetrics())
 	cms.MountStoreWithDB(storeKey, storetypes.StoreTypeIAVL, db)
 	require.NoError(t, cms.LoadLatestVersion())
 
@@ -1225,4 +1226,8 @@ func (m mockRegistryKeeper) GetToolPublisher(_ context.Context, toolID string) (
 		}
 	}
 	return nil, fmt.Errorf("tool %s not found", toolID)
+}
+
+func (m mockRegistryKeeper) ValidateReceipt(sdk.Context, string, string, string) error {
+	return nil
 }

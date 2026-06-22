@@ -4,81 +4,38 @@ import (
 	"strings"
 	"testing"
 
-	v1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
+	"cosmossdk.io/math"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// This file closes DIRECT-test coverage for THREE package-
-// private helpers in x/credits/types/msgs.go that had ZERO
-// direct test coverage prior (the published sites only reach
-// them indirectly via Msg.ValidateBasic round-trips):
+// DIRECT-test coverage for THREE package-private helpers in
+// x/credits/types/msgs.go: parseAccAddress, mustAddr, coinFromProto.
 //
-//   - parseAccAddress  (:31-36) — Bech32 validator with
-//                                 trim-empty guard
-//   - mustAddr         (:38-44) — panic-on-error wrapper
-//   - coinFromProto    (:46-70) — FIELD-NAME-SCOPED coin
-//                                 parser with zero-rejection
-//                                 semantic
-//
-// Scan-angle #5 (sibling-pattern pinning with INTENTIONAL
-// asymmetry) applies in TWO places:
-//
-// (A) parseAccAddress vs mustAddr: the error-path variant
-//     (parseAccAddress) is for user-supplied input; mustAddr
-//     is the panic-on-invariant-violation wrapper. Parallels
-//     the CoinFromProtoSafe / CoinFromProto asymmetry in
-//     proto_helpers.go — msg_server MUST use parseAccAddress
-//     for wire input.
-//
-// (B) coinFromProto vs CoinFromProtoSafe: BOTH return
-//     (coin, err) for bad input, but they DIVERGE on:
-//
-//        coinFromProto:      rejects ZERO amount (requires
-//                            IsPositive) — msg-field invariant
-//        CoinFromProtoSafe:  ACCEPTS zero amount (sdk.NewCoin
-//                            contract) — generic safe parser
-//
-//     A refactor unifying the two would either (a) make
-//     msg validation accept zero-amount coins (breaking the
-//     lock/settle invariants where a zero lock is meaningless)
-//     or (b) reject zero in generic coin parsing (breaking
-//     CACRoyaltyRecord fields that MAY be zero-coin).
-//
-//     Also: coinFromProto's error messages include the
-//     FIELD NAME for operator triage — a scan-angle #3
-//     hidden-secondary-return contract that ValidateBasic
-//     error composition relies on.
-//
-// Scan-angle #6 (security-critical invariants tested only at
-// happy path) applies to coinFromProto: in-code comment at
-// :54-57 explicitly documents the guard rationale — "sdk.
-// NewCoin panics on denom that's non-empty but fails
-// sdk.ValidateDenom's format rules... so check format
-// explicitly." A refactor skipping the ValidateDenom call
-// would let wire-supplied denoms like "1bad" panic the
-// msg-validation pipeline.
+// PORTED NOTE (gogoproto migration): in lumera_ai coinFromProto took a
+// *basev1beta1.Coin with a string Amount, so it could fail on empty/non-
+// numeric/decimal/scientific amount strings and on a nil pointer. After the
+// migration coinFromProto takes a native sdk.Coin (value, math.Int amount):
+// the string-parse failure modes and the nil-pointer "required" arm no longer
+// exist (the "required"/absent semantics moved to nonNegativeCoinFromProto).
+// Those impossible-to-construct cases are dropped; every remaining invariant
+// (empty/invalid denom, field-name scoping, zero/negative rejection,
+// trimming, strict-positive vs Safe-accepts-zero asymmetry) is preserved
+// against the native API.
 
 // ---- parseAccAddress ----
 
-// TestParseAccAddress_EmptyReturnsError pins :32-34.
 func TestParseAccAddress_EmptyReturnsError(t *testing.T) {
 	t.Parallel()
 	for _, empty := range []string{"", "   ", "\t\n"} {
 		_, err := parseAccAddress(empty)
 		require.Error(t, err,
-			"empty/whitespace %q → error. Pins :32-34 TrimSpace "+
-				"+ empty-check: a refactor dropping this would "+
-				"let sdk.AccAddressFromBech32 run on empty input, "+
-				"producing a cryptic 'empty address' error from "+
-				"deep inside bech32 decoding instead of the "+
-				"operator-friendly 'address cannot be empty'.", empty)
+			"empty/whitespace %q → error", empty)
 		assert.Contains(t, err.Error(), "cannot be empty")
 	}
 }
 
-// TestParseAccAddress_InvalidBech32ReturnsError pins :35 —
-// malformed bech32 returns the sdk error.
 func TestParseAccAddress_InvalidBech32ReturnsError(t *testing.T) {
 	t.Parallel()
 	for _, bad := range []string{
@@ -93,7 +50,6 @@ func TestParseAccAddress_InvalidBech32ReturnsError(t *testing.T) {
 	}
 }
 
-// TestParseAccAddress_ValidReturnsAddress pins the happy path.
 func TestParseAccAddress_ValidReturnsAddress(t *testing.T) {
 	t.Parallel()
 	valid := "cosmos1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5lzv7xu"
@@ -104,22 +60,16 @@ func TestParseAccAddress_ValidReturnsAddress(t *testing.T) {
 		"round-trip through AccAddress preserves the bech32 string")
 }
 
-// TestParseAccAddress_NoWhitespaceStrippingInsideAddress pins
-// that TrimSpace only handles LEADING/TRAILING whitespace —
-// embedded spaces produce a bech32 decode error, NOT a silent
-// strip.
 func TestParseAccAddress_EmbeddedSpaceReturnsError(t *testing.T) {
 	t.Parallel()
 	bad := "cosmos1qypqxpq 9qcrsszg2pvxq6rs0zqg3yyc5lzv7xu"
 	_, err := parseAccAddress(bad)
 	assert.Error(t, err,
-		"embedded space in address → error (TrimSpace only trims "+
-			"edges, not internal whitespace)")
+		"embedded space in address → error (TrimSpace only trims edges)")
 }
 
 // ---- mustAddr ----
 
-// TestMustAddr_ValidDoesNotPanic pins the happy path.
 func TestMustAddr_ValidDoesNotPanic(t *testing.T) {
 	t.Parallel()
 	valid := "cosmos1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5lzv7xu"
@@ -129,23 +79,15 @@ func TestMustAddr_ValidDoesNotPanic(t *testing.T) {
 	})
 }
 
-// TestMustAddr_EmptyPanics is the scan-angle #5 CROSS-SIBLING
-// anchor: the must* variant PANICS on the exact input that
-// parseAccAddress errors on.
+// TestMustAddr_EmptyPanics pins the must* sibling: it panics on the exact
+// input that parseAccAddress errors on.
 func TestMustAddr_EmptyPanics(t *testing.T) {
 	t.Parallel()
 	assert.Panics(t, func() { _ = mustAddr("") },
-		"mustAddr panics on empty address. Pins the scan-angle "+
-			"#5 sibling contract: msg_server code paths MUST use "+
-			"parseAccAddress (error-returning) for user input; "+
-			"mustAddr is reserved for invariants that MUST hold by "+
-			"construction. A refactor making msg_server use "+
-			"mustAddr directly would crash the handler through "+
-			"baseapp recover on every malformed bech32 input.")
+		"mustAddr panics on empty address — msg_server MUST use "+
+			"parseAccAddress for user input")
 }
 
-// TestMustAddr_InvalidBech32Panics pins the sibling path for
-// invalid (not just empty) addresses.
 func TestMustAddr_InvalidBech32Panics(t *testing.T) {
 	t.Parallel()
 	assert.Panics(t, func() { _ = mustAddr("not-a-bech32") })
@@ -153,30 +95,24 @@ func TestMustAddr_InvalidBech32Panics(t *testing.T) {
 
 // ---- coinFromProto ----
 
-// TestCoinFromProto_NilReturnsFieldScopedError pins :47-49.
-// The CRITICAL scan-angle #3 anchor: the error message
-// includes the caller-supplied field name for operator
-// triage.
+// TestCoinFromProto_NilReturnsFieldScopedError pins that a zero-value coin
+// (empty denom) produces a field-name-scoped error.
+//
+// PORTED: the nil-pointer "required" arm no longer exists; a zero-value
+// sdk.Coin trips the empty-denom guard, which still carries the field name.
 func TestCoinFromProto_NilReturnsFieldScopedError(t *testing.T) {
 	t.Parallel()
-	_, err := coinFromProto(nil, "amount")
+	_, err := coinFromProto(sdk.Coin{}, "amount")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "amount",
-		"error message echoes field name 'amount'. Pins :48 "+
-			"scan-angle #3 hidden-secondary-return: a refactor "+
-			"that dropped the field param would produce identical "+
-			"'is required' errors for every field, breaking "+
-			"ValidateBasic's per-field error composition used in "+
-			"operator-facing error UI.")
-	assert.Contains(t, err.Error(), "required")
+		"error message echoes field name 'amount' for per-field triage")
+	assert.Contains(t, err.Error(), "denom cannot be empty")
 }
 
-// TestCoinFromProto_EmptyDenomReturnsFieldScopedError pins
-// :50-53.
 func TestCoinFromProto_EmptyDenomReturnsFieldScopedError(t *testing.T) {
 	t.Parallel()
 	for _, denom := range []string{"", "   ", "\t"} {
-		c := &v1beta1.Coin{Denom: denom, Amount: "100"}
+		c := sdk.Coin{Denom: denom, Amount: math.NewInt(100)}
 		_, err := coinFromProto(c, "locked_amount")
 		require.Error(t, err,
 			"empty/whitespace denom %q → error", denom)
@@ -186,12 +122,9 @@ func TestCoinFromProto_EmptyDenomReturnsFieldScopedError(t *testing.T) {
 	}
 }
 
-// TestCoinFromProto_InvalidDenomFormatReturnsError is the
-// scan-angle #6 anchor. In-code comment at :54-57 warns:
-// "sdk.NewCoin panics on denom that's non-empty but fails
-// sdk.ValidateDenom's format rules... so check format
-// explicitly." A regression would panic the msg-validation
-// pipeline on wire-supplied denoms like "1bad".
+// TestCoinFromProto_InvalidDenomFormatReturnsError pins the ValidateDenom
+// pre-check (msgs.go:89) — without it, sdk.NewCoin would panic the
+// msg-validation pipeline on a wire-supplied denom like "1bad".
 func TestCoinFromProto_InvalidDenomFormatReturnsError(t *testing.T) {
 	t.Parallel()
 	for _, badDenom := range []string{
@@ -200,155 +133,105 @@ func TestCoinFromProto_InvalidDenomFormatReturnsError(t *testing.T) {
 		"!@#$",
 		"a", // too short
 	} {
-		c := &v1beta1.Coin{Denom: badDenom, Amount: "100"}
+		c := sdk.Coin{Denom: badDenom, Amount: math.NewInt(100)}
 		_, err := coinFromProto(c, "amount")
 		require.Error(t, err,
-			"invalid denom %q → error (NOT panic). Pins :58-60 "+
-				"ValidateDenom pre-check. Critical per in-code "+
-				"comment :54-57: without this check, the same "+
-				"input would panic sdk.NewCoin and crash the "+
-				"msg-validation pipeline through baseapp recover.",
-			badDenom)
+			"invalid denom %q → error (NOT panic)", badDenom)
 		assert.Contains(t, err.Error(), "denom is invalid")
 	}
 }
 
-// TestCoinFromProto_EmptyAmountReturnsError pins :61-64.
-func TestCoinFromProto_EmptyAmountReturnsError(t *testing.T) {
-	t.Parallel()
-	for _, amount := range []string{"", "   "} {
-		c := &v1beta1.Coin{Denom: "ulac", Amount: amount}
-		_, err := coinFromProto(c, "amount")
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "amount cannot be empty")
-	}
-}
-
-// TestCoinFromProto_InvalidAmountStringReturnsError pins
-// :65-68 — the parse guard.
-func TestCoinFromProto_InvalidAmountStringReturnsError(t *testing.T) {
-	t.Parallel()
-	for _, bad := range []string{
-		"not-a-number",
-		"1.5",  // decimals not allowed
-		"1e10", // scientific notation not accepted
-	} {
-		c := &v1beta1.Coin{Denom: "ulac", Amount: bad}
-		_, err := coinFromProto(c, "amount")
-		require.Error(t, err,
-			"invalid amount %q → error", bad)
-		assert.Contains(t, err.Error(), "must be positive",
-			"error mentions 'must be positive' (the combined parse/"+
-				"positivity error)")
-	}
-}
-
-// TestCoinFromProto_ZeroAmountRejected is the scan-angle #5
-// ASYMMETRY anchor vs CoinFromProtoSafe: coinFromProto
-// requires STRICTLY POSITIVE, while CoinFromProtoSafe
-// accepts zero.
+// TestCoinFromProto_ZeroAmountRejected pins the asymmetry vs CoinFromProtoSafe:
+// coinFromProto requires STRICTLY POSITIVE, CoinFromProtoSafe accepts zero.
 func TestCoinFromProto_ZeroAmountRejected(t *testing.T) {
 	t.Parallel()
-	c := &v1beta1.Coin{Denom: "ulac", Amount: "0"}
+	c := sdk.Coin{Denom: "ulac", Amount: math.ZeroInt()}
 	_, err := coinFromProto(c, "amount")
 	require.Error(t, err,
-		"CRITICAL — zero amount rejected. Pins the scan-angle "+
-			"#5 asymmetry with CoinFromProtoSafe (proto_helpers.go) "+
-			"which ACCEPTS zero. This helper is used by "+
-			"MsgLockCredits/MsgSettleCredits/MsgSwap ValidateBasic "+
-			"where a zero amount is meaningless (can't lock or "+
-			"swap zero). A refactor relaxing to >= 0 would let "+
-			"nonsensical zero-coin messages reach the keeper.")
+		"CRITICAL — zero amount rejected (msg-invariant: can't lock/swap zero)")
 	assert.Contains(t, err.Error(), "must be positive",
-		"error mentions 'must be positive' to signal the "+
-			"positivity requirement (distinct from 'amount invalid')")
+		"error mentions 'must be positive' (distinct from 'amount invalid')")
 }
 
-// TestCoinFromProto_NegativeAmountRejected pins the negative
-// path (also via the IsPositive guard at :66).
+// TestCoinFromProto_NilAmountRejected pins that a nil math.Int (unset amount)
+// is rejected by the IsNil() guard.
+func TestCoinFromProto_NilAmountRejected(t *testing.T) {
+	t.Parallel()
+	c := sdk.Coin{Denom: "ulac"} // Amount is a nil math.Int
+	_, err := coinFromProto(c, "amount")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must be positive")
+}
+
 func TestCoinFromProto_NegativeAmountRejected(t *testing.T) {
 	t.Parallel()
-	for _, neg := range []string{"-1", "-100", "-1000000"} {
-		c := &v1beta1.Coin{Denom: "ulac", Amount: neg}
+	for _, neg := range []int64{-1, -100, -1000000} {
+		c := sdk.Coin{Denom: "ulac", Amount: math.NewInt(neg)}
 		_, err := coinFromProto(c, "amount")
 		require.Error(t, err,
-			"negative amount %q → error (IsPositive guard)", neg)
+			"negative amount %d → error (IsPositive guard)", neg)
 	}
 }
 
-// TestCoinFromProto_ValidPositive pins the happy path.
 func TestCoinFromProto_ValidPositive(t *testing.T) {
 	t.Parallel()
-	c := &v1beta1.Coin{Denom: "ulac", Amount: "1000"}
+	c := sdk.Coin{Denom: "ulac", Amount: math.NewInt(1000)}
 	coin, err := coinFromProto(c, "amount")
 	require.NoError(t, err)
 	assert.Equal(t, "ulac", coin.Denom)
 	assert.Equal(t, "1000", coin.Amount.String())
 }
 
-// TestCoinFromProto_DenomTrimmed pins that leading/trailing
-// whitespace in denom is stripped (via :50 TrimSpace).
+// TestCoinFromProto_DenomAndAmountTrimmed pins that leading/trailing
+// whitespace in denom is stripped before ValidateDenom (msgs.go:81).
 func TestCoinFromProto_DenomAndAmountTrimmed(t *testing.T) {
 	t.Parallel()
-	c := &v1beta1.Coin{Denom: "  ulac  ", Amount: "  100  "}
+	c := sdk.Coin{Denom: "  ulac  ", Amount: math.NewInt(100)}
 	coin, err := coinFromProto(c, "amount")
 	require.NoError(t, err)
 	assert.Equal(t, "ulac", coin.Denom,
 		"denom TrimSpace'd before ValidateDenom")
-	assert.Equal(t, "100", coin.Amount.String(),
-		"amount TrimSpace'd before parse")
+	assert.Equal(t, "100", coin.Amount.String())
 }
 
-// TestCoinFromProto_FieldNamePropagatesEvenOnLateFailures pins
-// that the field name reaches EVERY error path, not just the
-// nil-check at :48. A refactor that hardcoded the field name
-// in one arm would break uniform error composition.
+// TestCoinFromProto_FieldNameInEveryErrorPath pins that the field name reaches
+// every error arm so ValidateBasic error composition stays uniform.
 func TestCoinFromProto_FieldNameInEveryErrorPath(t *testing.T) {
 	t.Parallel()
 	fieldName := "custom_field_name_for_triage"
-	cases := []*v1beta1.Coin{
-		nil,                                     // :47-49
-		{Denom: "", Amount: "100"},              // :51-53
-		{Denom: "1bad", Amount: "100"},          // :58-60
-		{Denom: "ulac", Amount: ""},             // :62-64
-		{Denom: "ulac", Amount: "not-a-number"}, // :65-68
-		{Denom: "ulac", Amount: "0"},            // positivity
-		{Denom: "ulac", Amount: "-1"},           // positivity
+	cases := []sdk.Coin{
+		{},                                     // empty denom
+		{Denom: "1bad", Amount: math.NewInt(100)},   // invalid denom format
+		{Denom: "ulac", Amount: math.ZeroInt()},     // positivity
+		{Denom: "ulac", Amount: math.NewInt(-1)},    // positivity
+		{Denom: "ulac"},                             // nil amount
 	}
 	for _, c := range cases {
 		_, err := coinFromProto(c, fieldName)
 		require.Error(t, err)
 		assert.True(t, strings.Contains(err.Error(), fieldName),
-			"error from input %+v contains field name %q — pins "+
-				"field-name propagation across all error arms.",
-			c, fieldName)
+			"error from input %+v contains field name %q", c, fieldName)
 	}
 }
 
 // ---- Cross-sibling asymmetry anchor ----
 
-// TestCoinFromProtoHelpers_ZeroAmountDivergence is the top-
-// level scan-angle #5 anchor. Same zero-amount input produces
-// DIFFERENT outcomes across the two coin helpers:
+// TestCoinFromProtoHelpers_ZeroAmountDivergesBetweenSiblings pins that the
+// same zero-amount input produces different outcomes:
 //
 //	coinFromProto:     ERROR (positivity required)
 //	CoinFromProtoSafe: SUCCESS (zero is a valid sdk.Coin)
 func TestCoinFromProtoHelpers_ZeroAmountDivergesBetweenSiblings(t *testing.T) {
 	t.Parallel()
-	zeroCoin := &v1beta1.Coin{Denom: "ulac", Amount: "0"}
+	zeroCoin := sdk.Coin{Denom: "ulac", Amount: math.ZeroInt()}
 
 	// Safe variant accepts zero.
 	_, errSafe := CoinFromProtoSafe(zeroCoin)
 	assert.NoError(t, errSafe,
-		"CoinFromProtoSafe ACCEPTS zero amount (sdk.NewCoin "+
-			"generic contract — zero is a legal coin)")
+		"CoinFromProtoSafe ACCEPTS zero amount (generic sdk.Coin contract)")
 
 	// Package-private variant rejects zero.
 	_, errStrict := coinFromProto(zeroCoin, "amount")
 	assert.Error(t, errStrict,
-		"coinFromProto REJECTS zero amount (msg-invariant: "+
-			"no msg with a zero coin is meaningful). Pins the "+
-			"scan-angle #5 intentional divergence: a refactor "+
-			"unifying them would either relax msg validation or "+
-			"break CACRoyalty fields that CAN be zero-coin.")
+		"coinFromProto REJECTS zero amount (msg-invariant)")
 }

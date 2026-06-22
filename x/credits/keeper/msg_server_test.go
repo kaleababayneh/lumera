@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	basev1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -57,8 +56,12 @@ func newMsgSrvFixtureWithRegistry(t *testing.T) (*msgSrvFixture, *mockRegistryKe
 	}, registry
 }
 
-func protoCoin(denom string, amount string) *basev1beta1.Coin {
-	return &basev1beta1.Coin{Denom: denom, Amount: amount}
+func protoCoin(denom string, amount string) sdk.Coin {
+	amt, ok := sdkmath.NewIntFromString(amount)
+	if !ok {
+		panic("protoCoin: invalid amount " + amount)
+	}
+	return sdk.Coin{Denom: denom, Amount: amt}
 }
 
 func validKeeperSettleOverdraftMsg(router string) *types.MsgSettleOverdraft {
@@ -119,11 +122,15 @@ func TestMsgServer_LockCredits_NilAmount(t *testing.T) {
 		Router:    routerAddr.String(),
 		SessionId: "session-nil-amount",
 		ToolId:    "tool-1",
-		Amount:    nil,
+		Amount:    sdk.Coin{},
 	})
 	require.Error(t, err)
 	require.Nil(t, resp)
-	assert.Contains(t, err.Error(), "amount is required")
+	// After the gogoproto migration Amount is a value sdk.Coin; an unset coin
+	// (sdk.Coin{}) is rejected by ValidateBasic's coinFromProto with an
+	// empty-denom error (which runs before the keeper's "amount is required"
+	// guard). The contract — an empty/missing amount must be rejected — holds.
+	assert.Contains(t, err.Error(), "amount denom cannot be empty")
 }
 
 func TestMsgServer_LockCredits_ZeroAmount(t *testing.T) {
@@ -487,7 +494,7 @@ func TestMsgServer_SettleCredits_NilActualCost(t *testing.T) {
 		ReceiptId:  "receipt-1",
 		ToolId:     "tool-1",
 		Publisher:  newAccAddress().String(),
-		ActualCost: nil,
+		ActualCost: sdk.Coin{},
 	})
 	require.Error(t, err)
 	require.Nil(t, resp)
@@ -761,7 +768,7 @@ func TestMsgServer_SettleCredits_ZeroActualCostCompletesSettlement(t *testing.T)
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	require.Equal(t, "50000", resp.RefundAmount.Amount)
+	require.Equal(t, "50000", resp.RefundAmount.Amount.String())
 
 	lock, found := f.keeper.GetLock(f.ctx, lockResp.LockId)
 	require.True(t, found)
@@ -1228,11 +1235,13 @@ func TestMsgServer_SwapLUMEtoLAC_NilAmount(t *testing.T) {
 	f := newMsgSrvFixture(t)
 	resp, err := f.srv.SwapLUMEtoLAC(f.ctx, &types.MsgSwapLUMEtoLAC{
 		Sender:     newAccAddress().String(),
-		LumeAmount: nil,
+		LumeAmount: sdk.Coin{},
 	})
 	require.Error(t, err)
 	require.Nil(t, resp)
-	assert.Contains(t, err.Error(), "lume_amount is required")
+	// Unset value sdk.Coin{} is rejected by ValidateBasic with an empty-denom
+	// error after the gogoproto migration (see TestMsgServer_LockCredits_NilAmount).
+	assert.Contains(t, err.Error(), "lume_amount denom cannot be empty")
 }
 
 func TestMsgServer_SwapLUMEtoLAC_WrongDenom(t *testing.T) {
@@ -1309,11 +1318,13 @@ func TestMsgServer_SwapLACtoLUME_NilAmount(t *testing.T) {
 	f := newMsgSrvFixture(t)
 	resp, err := f.srv.SwapLACtoLUME(f.ctx, &types.MsgSwapLACtoLUME{
 		Sender:    newAccAddress().String(),
-		LacAmount: nil,
+		LacAmount: sdk.Coin{},
 	})
 	require.Error(t, err)
 	require.Nil(t, resp)
-	assert.Contains(t, err.Error(), "lac_amount is required")
+	// Unset value sdk.Coin{} is rejected by ValidateBasic with an empty-denom
+	// error after the gogoproto migration (see TestMsgServer_LockCredits_NilAmount).
+	assert.Contains(t, err.Error(), "lac_amount denom cannot be empty")
 }
 
 func TestMsgServer_SwapLACtoLUME_HappyPath(t *testing.T) {

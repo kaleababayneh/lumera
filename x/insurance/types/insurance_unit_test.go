@@ -48,7 +48,9 @@ func TestClaimStatus_String(t *testing.T) {
 		{ClaimStatus_CLAIM_STATUS_PAID, "CLAIM_STATUS_PAID"},
 		{ClaimStatus_CLAIM_STATUS_EXPIRED, "CLAIM_STATUS_EXPIRED"},
 		{ClaimStatus_CLAIM_STATUS_DISPUTED, "CLAIM_STATUS_DISPUTED"},
-		{ClaimStatus(99), "CLAIM_STATUS_UNSPECIFIED"}, // unknown value
+		// gogoproto's generated String() renders an unknown enum value as its
+		// decimal form (the protobuf-go runtime used to map it to the zero name).
+		{ClaimStatus(99), "99"}, // unknown value
 	}
 
 	for _, tc := range tests {
@@ -78,7 +80,9 @@ func TestPayoutStatus_String(t *testing.T) {
 		{PayoutStatus_PAYOUT_STATUS_PENDING, "PAYOUT_STATUS_PENDING"},
 		{PayoutStatus_PAYOUT_STATUS_COMPLETED, "PAYOUT_STATUS_COMPLETED"},
 		{PayoutStatus_PAYOUT_STATUS_FAILED, "PAYOUT_STATUS_FAILED"},
-		{PayoutStatus(99), "PAYOUT_STATUS_UNSPECIFIED"}, // unknown value
+		// gogoproto's generated String() renders an unknown enum value as its
+		// decimal form (the protobuf-go runtime used to map it to the zero name).
+		{PayoutStatus(99), "99"}, // unknown value
 	}
 
 	for _, tc := range tests {
@@ -102,7 +106,7 @@ func TestReceiptSettlementStatus_Constants(t *testing.T) {
 // EvaluatePoolHealth tests
 // --------------------------------------------------------------------------
 
-func TestEvaluatePoolHealth_ZeroTargetZeroCurrent(t *testing.T) {
+func TestEvaluatePoolHealth_ZeroTargetZeroCurrent_Unit(t *testing.T) {
 	pool := &PoolState{
 		TargetUtilization:  "0",
 		CurrentUtilization: "0",
@@ -110,7 +114,7 @@ func TestEvaluatePoolHealth_ZeroTargetZeroCurrent(t *testing.T) {
 	assert.Equal(t, PoolStatus_POOL_STATUS_HEALTHY, EvaluatePoolHealth(pool))
 }
 
-func TestEvaluatePoolHealth_ZeroTargetNonzeroCurrent(t *testing.T) {
+func TestEvaluatePoolHealth_ZeroTargetNonzeroCurrent_Unit(t *testing.T) {
 	pool := &PoolState{
 		TargetUtilization:  "0",
 		CurrentUtilization: "0.5",
@@ -118,7 +122,7 @@ func TestEvaluatePoolHealth_ZeroTargetNonzeroCurrent(t *testing.T) {
 	assert.Equal(t, PoolStatus_POOL_STATUS_UNDERFUNDED, EvaluatePoolHealth(pool))
 }
 
-func TestEvaluatePoolHealth_Overfunded(t *testing.T) {
+func TestEvaluatePoolHealth_Overfunded_Unit(t *testing.T) {
 	// ratio < 0.5 => overfunded
 	pool := &PoolState{
 		TargetUtilization:  "0.8",
@@ -127,7 +131,7 @@ func TestEvaluatePoolHealth_Overfunded(t *testing.T) {
 	assert.Equal(t, PoolStatus_POOL_STATUS_OVERFUNDED, EvaluatePoolHealth(pool))
 }
 
-func TestEvaluatePoolHealth_Healthy(t *testing.T) {
+func TestEvaluatePoolHealth_Healthy_Unit(t *testing.T) {
 	// 0.5 <= ratio < 0.8 => healthy
 	pool := &PoolState{
 		TargetUtilization:  "0.5",
@@ -136,7 +140,7 @@ func TestEvaluatePoolHealth_Healthy(t *testing.T) {
 	assert.Equal(t, PoolStatus_POOL_STATUS_HEALTHY, EvaluatePoolHealth(pool))
 }
 
-func TestEvaluatePoolHealth_Underfunded(t *testing.T) {
+func TestEvaluatePoolHealth_Underfunded_Unit(t *testing.T) {
 	// 0.8 <= ratio < 1.2 => underfunded
 	pool := &PoolState{
 		TargetUtilization:  "0.5",
@@ -145,7 +149,7 @@ func TestEvaluatePoolHealth_Underfunded(t *testing.T) {
 	assert.Equal(t, PoolStatus_POOL_STATUS_UNDERFUNDED, EvaluatePoolHealth(pool))
 }
 
-func TestEvaluatePoolHealth_Critical(t *testing.T) {
+func TestEvaluatePoolHealth_Critical_Unit(t *testing.T) {
 	// ratio >= 1.2 => critical
 	pool := &PoolState{
 		TargetUtilization:  "0.5",
@@ -154,7 +158,7 @@ func TestEvaluatePoolHealth_Critical(t *testing.T) {
 	assert.Equal(t, PoolStatus_POOL_STATUS_CRITICAL, EvaluatePoolHealth(pool))
 }
 
-func TestEvaluatePoolHealth_InvalidTargetUtilization(t *testing.T) {
+func TestEvaluatePoolHealth_InvalidTargetUtilization_Unit(t *testing.T) {
 	pool := &PoolState{
 		TargetUtilization:  "not_a_number",
 		CurrentUtilization: "0.5",
@@ -163,7 +167,7 @@ func TestEvaluatePoolHealth_InvalidTargetUtilization(t *testing.T) {
 	assert.Equal(t, PoolStatus_POOL_STATUS_UNDERFUNDED, EvaluatePoolHealth(pool))
 }
 
-func TestEvaluatePoolHealth_InvalidCurrentUtilization(t *testing.T) {
+func TestEvaluatePoolHealth_InvalidCurrentUtilization_Unit(t *testing.T) {
 	pool := &PoolState{
 		TargetUtilization:  "0.5",
 		CurrentUtilization: "not_a_number",
@@ -222,7 +226,7 @@ func TestCalculatePremium_BasicCalculation(t *testing.T) {
 	assert.True(t, premium.Equal(decimal.NewFromInt(45)))
 }
 
-func TestCalculatePremium_ZeroMultiplier(t *testing.T) {
+func TestCalculatePremium_ZeroMultiplier_Unit(t *testing.T) {
 	risk := &PublisherRisk{PremiumMultiplier: "0"}
 	baseAmount := decimal.NewFromInt(1000)
 	params := &Parameters{InsurancePoolBPS: 300}
@@ -231,7 +235,7 @@ func TestCalculatePremium_ZeroMultiplier(t *testing.T) {
 	assert.True(t, premium.IsZero())
 }
 
-func TestCalculatePremium_ZeroBPS(t *testing.T) {
+func TestCalculatePremium_ZeroBPS_Unit(t *testing.T) {
 	risk := &PublisherRisk{PremiumMultiplier: "2.0"}
 	baseAmount := decimal.NewFromInt(1000)
 	params := &Parameters{InsurancePoolBPS: 0}
@@ -291,7 +295,7 @@ func TestEvidence_JSONMarshal(t *testing.T) {
 	evidence := &Evidence{
 		Type:        "screenshot",
 		Hash:        "sha256:abc123",
-		Url:         "https://example.com/evidence.png",
+		Uri:         "https://example.com/evidence.png",
 		Description: "Error message screenshot",
 	}
 
@@ -303,7 +307,7 @@ func TestEvidence_JSONMarshal(t *testing.T) {
 
 	assert.Equal(t, evidence.Type, decoded.Type)
 	assert.Equal(t, evidence.Hash, decoded.Hash)
-	assert.Equal(t, evidence.Url, decoded.Url)
+	assert.Equal(t, evidence.Uri, decoded.Uri)
 	assert.Equal(t, evidence.Description, decoded.Description)
 }
 
@@ -311,15 +315,15 @@ func TestEvidence_JSONMarshal_EmptyUrl(t *testing.T) {
 	evidence := &Evidence{
 		Type:        "log",
 		Hash:        "sha256:def456",
-		Url:         "",
+		Uri:         "",
 		Description: "Service logs",
 	}
 
 	data, err := json.Marshal(evidence)
 	require.NoError(t, err)
 
-	// URL should be omitted when empty (omitempty)
-	assert.NotContains(t, string(data), `"url":""`)
+	// URI should be omitted when empty (omitempty)
+	assert.NotContains(t, string(data), `"uri":""`)
 }
 
 // --------------------------------------------------------------------------

@@ -9,8 +9,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
+	"github.com/cosmos/gogoproto/proto"
 
 	"github.com/LumeraProtocol/lumera/x/oracle/types"
 )
@@ -69,7 +68,7 @@ func TestGenesisRoundtrip_Oracle(t *testing.T) {
 	t.Parallel()
 	ctx, k := setupOracleKeeper(t)
 
-	ts := timestamppb.New(time.Unix(1700000000, 0).UTC())
+	ts := time.Unix(1700000000, 0).UTC()
 	original := &types.GenesisState{
 		Params: &types.Params{
 			VotePeriod:        15,
@@ -192,7 +191,7 @@ func TestGenesisRoundtrip_Oracle_EmptyGenesis(t *testing.T) {
 func TestProto3Determinism_OracleGenesis(t *testing.T) {
 	t.Parallel()
 
-	ts := timestamppb.New(time.Unix(1700000000, 0).UTC())
+	ts := time.Unix(1700000000, 0).UTC()
 	genesis := &types.GenesisState{
 		Params: types.DefaultParams(),
 		PriceFeeds: []*types.PriceFeed{
@@ -218,12 +217,10 @@ func TestProto3Determinism_OracleGenesis(t *testing.T) {
 		},
 	}
 
-	opts := proto.MarshalOptions{Deterministic: true}
-
-	bytes1, err := opts.Marshal(genesis)
+	bytes1, err := proto.Marshal(genesis)
 	require.NoError(t, err)
 
-	bytes2, err := opts.Marshal(genesis)
+	bytes2, err := proto.Marshal(genesis)
 	require.NoError(t, err)
 
 	require.Equal(t, bytes1, bytes2,
@@ -237,7 +234,7 @@ func TestProto3Determinism_OracleGenesis(t *testing.T) {
 				AssetPair:       "LAC/USD",
 				Price:           "1.2345",
 				Volume_24H:      "5000000",
-				Timestamp:       timestamppb.New(time.Unix(1700000000, 0).UTC()),
+				Timestamp:       time.Unix(1700000000, 0).UTC(),
 				Sources:         []string{"binance", "coinbase"},
 				ConfidenceScore: "0.95",
 			},
@@ -250,12 +247,12 @@ func TestProto3Determinism_OracleGenesis(t *testing.T) {
 				StandardDeviation: "0.0005",
 				NumValidators:     10,
 				BlockHeight:       100,
-				Timestamp:         timestamppb.New(time.Unix(1700000000, 0).UTC()),
+				Timestamp:         time.Unix(1700000000, 0).UTC(),
 			},
 		},
 	}
 
-	bytes3, err := opts.Marshal(genesis2)
+	bytes3, err := proto.Marshal(genesis2)
 	require.NoError(t, err)
 
 	require.Equal(t, bytes1, bytes3,
@@ -266,7 +263,7 @@ func TestProto3Determinism_OracleGenesis(t *testing.T) {
 func TestProto3Determinism_PriceFeed(t *testing.T) {
 	t.Parallel()
 
-	ts := timestamppb.New(time.Unix(1700000000, 0).UTC())
+	ts := time.Unix(1700000000, 0).UTC()
 	feed := &types.PriceFeed{
 		AssetPair:       "ETH/USD",
 		Price:           "2500.00",
@@ -276,12 +273,10 @@ func TestProto3Determinism_PriceFeed(t *testing.T) {
 		ConfidenceScore: "0.92",
 	}
 
-	opts := proto.MarshalOptions{Deterministic: true}
-
-	bytes1, err := opts.Marshal(feed)
+	bytes1, err := proto.Marshal(feed)
 	require.NoError(t, err)
 
-	bytes2, err := opts.Marshal(feed)
+	bytes2, err := proto.Marshal(feed)
 	require.NoError(t, err)
 
 	require.Equal(t, bytes1, bytes2,
@@ -292,7 +287,7 @@ func TestProto3Determinism_PriceFeed(t *testing.T) {
 func TestProto3Determinism_AggregatedPrice(t *testing.T) {
 	t.Parallel()
 
-	ts := timestamppb.New(time.Unix(1700000000, 0).UTC())
+	ts := time.Unix(1700000000, 0).UTC()
 	agg := &types.AggregatedPrice{
 		AssetPair:         "LAC/USD",
 		MedianPrice:       "1.2340",
@@ -303,12 +298,10 @@ func TestProto3Determinism_AggregatedPrice(t *testing.T) {
 		Timestamp:         ts,
 	}
 
-	opts := proto.MarshalOptions{Deterministic: true}
-
-	bytes1, err := opts.Marshal(agg)
+	bytes1, err := proto.Marshal(agg)
 	require.NoError(t, err)
 
-	bytes2, err := opts.Marshal(agg)
+	bytes2, err := proto.Marshal(agg)
 	require.NoError(t, err)
 
 	require.Equal(t, bytes1, bytes2,

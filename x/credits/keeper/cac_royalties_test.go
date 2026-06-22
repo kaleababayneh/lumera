@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -35,6 +34,10 @@ func (m *cacRegistryKeeper) GetToolPublisher(_ context.Context, toolID string) (
 		return addr, nil
 	}
 	return nil, nil
+}
+
+func (m *cacRegistryKeeper) ValidateReceipt(_ sdk.Context, _, _, _ string) error {
+	return nil
 }
 
 func setupCACKeeperWithRegistry(t *testing.T) (sdk.Context, *Keeper, *mockBankKeeper, *cacRegistryKeeper) {
@@ -315,8 +318,8 @@ func TestCACRoyaltyStats(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, toolID, stats.ToolId)
 	require.Zero(t, stats.TotalCacheHits)
-	require.True(t, stats.TotalRoyaltiesEarnedCoins().IsZero())
-	require.True(t, stats.TotalRoyaltiesPaidCoins().IsZero())
+	require.True(t, stats.TotalRoyaltiesEarned.IsZero())
+	require.True(t, stats.TotalRoyaltiesPaid.IsZero())
 
 	// Update stats as origin
 	amount := sdk.NewCoins(sdk.NewInt64Coin(types.DefaultCreditDenom, 100))
@@ -327,8 +330,8 @@ func TestCACRoyaltyStats(t *testing.T) {
 	stats, err = keeper.GetCACRoyaltyStats(ctx, toolID)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), stats.TotalCacheHits)
-	require.True(t, stats.TotalRoyaltiesEarnedCoins().Equal(amount))
-	require.True(t, stats.TotalRoyaltiesPaidCoins().IsZero())
+	require.True(t, stats.TotalRoyaltiesEarned.Equal(amount))
+	require.True(t, stats.TotalRoyaltiesPaid.IsZero())
 
 	// Update stats as serving
 	servingAmount := sdk.NewCoins(sdk.NewInt64Coin(types.DefaultCreditDenom, 200))
@@ -339,8 +342,8 @@ func TestCACRoyaltyStats(t *testing.T) {
 	stats, err = keeper.GetCACRoyaltyStats(ctx, toolID)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), stats.TotalCacheHits) // Only incremented for origin
-	require.True(t, stats.TotalRoyaltiesEarnedCoins().Equal(amount))
-	require.True(t, stats.TotalRoyaltiesPaidCoins().Equal(servingAmount))
+	require.True(t, stats.TotalRoyaltiesEarned.Equal(amount))
+	require.True(t, stats.TotalRoyaltiesPaid.Equal(servingAmount))
 }
 
 func TestCACRoyaltyStats_Cumulative(t *testing.T) {
@@ -358,7 +361,7 @@ func TestCACRoyaltyStats_Cumulative(t *testing.T) {
 	stats, err := keeper.GetCACRoyaltyStats(ctx, toolID)
 	require.NoError(t, err)
 	require.Equal(t, uint64(5), stats.TotalCacheHits)
-	require.Equal(t, int64(500), stats.TotalRoyaltiesEarnedCoins().AmountOf(types.DefaultCreditDenom).Int64())
+	require.Equal(t, int64(500), stats.TotalRoyaltiesEarned.AmountOf(types.DefaultCreditDenom).Int64())
 }
 
 func TestSaveCACRoyaltyRecord(t *testing.T) {
@@ -376,7 +379,7 @@ func TestSaveCACRoyaltyRecord(t *testing.T) {
 		TotalAmount:      types.CoinsToProto(sdk.NewCoins(sdk.NewInt64Coin(types.DefaultCreditDenom, 1_000_000))),
 		OriginShare:      types.CoinsToProto(sdk.NewCoins(sdk.NewInt64Coin(types.DefaultCreditDenom, 300_000))),
 		ServingShare:     types.CoinsToProto(sdk.NewCoins(sdk.NewInt64Coin(types.DefaultCreditDenom, 700_000))),
-		Timestamp:        timestamppb.New(ctx.BlockTime()),
+		Timestamp:        ctx.BlockTime(),
 	}
 
 	err := keeper.SaveCACRoyaltyRecord(ctx, record)
@@ -792,13 +795,13 @@ func TestCACRoyalty_StatsIntegrationViaProcessSettlement(t *testing.T) {
 	originStats, err := keeper.GetCACRoyaltyStats(ctx, "tool-origin")
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), originStats.TotalCacheHits)
-	require.False(t, originStats.TotalRoyaltiesEarnedCoins().IsZero(),
+	require.False(t, originStats.TotalRoyaltiesEarned.IsZero(),
 		"origin tool should have earned royalties")
 
 	// Serving tool stats should show paid royalties (to origin)
 	servingStats, err := keeper.GetCACRoyaltyStats(ctx, "tool-serving")
 	require.NoError(t, err)
-	require.False(t, servingStats.TotalRoyaltiesPaidCoins().IsZero(),
+	require.False(t, servingStats.TotalRoyaltiesPaid.IsZero(),
 		"serving tool should have paid royalties to origin")
 }
 
@@ -1269,7 +1272,7 @@ func TestCACRoyalty_MultipleSettlements_SameBlock(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(3), stats.TotalCacheHits,
 		"origin should have accumulated 3 cache hits")
-	require.False(t, stats.TotalRoyaltiesEarnedCoins().IsZero(),
+	require.False(t, stats.TotalRoyaltiesEarned.IsZero(),
 		"origin should have accumulated royalties")
 
 	// Each settlement record should exist independently

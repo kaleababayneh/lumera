@@ -233,25 +233,50 @@ func (q queryServer) GetParams(ctx context.Context, req *types.QueryGetParamsReq
 	}, nil
 }
 
+// deepCopyProto returns an independent copy of a gogo message via a
+// marshal/unmarshal round-trip. proto.Clone must NOT be used: its reflective
+// table-merge panics ("merger not found for type:big.Word") on gogoproto
+// customtype fields (e.g. Claim.ClaimedAmount = sdk.Coin -> math.Int) once the
+// message carries a populated value — which would crash GetClaim/ListClaims.
+func deepCopyProto(src, dst proto.Message) bool {
+	bz, err := proto.Marshal(src)
+	if err != nil {
+		return false
+	}
+	return proto.Unmarshal(bz, dst) == nil
+}
+
 func clonePoolState(poolState *types.PoolState) *types.PoolState {
 	if poolState == nil {
 		return nil
 	}
-	return proto.Clone(poolState).(*types.PoolState)
+	out := &types.PoolState{}
+	if !deepCopyProto(poolState, out) {
+		return poolState
+	}
+	return out
 }
 
 func clonePoolMetrics(metrics *types.PoolMetrics) *types.PoolMetrics {
 	if metrics == nil {
 		return nil
 	}
-	return proto.Clone(metrics).(*types.PoolMetrics)
+	out := &types.PoolMetrics{}
+	if !deepCopyProto(metrics, out) {
+		return metrics
+	}
+	return out
 }
 
 func cloneClaim(claim *types.Claim) *types.Claim {
 	if claim == nil {
 		return nil
 	}
-	return proto.Clone(claim).(*types.Claim)
+	out := &types.Claim{}
+	if !deepCopyProto(claim, out) {
+		return claim
+	}
+	return out
 }
 
 func cloneClaims(claims []*types.Claim) []*types.Claim {
@@ -269,7 +294,11 @@ func cloneParams(params *types.Params) *types.Params {
 	if params == nil {
 		return nil
 	}
-	return proto.Clone(params).(*types.Params)
+	out := &types.Params{}
+	if !deepCopyProto(params, out) {
+		return params
+	}
+	return out
 }
 
 type claimPagination struct {

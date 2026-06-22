@@ -7,21 +7,21 @@ import (
 	"testing"
 	"time"
 
-	"cosmossdk.io/log/v2"
+	"cosmossdk.io/log"
+	"cosmossdk.io/store/metrics"
+	"cosmossdk.io/store/rootmulti"
+	storetypes "cosmossdk.io/store/types"
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
-	"github.com/cosmos/cosmos-sdk/store/v2/rootmulti"
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/LumeraProtocol/lumera/x/insurance/keeper"
 	"github.com/LumeraProtocol/lumera/x/insurance/types"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type moduleTestBankKeeper struct{}
@@ -72,7 +72,7 @@ func setupInsuranceModuleTest(t *testing.T) (sdk.Context, AppModule, codec.Codec
 	storeKey := storetypes.NewKVStoreKey(types.StoreKey)
 	db := dbm.NewMemDB()
 	logger := log.NewNopLogger()
-	cms := rootmulti.NewStore(db, logger)
+	cms := rootmulti.NewStore(db, logger, metrics.NewNoOpMetrics())
 	cms.MountStoreWithDB(storeKey, storetypes.StoreTypeIAVL, db)
 	require.NoError(t, cms.LoadLatestVersion())
 
@@ -106,12 +106,14 @@ func TestAppModuleInitGenesisRejectsOmittedParams(t *testing.T) {
 func TestAppModuleInitGenesisRejectsClaimTimestampOrder(t *testing.T) {
 	ctx, am, cdc := setupInsuranceModuleTest(t)
 	genesis := types.DefaultGenesis()
+	createdAt := time.Unix(1_700_000_100, 0).UTC()
+	updatedAt := time.Unix(1_700_000_000, 0).UTC()
 	genesis.Claims = []*types.Claim{
 		{
 			Id:        "claim-before-created",
 			Status:    types.ClaimStatus_CLAIM_STATUS_PENDING,
-			CreatedAt: timestamppb.New(time.Unix(1_700_000_100, 0).UTC()),
-			UpdatedAt: timestamppb.New(time.Unix(1_700_000_000, 0).UTC()),
+			CreatedAt: &createdAt,
+			UpdatedAt: &updatedAt,
 		},
 	}
 

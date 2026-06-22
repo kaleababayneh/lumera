@@ -1,14 +1,11 @@
 package keeper
 
 import (
-	"testing"
-	"time"
-
-	v1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/timestamppb"
+	"testing"
+	"time"
 
 	"github.com/LumeraProtocol/lumera/x/credits/types"
 )
@@ -23,20 +20,11 @@ func TestSettlementConservationInvariant_Valid(t *testing.T) {
 		ToolId:      "tool-1",
 		PublisherId: "publisher-1",
 		UserId:      "user-1",
-		TotalCost: []*v1beta1.Coin{{
-			Denom:  types.DefaultCreditDenom,
-			Amount: "1000000", // 1M
-		}},
-		BurnAmount: []*v1beta1.Coin{{
-			Denom:  types.DefaultCreditDenom,
-			Amount: "30000", // 3% burn
-		}},
-		NetAmount: []*v1beta1.Coin{{
-			Denom:  types.DefaultCreditDenom,
-			Amount: "950000", // Net after burn and 2% insurance
-		}},
-		Status:    types.SettlementStatus_SETTLEMENT_STATUS_COMPLETED,
-		Timestamp: timestamppb.Now(),
+		TotalCost:   sdk.Coins{protoCoin(types.DefaultCreditDenom, "1000000")},
+		BurnAmount:  sdk.Coins{protoCoin(types.DefaultCreditDenom, "30000")},
+		NetAmount:   sdk.Coins{protoCoin(types.DefaultCreditDenom, "950000")},
+		Status:      types.SettlementStatus_SETTLEMENT_STATUS_COMPLETED,
+		Timestamp:   time.Now().UTC(),
 	}
 
 	err := keeper.SaveSettlement(ctx, settlement)
@@ -60,20 +48,11 @@ func TestSettlementConservationInvariant_OutflowExceedsTotal(t *testing.T) {
 		ToolId:      "tool-1",
 		PublisherId: "publisher-1",
 		UserId:      "user-1",
-		TotalCost: []*v1beta1.Coin{{
-			Denom:  types.DefaultCreditDenom,
-			Amount: "1000000",
-		}},
-		BurnAmount: []*v1beta1.Coin{{
-			Denom:  types.DefaultCreditDenom,
-			Amount: "500000", // 50% - way too high
-		}},
-		NetAmount: []*v1beta1.Coin{{
-			Denom:  types.DefaultCreditDenom,
-			Amount: "600000", // 60% - combined 110% > 100%
-		}},
-		Status:    types.SettlementStatus_SETTLEMENT_STATUS_COMPLETED,
-		Timestamp: timestamppb.Now(),
+		TotalCost:   sdk.Coins{protoCoin(types.DefaultCreditDenom, "1000000")},
+		BurnAmount:  sdk.Coins{protoCoin(types.DefaultCreditDenom, "500000")},
+		NetAmount:   sdk.Coins{protoCoin(types.DefaultCreditDenom, "600000")},
+		Status:      types.SettlementStatus_SETTLEMENT_STATUS_COMPLETED,
+		Timestamp:   time.Now().UTC(),
 	}
 
 	err := keeper.SaveSettlement(ctx, settlement)
@@ -98,20 +77,11 @@ func TestSettlementConservationInvariant_NegativeAmount(t *testing.T) {
 		ToolId:      "tool-1",
 		PublisherId: "publisher-1",
 		UserId:      "user-1",
-		TotalCost: []*v1beta1.Coin{{
-			Denom:  types.DefaultCreditDenom,
-			Amount: "1000000",
-		}},
-		BurnAmount: []*v1beta1.Coin{{
-			Denom:  types.DefaultCreditDenom,
-			Amount: "-100", // Negative - invalid
-		}},
-		NetAmount: []*v1beta1.Coin{{
-			Denom:  types.DefaultCreditDenom,
-			Amount: "950000",
-		}},
-		Status:    types.SettlementStatus_SETTLEMENT_STATUS_COMPLETED,
-		Timestamp: timestamppb.Now(),
+		TotalCost:   sdk.Coins{protoCoin(types.DefaultCreditDenom, "1000000")},
+		BurnAmount:  sdk.Coins{protoCoin(types.DefaultCreditDenom, "-100")},
+		NetAmount:   sdk.Coins{protoCoin(types.DefaultCreditDenom, "950000")},
+		Status:      types.SettlementStatus_SETTLEMENT_STATUS_COMPLETED,
+		Timestamp:   time.Now().UTC(),
 	}
 
 	err := keeper.SaveSettlement(ctx, settlement)
@@ -139,13 +109,10 @@ func TestSettlementConservationInvariant_PendingSettlement(t *testing.T) {
 		ToolId:      "tool-1",
 		PublisherId: "publisher-1",
 		UserId:      "user-1",
-		TotalCost: []*v1beta1.Coin{{
-			Denom:  types.DefaultCreditDenom,
-			Amount: "1000000",
-		}},
+		TotalCost:   sdk.Coins{protoCoin(types.DefaultCreditDenom, "1000000")},
 		// No burn/net amounts yet - still pending
 		Status:    types.SettlementStatus_SETTLEMENT_STATUS_PENDING,
-		Timestamp: timestamppb.Now(),
+		Timestamp: time.Now().UTC(),
 	}
 
 	err := keeper.SaveSettlement(ctx, settlement)
@@ -179,20 +146,11 @@ func TestMetricsConsistencyInvariant_MatchingTotals(t *testing.T) {
 		ToolId:      "tool-1",
 		PublisherId: "publisher-1",
 		UserId:      "user-1",
-		TotalCost: []*v1beta1.Coin{{
-			Denom:  types.DefaultCreditDenom,
-			Amount: "1000000",
-		}},
-		BurnAmount: []*v1beta1.Coin{{
-			Denom:  types.DefaultCreditDenom,
-			Amount: "30000",
-		}},
-		NetAmount: []*v1beta1.Coin{{
-			Denom:  types.DefaultCreditDenom,
-			Amount: "950000",
-		}},
-		Status:    types.SettlementStatus_SETTLEMENT_STATUS_COMPLETED,
-		Timestamp: timestamppb.Now(),
+		TotalCost:   sdk.Coins{protoCoin(types.DefaultCreditDenom, "1000000")},
+		BurnAmount:  sdk.Coins{protoCoin(types.DefaultCreditDenom, "30000")},
+		NetAmount:   sdk.Coins{protoCoin(types.DefaultCreditDenom, "950000")},
+		Status:      types.SettlementStatus_SETTLEMENT_STATUS_COMPLETED,
+		Timestamp:   time.Now().UTC(),
 	}
 
 	err := keeper.SaveSettlement(ctx, settlement)
@@ -224,20 +182,11 @@ func TestMetricsConsistencyInvariant_MismatchedBurnTotal(t *testing.T) {
 		ToolId:      "tool-1",
 		PublisherId: "publisher-1",
 		UserId:      "user-1",
-		TotalCost: []*v1beta1.Coin{{
-			Denom:  types.DefaultCreditDenom,
-			Amount: "1000000",
-		}},
-		BurnAmount: []*v1beta1.Coin{{
-			Denom:  types.DefaultCreditDenom,
-			Amount: "30000",
-		}},
-		NetAmount: []*v1beta1.Coin{{
-			Denom:  types.DefaultCreditDenom,
-			Amount: "950000",
-		}},
-		Status:    types.SettlementStatus_SETTLEMENT_STATUS_COMPLETED,
-		Timestamp: timestamppb.Now(),
+		TotalCost:   sdk.Coins{protoCoin(types.DefaultCreditDenom, "1000000")},
+		BurnAmount:  sdk.Coins{protoCoin(types.DefaultCreditDenom, "30000")},
+		NetAmount:   sdk.Coins{protoCoin(types.DefaultCreditDenom, "950000")},
+		Status:      types.SettlementStatus_SETTLEMENT_STATUS_COMPLETED,
+		Timestamp:   time.Now().UTC(),
 	}
 
 	err := keeper.SaveSettlement(ctx, settlement)
@@ -269,20 +218,11 @@ func TestMetricsConsistencyInvariant_MismatchedCount(t *testing.T) {
 		ToolId:      "tool-1",
 		PublisherId: "publisher-1",
 		UserId:      "user-1",
-		TotalCost: []*v1beta1.Coin{{
-			Denom:  types.DefaultCreditDenom,
-			Amount: "1000000",
-		}},
-		BurnAmount: []*v1beta1.Coin{{
-			Denom:  types.DefaultCreditDenom,
-			Amount: "30000",
-		}},
-		NetAmount: []*v1beta1.Coin{{
-			Denom:  types.DefaultCreditDenom,
-			Amount: "950000",
-		}},
-		Status:    types.SettlementStatus_SETTLEMENT_STATUS_COMPLETED,
-		Timestamp: timestamppb.Now(),
+		TotalCost:   sdk.Coins{protoCoin(types.DefaultCreditDenom, "1000000")},
+		BurnAmount:  sdk.Coins{protoCoin(types.DefaultCreditDenom, "30000")},
+		NetAmount:   sdk.Coins{protoCoin(types.DefaultCreditDenom, "950000")},
+		Status:      types.SettlementStatus_SETTLEMENT_STATUS_COMPLETED,
+		Timestamp:   time.Now().UTC(),
 	}
 
 	err := keeper.SaveSettlement(ctx, settlement)

@@ -8,15 +8,37 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cosmos/gogoproto/proto"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func validOracleAuthority() string {
 	return sdk.AccAddress(bytes.Repeat([]byte{0x6F}, 20)).String()
+}
+
+// skipVoteExtMarshalBug skips tests that exercise MarshalVoteExtension's
+// happy/marshal path.
+//
+// PRODUCTION GAP (not fixable in test code): x/oracle/types/vote_extension.go
+// MarshalVoteExtension does:
+//
+//	buf := proto.NewBuffer(nil); buf.SetDeterministic(true); buf.Marshal(vote)
+//
+// gogoproto's generated *ValidatorVote.Marshal fast-path method does not
+// support deterministic Buffer marshaling, so every call returns
+// "proto: deterministic not supported by the Marshal method of *types.ValidatorVote".
+// This means MarshalVoteExtension currently fails at RUNTIME for every real
+// vote (verified standalone). The fix belongs in production code (e.g. use
+// gogoproto.Marshal(vote) directly, which is already deterministic for
+// messages without maps, or the gogo deterministic helper) and is out of
+// scope for the test-only port.
+func skipVoteExtMarshalBug(t *testing.T) {
+	t.Helper()
+	// FIXED: MarshalVoteExtension now uses gogo proto.Marshal (deterministic for the
+	// map-free ValidatorVote) instead of the unsupported Buffer.SetDeterministic path.
+	// These tests are now active.
 }
 
 // ---------- DefaultParams ----------
@@ -298,7 +320,7 @@ func TestMarshalVoteExtension_NilTimestamp(t *testing.T) {
 		ValidatorAddress: "cosmos1abc",
 		PriceFeeds:       []*PriceFeed{{AssetPair: "LAC/USD", Price: "1.0"}},
 		BlockHeight:      100,
-		Timestamp:        nil,
+		Timestamp:        time.Time{},
 	}
 	_, err := MarshalVoteExtension(vote)
 	require.Error(t, err)
@@ -306,18 +328,13 @@ func TestMarshalVoteExtension_NilTimestamp(t *testing.T) {
 }
 
 func TestMarshalVoteExtension_InvalidTimestamp(t *testing.T) {
-	vote := &ValidatorVote{
-		ValidatorAddress: "cosmos1abc",
-		PriceFeeds:       []*PriceFeed{{AssetPair: "LAC/USD", Price: "1.0"}},
-		BlockHeight:      100,
-		Timestamp:        &timestamppb.Timestamp{Nanos: 1_000_000_000},
-	}
-	_, err := MarshalVoteExtension(vote)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "timestamp invalid")
+	t.Skip("not ported: gogoproto stdtime maps Timestamp to a Go time.Time value, which " +
+		"has no out-of-range/invalid state (the old *timestamppb.Timestamp{Nanos: 1e9} " +
+		"could be malformed). MarshalVoteExtension only distinguishes zero (missing) vs set.")
 }
 
 func TestMarshalVoteExtension_Valid(t *testing.T) {
+	skipVoteExtMarshalBug(t)
 	vote := &ValidatorVote{
 		ValidatorAddress: "cosmos1abc",
 		PriceFeeds: []*PriceFeed{
@@ -325,7 +342,7 @@ func TestMarshalVoteExtension_Valid(t *testing.T) {
 			{AssetPair: "ETH/USD", Price: "2000.00"},
 		},
 		BlockHeight: 100,
-		Timestamp:   timestamppb.Now(),
+		Timestamp:   time.Now(),
 	}
 	bz, err := MarshalVoteExtension(vote)
 	require.NoError(t, err)
@@ -333,10 +350,11 @@ func TestMarshalVoteExtension_Valid(t *testing.T) {
 }
 
 func TestMarshalVoteExtension_EmptyFeeds(t *testing.T) {
+	skipVoteExtMarshalBug(t)
 	vote := &ValidatorVote{
 		ValidatorAddress: "cosmos1abc",
 		BlockHeight:      1,
-		Timestamp:        timestamppb.Now(),
+		Timestamp:        time.Now(),
 	}
 	bz, err := MarshalVoteExtension(vote)
 	require.NoError(t, err)
@@ -410,6 +428,7 @@ func TestParseVoteExtension_AcceptsAtCapInput(t *testing.T) {
 // guard catches the condition early with a named error instead of
 // discovering it via a silent consensus-round miss.
 func TestMarshalVoteExtension_RejectsOversizedOutput(t *testing.T) {
+	skipVoteExtMarshalBug(t)
 	// Pad ValidatorAddress past the cap. It's a string field on
 	// the proto, so proto.Marshal serializes its full length. Other
 	// validator fields are minimal so overall marshaled size is
@@ -420,7 +439,7 @@ func TestMarshalVoteExtension_RejectsOversizedOutput(t *testing.T) {
 	}
 	vote := &ValidatorVote{
 		ValidatorAddress: string(padded),
-		Timestamp:        timestamppb.New(time.Unix(1700000000, 0)),
+		Timestamp:        time.Unix(1700000000, 0),
 	}
 	_, err := MarshalVoteExtension(vote)
 	require.Error(t, err)
@@ -461,22 +480,13 @@ func TestParseVoteExtension_ValidProtoButNilTimestamp(t *testing.T) {
 }
 
 func TestParseVoteExtension_ValidProtoButInvalidTimestamp(t *testing.T) {
-	voteWithInvalidTS := &ValidatorVote{
-		ValidatorAddress: "cosmos1crafted",
-		BlockHeight:      99,
-		Timestamp:        &timestamppb.Timestamp{Nanos: 1_000_000_000},
-	}
-	bz, err := proto.Marshal(voteWithInvalidTS)
-	require.NoError(t, err)
-	require.NotEmpty(t, bz, "encoded bytes must be non-empty to reach the post-unmarshal timestamp check")
-
-	_, err = ParseVoteExtension(bz)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "timestamp invalid",
-		"parser must reject malformed protobuf timestamps before downstream vote validation")
+	t.Skip("not ported: gogoproto stdtime maps Timestamp to a Go time.Time value, which " +
+		"has no out-of-range/invalid state (the old *timestamppb.Timestamp{Nanos: 1e9} " +
+		"could be malformed). ParseVoteExtension only rejects the zero (missing) timestamp.")
 }
 
 func TestParseVoteExtension_RoundTrip(t *testing.T) {
+	skipVoteExtMarshalBug(t)
 	original := &ValidatorVote{
 		ValidatorAddress: "cosmos1validator",
 		PriceFeeds: []*PriceFeed{
@@ -484,13 +494,13 @@ func TestParseVoteExtension_RoundTrip(t *testing.T) {
 				AssetPair:       "LAC/USD",
 				Price:           "1.25",
 				Volume_24H:      "1000000",
-				Timestamp:       timestamppb.Now(),
+				Timestamp:       time.Now(),
 				Sources:         []string{"binance", "coinbase"},
 				ConfidenceScore: "0.95",
 			},
 		},
 		BlockHeight: 42,
-		Timestamp:   timestamppb.Now(),
+		Timestamp:   time.Now(),
 	}
 
 	bz, err := MarshalVoteExtension(original)
@@ -511,15 +521,16 @@ func TestParseVoteExtension_RoundTrip(t *testing.T) {
 }
 
 func TestParseVoteExtension_MultipleFeeds(t *testing.T) {
+	skipVoteExtMarshalBug(t)
 	original := &ValidatorVote{
 		ValidatorAddress: "cosmos1val",
 		PriceFeeds: []*PriceFeed{
-			{AssetPair: "LAC/USD", Price: "1.0", Timestamp: timestamppb.Now()},
-			{AssetPair: "ETH/USD", Price: "2000.0", Timestamp: timestamppb.Now()},
-			{AssetPair: "BTC/USD", Price: "50000.0", Timestamp: timestamppb.Now()},
+			{AssetPair: "LAC/USD", Price: "1.0", Timestamp: time.Now()},
+			{AssetPair: "ETH/USD", Price: "2000.0", Timestamp: time.Now()},
+			{AssetPair: "BTC/USD", Price: "50000.0", Timestamp: time.Now()},
 		},
 		BlockHeight: 99,
-		Timestamp:   timestamppb.Now(),
+		Timestamp:   time.Now(),
 	}
 
 	bz, err := MarshalVoteExtension(original)
@@ -544,7 +555,8 @@ func TestParseVoteExtension_MultipleFeeds(t *testing.T) {
 // break. Existing tests cover round-trip semantics but not the
 // byte-level determinism that the signed-payload contract rides on.
 func TestMarshalVoteExtension_DeterministicMetamorphic(t *testing.T) {
-	ts := timestamppb.Now()
+	skipVoteExtMarshalBug(t)
+	ts := time.Now()
 	feedsA := []*PriceFeed{
 		{AssetPair: "LAC/USD", Price: "1.0", Timestamp: ts},
 		{AssetPair: "ETH/USD", Price: "2000.0", Timestamp: ts},
@@ -587,7 +599,8 @@ func TestMarshalVoteExtension_DeterministicMetamorphic(t *testing.T) {
 // conflicting report. Locks the contract against any future
 // "normalize by sorting" refactor.
 func TestMarshalVoteExtension_PriceFeedOrderSensitivity(t *testing.T) {
-	ts := timestamppb.Now()
+	skipVoteExtMarshalBug(t)
+	ts := time.Now()
 	forward := &ValidatorVote{
 		ValidatorAddress: "cosmos1val",
 		PriceFeeds: []*PriceFeed{
@@ -652,7 +665,7 @@ func TestGenesisState_GetAggregatedPrices_Empty(t *testing.T) {
 // ---------- Proto Message Type Accessors ----------
 
 func TestPriceFeed_Getters(t *testing.T) {
-	ts := timestamppb.Now()
+	ts := time.Now()
 	pf := &PriceFeed{
 		AssetPair:       "LAC/USD",
 		Price:           "1.50",
@@ -674,13 +687,13 @@ func TestPriceFeed_NilGetters(t *testing.T) {
 	assert.Empty(t, pf.GetAssetPair())
 	assert.Empty(t, pf.GetPrice())
 	assert.Empty(t, pf.GetVolume_24H())
-	assert.Nil(t, pf.GetTimestamp())
+	assert.True(t, pf.GetTimestamp().IsZero())
 	assert.Nil(t, pf.GetSources())
 	assert.Empty(t, pf.GetConfidenceScore())
 }
 
 func TestValidatorVote_Getters(t *testing.T) {
-	ts := timestamppb.Now()
+	ts := time.Now()
 	v := &ValidatorVote{
 		ValidatorAddress: "cosmos1x",
 		PriceFeeds:       []*PriceFeed{{AssetPair: "A/B"}},
@@ -698,11 +711,11 @@ func TestValidatorVote_NilGetters(t *testing.T) {
 	assert.Empty(t, v.GetValidatorAddress())
 	assert.Nil(t, v.GetPriceFeeds())
 	assert.Equal(t, int64(0), v.GetBlockHeight())
-	assert.Nil(t, v.GetTimestamp())
+	assert.True(t, v.GetTimestamp().IsZero())
 }
 
 func TestAggregatedPrice_Getters(t *testing.T) {
-	ts := timestamppb.Now()
+	ts := time.Now()
 	ap := &AggregatedPrice{
 		AssetPair:         "LAC/USD",
 		MedianPrice:       "1.50",
@@ -729,7 +742,7 @@ func TestAggregatedPrice_NilGetters(t *testing.T) {
 	assert.Empty(t, ap.GetStandardDeviation())
 	assert.Equal(t, int32(0), ap.GetNumValidators())
 	assert.Equal(t, int64(0), ap.GetBlockHeight())
-	assert.Nil(t, ap.GetTimestamp())
+	assert.True(t, ap.GetTimestamp().IsZero())
 }
 
 func TestMsgInjectOracleVotes_Getters(t *testing.T) {
@@ -763,7 +776,8 @@ func TestInjectedVoteExtension_NilGetters(t *testing.T) {
 // ---------- Deterministic Marshaling ----------
 
 func TestMarshalVoteExtension_Deterministic(t *testing.T) {
-	ts := timestamppb.Now()
+	skipVoteExtMarshalBug(t)
+	ts := time.Now()
 	vote := &ValidatorVote{
 		ValidatorAddress: "cosmos1det",
 		PriceFeeds: []*PriceFeed{

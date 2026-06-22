@@ -11,13 +11,14 @@ import (
 	coreaddress "cosmossdk.io/core/address"
 	"cosmossdk.io/log"
 	sdkmath "cosmossdk.io/math"
+	"cosmossdk.io/store"
+	"cosmossdk.io/store/metrics"
+	storetypes "cosmossdk.io/store/types"
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
-	"github.com/cosmos/cosmos-sdk/store/v2"
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -73,7 +74,7 @@ func setupRealKeeper(t *testing.T) *realKeeperFixture {
 	t.Helper()
 
 	db := dbm.NewMemDB()
-	stateStore := store.NewCommitMultiStore(db, log.NewNopLogger())
+	stateStore := store.NewCommitMultiStore(db, log.NewNopLogger(), metrics.NewNoOpMetrics())
 
 	// Create store keys
 	creditsKey := storetypes.NewKVStoreKey(types.StoreKey)
@@ -221,6 +222,10 @@ func (s *stubRegistryKeeper) GetToolPublisher(_ context.Context, toolID string) 
 	}
 	// Return a default address for testing
 	return sdk.AccAddress([]byte("default-publisher-addr")), nil
+}
+
+func (s *stubRegistryKeeper) ValidateReceipt(_ sdk.Context, _, _, _ string) error {
+	return nil
 }
 
 // stubReserveKeeper implements types.ReserveKeeper for tests.

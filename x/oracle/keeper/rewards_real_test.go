@@ -9,7 +9,6 @@ import (
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	oraclekeeper "github.com/LumeraProtocol/lumera/x/oracle/keeper"
 	oracletypes "github.com/LumeraProtocol/lumera/x/oracle/types"
@@ -32,7 +31,7 @@ func TestOracleStaleVoteRejectedRealApp(t *testing.T) {
 		ValidatorAddress: "val-1",
 		PriceFeeds:       []*oracletypes.PriceFeed{{AssetPair: "LAC/USD", Price: "1.50"}},
 		BlockHeight:      voteHeight,
-		Timestamp:        timestamppb.New(staleTime),
+		Timestamp:        staleTime,
 	}
 
 	msg := &oracletypes.MsgInjectOracleVotes{
@@ -73,13 +72,13 @@ func TestOracleRewardsDistributedRealApp(t *testing.T) {
 		ValidatorAddress: rewardAddr.String(),
 		PriceFeeds:       []*oracletypes.PriceFeed{{AssetPair: "LAC/USD", Price: "1.50"}},
 		BlockHeight:      voteHeight,
-		Timestamp:        timestamppb.New(ctx.BlockTime()),
+		Timestamp:        ctx.BlockTime(),
 	}
 	vote2 := &oracletypes.ValidatorVote{
 		ValidatorAddress: rewardAddr.String(),
 		PriceFeeds:       []*oracletypes.PriceFeed{{AssetPair: "LAC/USD", Price: "1.60"}},
 		BlockHeight:      voteHeight,
-		Timestamp:        timestamppb.New(ctx.BlockTime()),
+		Timestamp:        ctx.BlockTime(),
 	}
 
 	msg := &oracletypes.MsgInjectOracleVotes{

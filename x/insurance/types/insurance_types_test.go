@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"cosmossdk.io/log/v2"
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
+	"cosmossdk.io/log"
+	storetypes "cosmossdk.io/store/types"
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/shopspring/decimal"
@@ -52,7 +52,7 @@ func TestNewClaim_ValidRequest(t *testing.T) {
 	assert.Equal(t, "v1.0", claim.PolicySnapshot)
 	assert.NotNil(t, claim.ClaimedAmount)
 	assert.Equal(t, "ulac", claim.ClaimedAmount.Denom)
-	assert.Equal(t, "1000", claim.ClaimedAmount.Amount)
+	assert.Equal(t, "1000", claim.ClaimedAmount.Amount.String())
 	assert.Len(t, claim.Evidence, 1)
 }
 
@@ -147,7 +147,7 @@ func TestNewClaim_LargeAmount(t *testing.T) {
 	claim, err := NewClaim(ctx, req)
 	require.NoError(t, err)
 	require.NotNil(t, claim)
-	assert.Equal(t, "999999999999999999", claim.ClaimedAmount.Amount)
+	assert.Equal(t, "999999999999999999", claim.ClaimedAmount.Amount.String())
 }
 
 func TestNewClaim_MultipleEvidence(t *testing.T) {

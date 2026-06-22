@@ -156,7 +156,7 @@ func runStep(t *testing.T, ctx sdk.Context, k *Keeper, ledger *driftLedger, poli
 
 func readPerHourBudget(t *testing.T, ctx sdk.Context, k *Keeper, policyID, userID string) uint64 {
 	t.Helper()
-	policy, err := k.GetPolicy(ctx, policyID, "")
+	_, err := k.GetPolicy(ctx, policyID, "")
 	require.NoError(t, err)
 	periods := budgetUsagePeriods(ctx)
 	key := budgetUsageKey(policyID, userID, "per-hour", periods.hour)

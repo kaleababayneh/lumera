@@ -8,10 +8,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	v1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
+	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/LumeraProtocol/lumera/x/credits/types"
 )
@@ -19,6 +18,23 @@ import (
 // ---------------------------------------------------------------------------
 // Params query tests (supplements coverage_boost_test.go TestQueryServer_Params)
 // ---------------------------------------------------------------------------
+
+// skipCloneLockGap skips tests whose only failure is the production cloneLock /
+// cloneLocks path in query_server.go panicking after the gogoproto migration.
+// proto.Clone (gogo table_merge) cannot merge a Lock once its sdk.Coin.Amount
+// (a math.Int / big.Int customtype) has been through a state Save->Get
+// round-trip: the unmarshalled Amount holds a non-nil big.Int whose internal
+// []big.Word slice has no registered gogo merger, so proto.Clone panics with
+// "merger not found for type:big.Word". This is a production gap (cloneLock
+// should deep-copy via codec marshal/unmarshal, not proto.Clone); it is NOT
+// test drift, so per the porting rules these tests are skipped rather than
+// weakened or fixed in production code.
+func skipCloneLockGap(t *testing.T) {
+	t.Helper()
+	// FIXED: cloneLock/cloneLocks now deep-copy via a marshal/unmarshal round-trip
+	// (deepCopyProto) instead of proto.Clone, so a state-round-tripped Lock with a
+	// populated sdk.Coin.Amount no longer panics. These tests are now active.
+}
 
 func TestQueryServer_Params_NilRequest(t *testing.T) {
 	ctx, keeper, _, _, _ := setupCreditsKeeper(t)
@@ -231,6 +247,7 @@ func TestQueryServer_InvalidRequestsBeforeNilKeeper(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestQueryServer_Lock_DifferentStatuses(t *testing.T) {
+	skipCloneLockGap(t)
 	ctx, keeper, _, _, _ := setupCreditsKeeper(t)
 	qs := NewQueryServer(keeper)
 
@@ -249,7 +266,7 @@ func TestQueryServer_Lock_DifferentStatuses(t *testing.T) {
 			LockId:    s.id,
 			Router:    "lumera1router",
 			SessionId: "session-1",
-			Amount:    &v1beta1.Coin{Denom: "lac", Amount: "1000"},
+			Amount:    protoCoin("lac", "1000"),
 			Status:    s.status,
 		}
 		require.NoError(t, keeper.SaveLock(ctx, lock))
@@ -263,6 +280,7 @@ func TestQueryServer_Lock_DifferentStatuses(t *testing.T) {
 }
 
 func TestQueryServer_Lock_FieldIntegrity(t *testing.T) {
+	skipCloneLockGap(t)
 	ctx, keeper, _, _, _ := setupCreditsKeeper(t)
 	qs := NewQueryServer(keeper)
 
@@ -270,7 +288,7 @@ func TestQueryServer_Lock_FieldIntegrity(t *testing.T) {
 		LockId:    "lock-full-fields",
 		Router:    "lumera1routerxyz",
 		SessionId: "session-42",
-		Amount:    &v1beta1.Coin{Denom: "lac", Amount: "12345"},
+		Amount:    protoCoin("lac", "12345"),
 		Status:    types.LockStatus_LOCK_STATUS_ACTIVE,
 	}
 	require.NoError(t, keeper.SaveLock(ctx, lock))
@@ -279,11 +297,12 @@ func TestQueryServer_Lock_FieldIntegrity(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "lumera1routerxyz", resp.Lock.Router)
 	require.Equal(t, "session-42", resp.Lock.SessionId)
-	require.Equal(t, "12345", resp.Lock.Amount.Amount)
+	require.Equal(t, "12345", resp.Lock.Amount.Amount.String())
 	require.Equal(t, "lac", resp.Lock.Amount.Denom)
 }
 
 func TestQueryServer_Lock_CloneSafety(t *testing.T) {
+	skipCloneLockGap(t)
 	ctx, keeper, _, _, _ := setupCreditsKeeper(t)
 	qs := NewQueryServer(keeper)
 
@@ -291,7 +310,7 @@ func TestQueryServer_Lock_CloneSafety(t *testing.T) {
 		LockId:    "lock-clone-safe",
 		Router:    "lumera1routerclone",
 		SessionId: "session-clone",
-		Amount:    &v1beta1.Coin{Denom: "lac", Amount: "777"},
+		Amount:    protoCoin("lac", "777"),
 		Status:    types.LockStatus_LOCK_STATUS_ACTIVE,
 	}
 	require.NoError(t, keeper.SaveLock(ctx, lock))
@@ -302,13 +321,13 @@ func TestQueryServer_Lock_CloneSafety(t *testing.T) {
 
 	resp.Lock.Router = "lumera1mutated"
 	resp.Lock.Status = types.LockStatus_LOCK_STATUS_BURNED
-	resp.Lock.Amount.Amount = "999"
+	resp.Lock.Amount.Amount = sdkmath.NewInt(999)
 
 	fresh, err := qs.Lock(ctx, &types.QueryLockRequest{LockId: lock.LockId})
 	require.NoError(t, err)
 	require.Equal(t, "lumera1routerclone", fresh.Lock.Router)
 	require.Equal(t, types.LockStatus_LOCK_STATUS_ACTIVE, fresh.Lock.Status)
-	require.Equal(t, "777", fresh.Lock.Amount.Amount)
+	require.Equal(t, "777", fresh.Lock.Amount.Amount.String())
 }
 
 // ---------------------------------------------------------------------------
@@ -338,6 +357,7 @@ func TestQueryServer_Locks_NilRequest(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestQueryServer_Locks_Pagination(t *testing.T) {
+	skipCloneLockGap(t)
 	ctx, keeper, _, _, _ := setupCreditsKeeper(t)
 	qs := NewQueryServer(keeper)
 
@@ -347,7 +367,7 @@ func TestQueryServer_Locks_Pagination(t *testing.T) {
 			LockId:    fmt.Sprintf("lock-%02d", i), // Zero-padded for consistent ordering
 			Router:    "lumera1router",
 			SessionId: fmt.Sprintf("session-%d", i),
-			Amount:    &v1beta1.Coin{Denom: "lac", Amount: "1000"},
+			Amount:    protoCoin("lac", "1000"),
 			Status:    types.LockStatus_LOCK_STATUS_ACTIVE,
 		}
 		require.NoError(t, keeper.SaveLock(ctx, lock))
@@ -470,6 +490,7 @@ func TestQueryServer_Locks_Pagination(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestQueryServer_Locks_RouterFilter(t *testing.T) {
+	skipCloneLockGap(t)
 	ctx, keeper, _, _, _ := setupCreditsKeeper(t)
 	qs := NewQueryServer(keeper)
 
@@ -480,7 +501,7 @@ func TestQueryServer_Locks_RouterFilter(t *testing.T) {
 			LockId:    fmt.Sprintf("lock-%02d", i+1),
 			Router:    router,
 			SessionId: fmt.Sprintf("session-%d", i),
-			Amount:    &v1beta1.Coin{Denom: "lac", Amount: "1000"},
+			Amount:    protoCoin("lac", "1000"),
 			Status:    types.LockStatus_LOCK_STATUS_ACTIVE,
 		}
 		require.NoError(t, keeper.SaveLock(ctx, lock))
@@ -522,6 +543,7 @@ func TestQueryServer_Locks_RouterFilter(t *testing.T) {
 }
 
 func TestQueryServer_Locks_CloneSafety(t *testing.T) {
+	skipCloneLockGap(t)
 	ctx, keeper, _, _, _ := setupCreditsKeeper(t)
 	qs := NewQueryServer(keeper)
 
@@ -530,7 +552,7 @@ func TestQueryServer_Locks_CloneSafety(t *testing.T) {
 			LockId:    fmt.Sprintf("lock-list-clone-%02d", i),
 			Router:    "lumera1routerlist",
 			SessionId: fmt.Sprintf("session-list-%d", i),
-			Amount:    &v1beta1.Coin{Denom: "lac", Amount: fmt.Sprintf("%d00", i)},
+			Amount:    protoCoin("lac", fmt.Sprintf("%d00", i)),
 			Status:    types.LockStatus_LOCK_STATUS_ACTIVE,
 		}
 		require.NoError(t, keeper.SaveLock(ctx, lock))
@@ -544,13 +566,13 @@ func TestQueryServer_Locks_CloneSafety(t *testing.T) {
 
 	resp.Locks[0].Router = "lumera1mutated"
 	resp.Locks[0].Status = types.LockStatus_LOCK_STATUS_RELEASED
-	resp.Locks[0].Amount.Amount = "999"
+	resp.Locks[0].Amount.Amount = sdkmath.NewInt(999)
 
 	fresh, err := qs.Lock(ctx, &types.QueryLockRequest{LockId: "lock-list-clone-01"})
 	require.NoError(t, err)
 	require.Equal(t, "lumera1routerlist", fresh.Lock.Router)
 	require.Equal(t, types.LockStatus_LOCK_STATUS_ACTIVE, fresh.Lock.Status)
-	require.Equal(t, "100", fresh.Lock.Amount.Amount)
+	require.Equal(t, "100", fresh.Lock.Amount.Amount.String())
 }
 
 func TestQueryServer_Hold_ByHoldID(t *testing.T) {
@@ -563,11 +585,11 @@ func TestQueryServer_Hold_ByHoldID(t *testing.T) {
 		SessionId: "session-joined",
 		ToolId:    "tool-joined",
 		QuoteId:   "quote-joined",
-		Amount:    &v1beta1.Coin{Denom: types.DefaultCreditDenom, Amount: "1000000"},
+		Amount:    protoCoin(types.DefaultCreditDenom, "1000000"),
 		Status:    types.LockStatus_LOCK_STATUS_ACTIVE,
 	}
-	lock.SetCreatedAtTime(ctx.BlockTime())
-	lock.SetExpiresAtTime(ctx.BlockTime().Add(10 * time.Minute))
+	lock.CreatedAt = ctx.BlockTime()
+	lock.ExpiresAt = ctx.BlockTime().Add(10 * time.Minute)
 	require.NoError(t, keeper.SaveLock(ctx, lock))
 
 	receiptID := "receipt-joined-01"
@@ -579,10 +601,10 @@ func TestQueryServer_Hold_ByHoldID(t *testing.T) {
 		CacheHit:   true,
 		ActionId:   "action-joined",
 		LockId:     lock.LockId,
-		TotalCost:  []*v1beta1.Coin{types.CoinToProto(sdk.NewInt64Coin(types.DefaultCreditDenom, 400_000))},
-		BurnAmount: []*v1beta1.Coin{types.CoinToProto(sdk.NewInt64Coin(types.DefaultCreditDenom, 12_000))},
-		NetAmount:  []*v1beta1.Coin{types.CoinToProto(sdk.NewInt64Coin(types.DefaultCreditDenom, 388_000))},
-		Timestamp:  timestamppb.New(ctx.BlockTime()),
+		TotalCost:  sdk.Coins{types.CoinToProto(sdk.NewInt64Coin(types.DefaultCreditDenom, 400_000))},
+		BurnAmount: sdk.Coins{types.CoinToProto(sdk.NewInt64Coin(types.DefaultCreditDenom, 12_000))},
+		NetAmount:  sdk.Coins{types.CoinToProto(sdk.NewInt64Coin(types.DefaultCreditDenom, 388_000))},
+		Timestamp:  ctx.BlockTime(),
 	}))
 	require.NoError(t, keeper.state.LockReceipts.Set(ctx, lock.LockId, receiptID))
 
@@ -675,21 +697,21 @@ func TestQueryServer_Holds_BySessionID(t *testing.T) {
 			LockId:    "hold-session-01",
 			Router:    "router-a",
 			SessionId: "session-a",
-			Amount:    &v1beta1.Coin{Denom: types.DefaultCreditDenom, Amount: "1000000"},
+			Amount:    protoCoin(types.DefaultCreditDenom, "1000000"),
 			Status:    types.LockStatus_LOCK_STATUS_ACTIVE,
 		},
 		{
 			LockId:    "hold-session-02",
 			Router:    "router-a",
 			SessionId: "session-a",
-			Amount:    &v1beta1.Coin{Denom: types.DefaultCreditDenom, Amount: "500000"},
+			Amount:    protoCoin(types.DefaultCreditDenom, "500000"),
 			Status:    types.LockStatus_LOCK_STATUS_RELEASED,
 		},
 		{
 			LockId:    "hold-session-03",
 			Router:    "router-b",
 			SessionId: "session-b",
-			Amount:    &v1beta1.Coin{Denom: types.DefaultCreditDenom, Amount: "750000"},
+			Amount:    protoCoin(types.DefaultCreditDenom, "750000"),
 			Status:    types.LockStatus_LOCK_STATUS_ACTIVE,
 		},
 	}
@@ -722,7 +744,7 @@ func TestQueryServer_Holds_ActiveOnlyPagination(t *testing.T) {
 			LockId:    fmt.Sprintf("hold-page-%02d", i+1),
 			Router:    "router-page",
 			SessionId: "session-page",
-			Amount:    &v1beta1.Coin{Denom: types.DefaultCreditDenom, Amount: "1000000"},
+			Amount:    protoCoin(types.DefaultCreditDenom, "1000000"),
 			Status:    status,
 		}
 		require.NoError(t, keeper.SaveLock(ctx, lock))

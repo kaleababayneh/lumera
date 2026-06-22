@@ -9,7 +9,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/LumeraProtocol/lumera/x/credits/types"
 )
@@ -730,7 +729,7 @@ func TestLockCredits_Success(t *testing.T) {
 	lock, found := keeper.GetLock(ctx, lockID)
 	require.True(t, found)
 	assert.Equal(t, "session-1", lock.SessionId)
-	assert.Equal(t, lockAmount.Amount.String(), lock.Amount.Amount)
+	assert.Equal(t, lockAmount.Amount.String(), lock.Amount.Amount.String())
 }
 
 func TestLockCredits_InsufficientBalance(t *testing.T) {
@@ -804,7 +803,7 @@ func TestCreateAndGetSettlement(t *testing.T) {
 		UserId:      "user-1",
 		PublisherId: "publisher-1",
 		RouterId:    "router-1",
-		Timestamp:   timestamppb.Now(),
+		Timestamp:   time.Now().UTC(),
 	}
 
 	err := keeper.CreateSettlement(ctx, settlement)
@@ -824,7 +823,7 @@ func TestUpdateSettlement(t *testing.T) {
 	settlement := &types.SettlementRecord{
 		Id:        "settlement-002",
 		Status:    types.SettlementStatus_SETTLEMENT_STATUS_PENDING,
-		Timestamp: timestamppb.Now(),
+		Timestamp: time.Now().UTC(),
 	}
 
 	err := keeper.CreateSettlement(ctx, settlement)
@@ -832,7 +831,8 @@ func TestUpdateSettlement(t *testing.T) {
 
 	// Update status
 	settlement.Status = types.SettlementStatus_SETTLEMENT_STATUS_COMPLETED
-	settlement.CompletedAt = timestamppb.Now()
+	completedAt := time.Now().UTC()
+	settlement.CompletedAt = &completedAt
 
 	err = keeper.UpdateSettlement(ctx, settlement)
 	require.NoError(t, err)
@@ -866,7 +866,7 @@ func TestUpdateSettlement_PrimitiveAcceptsCallerTimestamp(t *testing.T) {
 	initial := &types.SettlementRecord{
 		Id:        "settlement-update-primitive",
 		Status:    types.SettlementStatus_SETTLEMENT_STATUS_PENDING,
-		Timestamp: timestamppb.New(t1),
+		Timestamp: t1,
 		LockId:    "lock-update-primitive",
 	}
 	require.NoError(t, keeper.CreateSettlement(ctx, initial))
@@ -878,14 +878,14 @@ func TestUpdateSettlement_PrimitiveAcceptsCallerTimestamp(t *testing.T) {
 	refreshed := &types.SettlementRecord{
 		Id:        "settlement-update-primitive",
 		Status:    types.SettlementStatus_SETTLEMENT_STATUS_PENDING,
-		Timestamp: timestamppb.New(t2),
+		Timestamp: t2,
 		LockId:    "lock-update-primitive",
 	}
 	require.NoError(t, keeper.UpdateSettlement(ctx, refreshed))
 
 	after, found := keeper.GetSettlement(ctx, "settlement-update-primitive")
 	require.True(t, found)
-	require.Equal(t, t2.Unix(), after.Timestamp.Seconds,
+	require.Equal(t, t2.Unix(), after.Timestamp.Unix(),
 		"UpdateSettlement must store whatever Timestamp the caller passes — "+
 			"moving dispute-window anchoring INTO this primitive would "+
 			"break genesis-import, recovery, and migration call sites that "+
@@ -957,7 +957,7 @@ func TestProcessSettlement_PreservesEarliestPendingTimestamp_DisputeWindowAnchor
 	require.True(t, found)
 	require.Equal(t, types.SettlementStatus_SETTLEMENT_STATUS_PENDING, initial.Status,
 		"precondition: first partial must land PENDING")
-	require.Equal(t, t1.Unix(), initial.Timestamp.Seconds,
+	require.Equal(t, t1.Unix(), initial.Timestamp.Unix(),
 		"precondition: first PENDING Timestamp must be T1")
 	require.EqualValues(t, 1, initial.FillCount)
 
@@ -985,7 +985,7 @@ func TestProcessSettlement_PreservesEarliestPendingTimestamp_DisputeWindowAnchor
 	// If this assertion flips back to T2, the dispute-window anchor
 	// regressed and routers can once again strand user credits by
 	// re-settling every block.
-	require.Equal(t, t1.Unix(), after.Timestamp.Seconds,
+	require.Equal(t, t1.Unix(), after.Timestamp.Unix(),
 		"PENDING→PENDING re-settle must preserve earliest Timestamp (T1). "+
 			"Got T2 → BeginBlocker's dispute-window eligibility check resets "+
 			"every block and a malicious router can permanently strand the "+
@@ -1048,12 +1048,12 @@ func TestProcessSettlement_RefreshesTimestampOnFinalize(t *testing.T) {
 	final, found := keeper.GetSettlement(ctx, "receipt-finalize-refresh")
 	require.True(t, found)
 	require.Equal(t, types.SettlementStatus_SETTLEMENT_STATUS_COMPLETED, final.Status)
-	require.Equal(t, t2.Unix(), final.Timestamp.Seconds,
+	require.Equal(t, t2.Unix(), final.Timestamp.Unix(),
 		"finalization must refresh Timestamp to the terminal block time — "+
 			"the dispute-window anchor is PENDING→PENDING only; "+
 			"COMPLETED must have Timestamp==CompletedAt for pruning.")
 	require.NotNil(t, final.CompletedAt)
-	require.Equal(t, t2.Unix(), final.CompletedAt.Seconds,
+	require.Equal(t, t2.Unix(), final.CompletedAt.Unix(),
 		"sanity: CompletedAt tracks the finalize block time")
 }
 
@@ -1102,7 +1102,7 @@ func TestProcessSettlement_TrimsFinalStageBeforeStatus(t *testing.T) {
 	require.Equal(t, types.SettlementStatus_SETTLEMENT_STATUS_COMPLETED, final.Status)
 	require.Equal(t, "finalized", final.Stage)
 	require.NotNil(t, final.CompletedAt)
-	require.Equal(t, t2.Unix(), final.CompletedAt.Seconds)
+	require.Equal(t, t2.Unix(), final.CompletedAt.Unix())
 }
 
 // =============================================================================
@@ -1118,18 +1118,19 @@ func TestPruneOldSettlements(t *testing.T) {
 		settlement := &types.SettlementRecord{
 			Id:          fmt.Sprintf("old-settlement-%d", i),
 			Status:      types.SettlementStatus_SETTLEMENT_STATUS_COMPLETED,
-			CompletedAt: timestamppb.New(oldTime),
-			Timestamp:   timestamppb.New(oldTime),
+			CompletedAt: &oldTime,
+			Timestamp:   oldTime,
 		}
 		require.NoError(t, keeper.CreateSettlement(ctx, settlement))
 	}
 
 	// Create recent settlement
+	recentCompletedAt := time.Now().UTC()
 	recentSettlement := &types.SettlementRecord{
 		Id:          "recent-settlement",
 		Status:      types.SettlementStatus_SETTLEMENT_STATUS_COMPLETED,
-		CompletedAt: timestamppb.Now(),
-		Timestamp:   timestamppb.Now(),
+		CompletedAt: &recentCompletedAt,
+		Timestamp:   time.Now().UTC(),
 	}
 	require.NoError(t, keeper.CreateSettlement(ctx, recentSettlement))
 

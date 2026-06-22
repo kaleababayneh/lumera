@@ -11,7 +11,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/LumeraProtocol/lumera/x/oracle/types"
 )
@@ -44,7 +43,7 @@ func TestQueryPriceFeed_Success(t *testing.T) {
 	require.NoError(t, k.SetPriceFeed(ctx, &types.PriceFeed{
 		AssetPair: "LAC/USD",
 		Price:     "1.50",
-		Timestamp: timestamppb.New(testTime),
+		Timestamp: testTime,
 	}))
 
 	qs := NewQueryServerImpl(*k)

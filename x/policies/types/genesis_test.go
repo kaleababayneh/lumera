@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+// tsPtr returns a pointer to t, matching the gogoproto *time.Time fields.
+func tsPtr(t time.Time) *time.Time { return &t }
 
 func TestDefaultGenesis(t *testing.T) {
 	gs := DefaultGenesis()
@@ -835,35 +837,35 @@ func TestValidatePolicyRejectsOutOfOrderLifecycleTimestamps(t *testing.T) {
 		{
 			name: "activated before created",
 			set: func(lifecycle *PolicyLifecycle) {
-				lifecycle.ActivatedAt = timestamppb.New(base.Add(-time.Second))
+				lifecycle.ActivatedAt = tsPtr(base.Add(-time.Second))
 			},
 			wantField: "lifecycle.activated_at cannot be before lifecycle.created_at",
 		},
 		{
 			name: "deprecated before created",
 			set: func(lifecycle *PolicyLifecycle) {
-				lifecycle.DeprecatedAt = timestamppb.New(base.Add(-time.Second))
+				lifecycle.DeprecatedAt = tsPtr(base.Add(-time.Second))
 			},
 			wantField: "lifecycle.deprecated_at cannot be before lifecycle.created_at",
 		},
 		{
 			name: "deprecated before activated",
 			set: func(lifecycle *PolicyLifecycle) {
-				lifecycle.DeprecatedAt = timestamppb.New(base.Add(30 * time.Minute))
+				lifecycle.DeprecatedAt = tsPtr(base.Add(30 * time.Minute))
 			},
 			wantField: "lifecycle.deprecated_at cannot be before lifecycle.activated_at",
 		},
 		{
 			name: "archived before created",
 			set: func(lifecycle *PolicyLifecycle) {
-				lifecycle.ArchivedAt = timestamppb.New(base.Add(-time.Second))
+				lifecycle.ArchivedAt = tsPtr(base.Add(-time.Second))
 			},
 			wantField: "lifecycle.archived_at cannot be before lifecycle.created_at",
 		},
 		{
 			name: "archived before deprecated",
 			set: func(lifecycle *PolicyLifecycle) {
-				lifecycle.ArchivedAt = timestamppb.New(base.Add(90 * time.Minute))
+				lifecycle.ArchivedAt = tsPtr(base.Add(90 * time.Minute))
 			},
 			wantField: "lifecycle.archived_at cannot be before lifecycle.deprecated_at",
 		},
@@ -872,10 +874,10 @@ func TestValidatePolicyRejectsOutOfOrderLifecycleTimestamps(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			policy := validPolicyProfile()
-			policy.Lifecycle.CreatedAt = timestamppb.New(base)
-			policy.Lifecycle.ActivatedAt = timestamppb.New(base.Add(time.Hour))
-			policy.Lifecycle.DeprecatedAt = timestamppb.New(base.Add(2 * time.Hour))
-			policy.Lifecycle.ArchivedAt = timestamppb.New(base.Add(3 * time.Hour))
+			policy.Lifecycle.CreatedAt = tsPtr(base)
+			policy.Lifecycle.ActivatedAt = tsPtr(base.Add(time.Hour))
+			policy.Lifecycle.DeprecatedAt = tsPtr(base.Add(2 * time.Hour))
+			policy.Lifecycle.ArchivedAt = tsPtr(base.Add(3 * time.Hour))
 			tt.set(policy.Lifecycle)
 
 			err := ValidatePolicy(policy)
@@ -918,10 +920,10 @@ func TestValidatePolicyRejectsInvalidLifecycleStates(t *testing.T) {
 func TestValidatePolicyAllowsEqualLifecycleTimestamps(t *testing.T) {
 	instant := time.Date(2026, 5, 12, 12, 0, 0, 0, time.UTC)
 	policy := validPolicyProfile()
-	policy.Lifecycle.CreatedAt = timestamppb.New(instant)
-	policy.Lifecycle.ActivatedAt = timestamppb.New(instant)
-	policy.Lifecycle.DeprecatedAt = timestamppb.New(instant)
-	policy.Lifecycle.ArchivedAt = timestamppb.New(instant)
+	policy.Lifecycle.CreatedAt = tsPtr(instant)
+	policy.Lifecycle.ActivatedAt = tsPtr(instant)
+	policy.Lifecycle.DeprecatedAt = tsPtr(instant)
+	policy.Lifecycle.ArchivedAt = tsPtr(instant)
 
 	require.NoError(t, ValidatePolicy(policy))
 }
@@ -1027,8 +1029,13 @@ func validPolicyProfile() *PolicyProfile {
 	}
 }
 
-func malformedTimestamp() *timestamppb.Timestamp {
-	return &timestamppb.Timestamp{Nanos: 1_000_000_000}
+// malformedTimestamp returns a *time.Time whose year is out of the valid
+// 1..9999 range, which the validators reject as "invalid". (The protobuf-go
+// original used an out-of-range Nanos value; gogo stores a stdlib time.Time,
+// so an out-of-range year is the equivalent malformed value.)
+func malformedTimestamp() *time.Time {
+	t := time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC).AddDate(-1, 0, 0)
+	return &t
 }
 
 func TestValidateBudgetLimit(t *testing.T) {

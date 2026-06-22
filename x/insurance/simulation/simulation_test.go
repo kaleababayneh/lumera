@@ -7,18 +7,18 @@ import (
 	"testing"
 	"time"
 
-	v1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
 	coreaddress "cosmossdk.io/core/address"
-	"cosmossdk.io/log/v2"
+	"cosmossdk.io/log"
 	sdkmath "cosmossdk.io/math"
+	"cosmossdk.io/store"
+	"cosmossdk.io/store/metrics"
+	storetypes "cosmossdk.io/store/types"
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
-	"github.com/cosmos/cosmos-sdk/store/v2"
-	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	simtypes "github.com/cosmos/cosmos-sdk/types/simulation"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
@@ -62,7 +62,7 @@ func newSimulationFixture(t testing.TB) *simulationFixture {
 	t.Helper()
 
 	db := dbm.NewMemDB()
-	stateStore := store.NewCommitMultiStore(db, log.NewNopLogger())
+	stateStore := store.NewCommitMultiStore(db, log.NewNopLogger(), metrics.NewNoOpMetrics())
 
 	insuranceKey := storetypes.NewKVStoreKey(types.StoreKey)
 	authKey := storetypes.NewKVStoreKey(authtypes.StoreKey)
@@ -166,9 +166,9 @@ func TestSimulation_FloodClaims_GasBounds(t *testing.T) {
 		ReceiptId:   "test-contrib-1",
 		ToolId:      "tool-flood",
 		PublisherId: "publisher-flood",
-		Amount: &v1beta1.Coin{
+		Amount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "500000",
+			Amount: sdkmath.NewInt(500000),
 		},
 	}
 	_, err := msgServer.ProcessContribution(fixture.ctx, contribMsg)
@@ -189,7 +189,7 @@ func TestSimulation_FloodClaims_GasBounds(t *testing.T) {
 			ReceiptId:   receiptID,
 			ToolId:      toolID,
 			PublisherId: publisherID,
-			Amount:      &v1beta1.Coin{Denom: "ulac", Amount: "10000"},
+			Amount:      sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(10000)},
 		}
 		_, err := msgServer.ProcessContribution(fixture.ctx, contribMsg)
 		require.NoError(t, err, "contribution %d should succeed", i)
@@ -199,7 +199,7 @@ func TestSimulation_FloodClaims_GasBounds(t *testing.T) {
 			ReceiptId:     receiptID,
 			ToolId:        toolID,
 			PublisherId:   publisherID,
-			ClaimedAmount: &v1beta1.Coin{Denom: "ulac", Amount: "10000"},
+			ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(10000)},
 			Reason:        "timeout after 30s",
 		}
 		_, err = msgServer.FileClaim(fixture.ctx, claimMsg)
@@ -236,9 +236,9 @@ func TestSimulation_PayoutCaps(t *testing.T) {
 		ReceiptId:   "test-contrib-caps",
 		ToolId:      "tool-caps",
 		PublisherId: "publisher-caps",
-		Amount: &v1beta1.Coin{
+		Amount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "1000000",
+			Amount: sdkmath.NewInt(1000000),
 		},
 	}
 	_, err := msgServer.ProcessContribution(fixture.ctx, contribMsg)
@@ -256,7 +256,7 @@ func TestSimulation_PayoutCaps(t *testing.T) {
 		ReceiptId:   "large-claim",
 		ToolId:      "tool-1",
 		PublisherId: "publisher-1",
-		Amount:      &v1beta1.Coin{Denom: "ulac", Amount: "1"}, // Minimal contribution
+		Amount:      sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(1)}, // Minimal contribution
 	}
 	_, err = msgServer.ProcessContribution(fixture.ctx, largeContribMsg)
 	require.NoError(t, err)
@@ -268,7 +268,7 @@ func TestSimulation_PayoutCaps(t *testing.T) {
 		ReceiptId:     "large-claim",
 		ToolId:        "tool-1",
 		PublisherId:   "publisher-1",
-		ClaimedAmount: &v1beta1.Coin{Denom: "ulac", Amount: claimAmount.String()},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: claimAmount},
 		Reason:        "critical outage",
 	}
 	claimResp, err := msgServer.FileClaim(fixture.ctx, claimMsg)
@@ -279,7 +279,7 @@ func TestSimulation_PayoutCaps(t *testing.T) {
 		Authority:      authority,
 		ClaimId:        claimResp.ClaimId,
 		Resolution:     "approve",
-		ApprovedAmount: &v1beta1.Coin{Denom: "ulac", Amount: claimAmount.String()},
+		ApprovedAmount: sdk.Coin{Denom: "ulac", Amount: claimAmount},
 	}
 	_, err = msgServer.ProcessClaim(fixture.ctx, approveMsg)
 	// The insurance module correctly enforces caps at approval time
@@ -293,7 +293,7 @@ func TestSimulation_PayoutCaps(t *testing.T) {
 		ReceiptId:   "valid-claim",
 		ToolId:      "tool-1",
 		PublisherId: "publisher-1",
-		Amount:      &v1beta1.Coin{Denom: "ulac", Amount: validClaimAmount.String()},
+		Amount:      sdk.Coin{Denom: "ulac", Amount: validClaimAmount},
 	}
 	_, err = msgServer.ProcessContribution(fixture.ctx, validContribMsg)
 	require.NoError(t, err)
@@ -304,7 +304,7 @@ func TestSimulation_PayoutCaps(t *testing.T) {
 		ReceiptId:     "valid-claim",
 		ToolId:        "tool-1",
 		PublisherId:   "publisher-1",
-		ClaimedAmount: &v1beta1.Coin{Denom: "ulac", Amount: validClaimAmount.String()},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: validClaimAmount},
 		Reason:        "service degradation",
 	}
 	claimResp2, err := msgServer.FileClaim(fixture.ctx, claimMsg2)
@@ -314,7 +314,7 @@ func TestSimulation_PayoutCaps(t *testing.T) {
 		Authority:      authority,
 		ClaimId:        claimResp2.ClaimId,
 		Resolution:     "approve",
-		ApprovedAmount: &v1beta1.Coin{Denom: "ulac", Amount: validClaimAmount.String()},
+		ApprovedAmount: sdk.Coin{Denom: "ulac", Amount: validClaimAmount},
 	}
 	_, err = msgServer.ProcessClaim(fixture.ctx, approveMsg2)
 	require.NoError(t, err, "approval should succeed for claim within pool balance")
@@ -501,9 +501,9 @@ func TestSimulation_PoolExhaustion_Bounded(t *testing.T) {
 		ReceiptId:   "test-contrib-exhaustion",
 		ToolId:      "tool-exhaustion",
 		PublisherId: "publisher-exhaustion",
-		Amount: &v1beta1.Coin{
+		Amount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "5000000",
+			Amount: sdkmath.NewInt(5000000),
 		},
 	}
 	_, err := msgServer.ProcessContribution(fixture.ctx, contribMsg)
@@ -537,7 +537,7 @@ func TestSimulation_PoolExhaustion_Bounded(t *testing.T) {
 			ReceiptId:     fmt.Sprintf("exhaustion-claim-%d", i),
 			ToolId:        fmt.Sprintf("tool-%d", i%3),
 			PublisherId:   fmt.Sprintf("publisher-%d", i%2),
-			ClaimedAmount: &v1beta1.Coin{Denom: "ulac", Amount: claimAmount.String()},
+			ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: claimAmount},
 			Reason:        "service degradation",
 		}
 		claimResp, err := msgServer.FileClaim(fixture.ctx, claimMsg)
@@ -549,7 +549,7 @@ func TestSimulation_PoolExhaustion_Bounded(t *testing.T) {
 			Authority:      authority,
 			ClaimId:        claimResp.ClaimId,
 			Resolution:     "approve",
-			ApprovedAmount: &v1beta1.Coin{Denom: "ulac", Amount: claimAmount.String()},
+			ApprovedAmount: sdk.Coin{Denom: "ulac", Amount: claimAmount},
 		}
 		_, err = msgServer.ProcessClaim(fixture.ctx, approveMsg)
 		if err != nil {

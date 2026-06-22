@@ -8,7 +8,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/LumeraProtocol/lumera/app"
 	"github.com/LumeraProtocol/lumera/internal/testutil"
@@ -16,7 +15,7 @@ import (
 	oracletypes "github.com/LumeraProtocol/lumera/x/oracle/types"
 )
 
-func setupOracleApp(t *testing.T) (sdk.Context, *app.LumeraApp) {
+func setupOracleApp(t *testing.T) (sdk.Context, *app.App) {
 	t.Helper()
 	ctx, lumeraApp := testutil.SetupTestApp(t)
 	return ctx, lumeraApp
@@ -60,13 +59,13 @@ func TestOracleAggregationRealApp(t *testing.T) {
 		ValidatorAddress: rewardAddr,
 		PriceFeeds:       []*oracletypes.PriceFeed{{AssetPair: "LAC/USD", Price: "1.50"}},
 		BlockHeight:      voteHeight,
-		Timestamp:        timestamppb.New(ctx.BlockTime()),
+		Timestamp:        ctx.BlockTime(),
 	}
 	vote2 := &oracletypes.ValidatorVote{
 		ValidatorAddress: rewardAddr,
 		PriceFeeds:       []*oracletypes.PriceFeed{{AssetPair: "LAC/USD", Price: "1.60"}},
 		BlockHeight:      voteHeight,
-		Timestamp:        timestamppb.New(ctx.BlockTime()),
+		Timestamp:        ctx.BlockTime(),
 	}
 
 	msg := &oracletypes.MsgInjectOracleVotes{

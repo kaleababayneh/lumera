@@ -17,7 +17,7 @@ func TestParseSingleInsuranceCLIAmount(t *testing.T) {
 	coin, err := parseSingleInsuranceCLIAmount("25000ulac")
 	require.NoError(t, err)
 	require.Equal(t, "ulac", coin.Denom)
-	require.Equal(t, "25000", coin.Amount)
+	require.Equal(t, "25000", coin.Amount.String())
 }
 
 func TestParseSingleInsuranceCLIAmountRejectsMultiCoin(t *testing.T) {

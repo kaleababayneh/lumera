@@ -5,7 +5,8 @@ import (
 	"testing"
 	"time"
 
-	basev1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
+	sdkmath "cosmossdk.io/math"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -48,9 +49,9 @@ func TestMicroTransactionInsuranceFraud_Reproduce(t *testing.T) {
 		ReceiptId:   microReceiptID,
 		ToolId:      "tool-attack",
 		PublisherId: "publisher-attack",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "10",
+			Amount: sdkmath.NewInt(10),
 		},
 		Reason: "Auto-approve exploit",
 	}
@@ -110,9 +111,9 @@ func TestProcessExpiredClaims_ZeroCoverageNoPanic(t *testing.T) {
 		ReceiptId:   receiptID,
 		ToolId:      "tool-1",
 		PublisherId: "pub-1",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ufoo",
-			Amount: "5",
+			Amount: sdkmath.NewInt(5),
 		},
 		Reason: "denom mismatch test",
 	})
@@ -148,6 +149,7 @@ func TestProcessExpiredClaims_ZeroCoverageNoPanic(t *testing.T) {
 // unparseable amount string is skipped rather than silently auto-approved.
 // Regression test for BUG-7: dropped decimal.NewFromString error.
 func TestProcessExpiredClaims_InvalidAmountSkipped(t *testing.T) {
+	t.Skip("not ported: post-gogoproto migration ClaimedAmount is a value sdk.Coin whose Amount is math.Int; the wire decoder rejects non-integer strings, so an unparseable claim amount can no longer reach the keeper (see types/msgs.go validateInsuranceCoin comment)")
 	fixture := setupKeeperTest(t)
 	ctx := fixture.ctx
 	k := fixture.keeper
@@ -169,9 +171,9 @@ func TestProcessExpiredClaims_InvalidAmountSkipped(t *testing.T) {
 		ReceiptId:   receiptID,
 		ToolId:      "tool-1",
 		PublisherId: "pub-1",
-		ClaimedAmount: &basev1beta1.Coin{
+		ClaimedAmount: sdk.Coin{
 			Denom:  "ulac",
-			Amount: "not-a-number",
+			Amount: sdkmath.NewInt(1),
 		},
 		Reason: "invalid amount test",
 	})

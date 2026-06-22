@@ -3,24 +3,27 @@ package types
 import (
 	"testing"
 
-	basev1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/gogoproto/proto"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 
 	insurancetypes "github.com/LumeraProtocol/lumera/x/insurance/types"
 	nfttypes "github.com/LumeraProtocol/lumera/x/nft/types"
 	oracletypes "github.com/LumeraProtocol/lumera/x/oracle/types"
 	registrytypes "github.com/LumeraProtocol/lumera/x/registry/types"
-	routertypes "github.com/LumeraProtocol/lumera/x/router/types"
 )
 
 // Proto registration order conformance tests.
 // These tests prove that protobuf interface registration order does not
 // affect serialization output. This guards against non-determinism that
 // could arise from module initialization order varying across nodes.
+//
+// PORTED NOTE: the lumera_ai original also exercised the `router` module,
+// which has not been ported to this repo. The router registrars/messages
+// are dropped here; the determinism property is identical across the
+// remaining modules (credits/insurance/nft/oracle/registry).
 
 type moduleRegistrar struct {
 	name     string
@@ -39,7 +42,6 @@ func TestProtoRegistrationOrder_DoesNotAffectSerialization(t *testing.T) {
 		{"nft", nfttypes.RegisterInterfaces},
 		{"oracle", oracletypes.RegisterInterfaces},
 		{"registry", registrytypes.RegisterInterfaces},
-		{"router", routertypes.RegisterInterfaces},
 	}
 
 	// Create registries with forward and reverse registration order
@@ -70,14 +72,8 @@ func TestProtoRegistrationOrder_DoesNotAffectSerialization(t *testing.T) {
 		&MsgLockCredits{
 			Router:    "lumera1abc123",
 			SessionId: "session-001",
-			Amount:    &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+			Amount:    sdk.NewInt64Coin("ulac", 100),
 			ToolId:    "tool-001",
-		},
-		&routertypes.MsgRecordActivation{
-			Authority: "lumera1def456",
-			ToolId:    "tool-001",
-			SessionId: "session-002",
-			Activated: true,
 		},
 		&registrytypes.MsgRegisterTool{
 			Owner: "lumera1ghi789",
@@ -114,7 +110,6 @@ func TestProtoRegistrationOrder_AnyWrapping(t *testing.T) {
 
 	registrars := []moduleRegistrar{
 		{"credits", RegisterInterfaces},
-		{"router", routertypes.RegisterInterfaces},
 		{"registry", registrytypes.RegisterInterfaces},
 	}
 
@@ -136,7 +131,7 @@ func TestProtoRegistrationOrder_AnyWrapping(t *testing.T) {
 	msg := &MsgLockCredits{
 		Router:    "lumera1test",
 		SessionId: "session-any-001",
-		Amount:    &basev1beta1.Coin{Denom: "ulac", Amount: "500"},
+		Amount:    sdk.NewInt64Coin("ulac", 500),
 		ToolId:    "tool-any-001",
 	}
 
@@ -166,7 +161,7 @@ func TestProtoRegistrationOrder_JSONMarshal(t *testing.T) {
 
 	registrars := []moduleRegistrar{
 		{"credits", RegisterInterfaces},
-		{"router", routertypes.RegisterInterfaces},
+		{"registry", registrytypes.RegisterInterfaces},
 		{"oracle", oracletypes.RegisterInterfaces},
 	}
 
@@ -183,11 +178,10 @@ func TestProtoRegistrationOrder_JSONMarshal(t *testing.T) {
 	forwardCodec := codec.NewProtoCodec(forwardReg)
 	reverseCodec := codec.NewProtoCodec(reverseReg)
 
-	msg := &routertypes.MsgRecordInvocation{
-		Authority: "lumera1jsontest",
-		SessionId: "session-001",
-		ToolId:    "tool-xyz",
-		Success:   true,
+	msg := &MsgSettleCredits{
+		Router: "lumera1jsontest",
+		LockId: "lock-001",
+		ToolId: "tool-xyz",
 	}
 
 	forwardJSON, err := forwardCodec.MarshalJSON(msg)
@@ -201,17 +195,17 @@ func TestProtoRegistrationOrder_JSONMarshal(t *testing.T) {
 			"would cause client/node response divergence")
 }
 
-// TestProtoRegistrationOrder_Unmarshal proves that bytes marshaled with
-// one registration order can be unmarshaled with a different order.
+// TestProtoRegistrationOrder_UnmarshalCrossOrder proves that bytes marshaled
+// with one registration order can be unmarshaled with a different order.
 func TestProtoRegistrationOrder_UnmarshalCrossOrder(t *testing.T) {
 	t.Parallel()
 
 	forwardReg := codectypes.NewInterfaceRegistry()
 	RegisterInterfaces(forwardReg)
-	routertypes.RegisterInterfaces(forwardReg)
+	registrytypes.RegisterInterfaces(forwardReg)
 
 	reverseReg := codectypes.NewInterfaceRegistry()
-	routertypes.RegisterInterfaces(reverseReg)
+	registrytypes.RegisterInterfaces(reverseReg)
 	RegisterInterfaces(reverseReg)
 
 	forwardCodec := codec.NewProtoCodec(forwardReg)
@@ -238,7 +232,7 @@ func TestProtoRegistrationOrder_UnmarshalCrossOrder(t *testing.T) {
 		"cross-order unmarshal must preserve LockId")
 }
 
-// TestProtoRegistrationOrder_MultipleRegistrations proves that calling
+// TestProtoRegistrationOrder_IdempotentRegistration proves that calling
 // RegisterInterfaces multiple times doesn't affect serialization.
 func TestProtoRegistrationOrder_IdempotentRegistration(t *testing.T) {
 	t.Parallel()
@@ -273,7 +267,7 @@ func TestProtoRegistrationOrder_IdempotentRegistration(t *testing.T) {
 			"test harnesses and simulations routinely re-register")
 }
 
-// TestProtoRegistrationOrder_PartialRegistration proves that missing
+// TestProtoRegistrationOrder_PartialVsFullRegistration proves that missing
 // module registrations don't affect the bytes of registered types.
 func TestProtoRegistrationOrder_PartialVsFullRegistration(t *testing.T) {
 	t.Parallel()
@@ -281,7 +275,6 @@ func TestProtoRegistrationOrder_PartialVsFullRegistration(t *testing.T) {
 	// Full registration (all modules)
 	fullReg := codectypes.NewInterfaceRegistry()
 	RegisterInterfaces(fullReg)
-	routertypes.RegisterInterfaces(fullReg)
 	registrytypes.RegisterInterfaces(fullReg)
 	oracletypes.RegisterInterfaces(fullReg)
 	insurancetypes.RegisterInterfaces(fullReg)
@@ -297,7 +290,7 @@ func TestProtoRegistrationOrder_PartialVsFullRegistration(t *testing.T) {
 	msg := &MsgLockCredits{
 		Router:    "lumera1partial",
 		SessionId: "session-partial",
-		Amount:    &basev1beta1.Coin{Denom: "ulac", Amount: "999"},
+		Amount:    sdk.NewInt64Coin("ulac", 999),
 	}
 
 	fullBytes, err := fullCodec.Marshal(msg)

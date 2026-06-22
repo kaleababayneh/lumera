@@ -12,7 +12,6 @@ import (
 	sdkmath "cosmossdk.io/math"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/LumeraProtocol/lumera/x/oracle/types"
 )
@@ -188,8 +187,8 @@ func TestFilterOutliers_ZeroMaxDeviation(t *testing.T) {
 func TestFilterStaleVotes_AllValid(t *testing.T) {
 	now := testTime
 	votes := []*types.ValidatorVote{
-		{ValidatorAddress: "v1", Timestamp: timestamppb.New(now.Add(-10 * time.Second))},
-		{ValidatorAddress: "v2", Timestamp: timestamppb.New(now.Add(-20 * time.Second))},
+		{ValidatorAddress: "v1", Timestamp: now.Add(-10 * time.Second)},
+		{ValidatorAddress: "v2", Timestamp: now.Add(-20 * time.Second)},
 	}
 	result := filterStaleVotes(votes, now, 300)
 	assert.Len(t, result, 2)
@@ -198,8 +197,8 @@ func TestFilterStaleVotes_AllValid(t *testing.T) {
 func TestFilterStaleVotes_SomeStale(t *testing.T) {
 	now := testTime
 	votes := []*types.ValidatorVote{
-		{ValidatorAddress: "v1", Timestamp: timestamppb.New(now.Add(-10 * time.Second))},
-		{ValidatorAddress: "v2", Timestamp: timestamppb.New(now.Add(-600 * time.Second))}, // stale
+		{ValidatorAddress: "v1", Timestamp: now.Add(-10 * time.Second)},
+		{ValidatorAddress: "v2", Timestamp: now.Add(-600 * time.Second)}, // stale
 	}
 	result := filterStaleVotes(votes, now, 300)
 	assert.Len(t, result, 1)
@@ -209,8 +208,8 @@ func TestFilterStaleVotes_SomeStale(t *testing.T) {
 func TestFilterStaleVotes_AllStale(t *testing.T) {
 	now := testTime
 	votes := []*types.ValidatorVote{
-		{ValidatorAddress: "v1", Timestamp: timestamppb.New(now.Add(-600 * time.Second))},
-		{ValidatorAddress: "v2", Timestamp: timestamppb.New(now.Add(-700 * time.Second))},
+		{ValidatorAddress: "v1", Timestamp: now.Add(-600 * time.Second)},
+		{ValidatorAddress: "v2", Timestamp: now.Add(-700 * time.Second)},
 	}
 	result := filterStaleVotes(votes, now, 300)
 	assert.Empty(t, result)
@@ -219,7 +218,7 @@ func TestFilterStaleVotes_AllStale(t *testing.T) {
 func TestFilterStaleVotes_FutureVotes(t *testing.T) {
 	now := testTime
 	votes := []*types.ValidatorVote{
-		{ValidatorAddress: "v1", Timestamp: timestamppb.New(now.Add(60 * time.Second))}, // future
+		{ValidatorAddress: "v1", Timestamp: now.Add(60 * time.Second)}, // future
 	}
 	result := filterStaleVotes(votes, now, 300)
 	assert.Empty(t, result) // future votes have negative age, filtered
@@ -229,7 +228,7 @@ func TestFilterStaleVotes_NilVote(t *testing.T) {
 	now := testTime
 	votes := []*types.ValidatorVote{
 		nil,
-		{ValidatorAddress: "v1", Timestamp: timestamppb.New(now.Add(-10 * time.Second))},
+		{ValidatorAddress: "v1", Timestamp: now.Add(-10 * time.Second)},
 	}
 	result := filterStaleVotes(votes, now, 300)
 	assert.Len(t, result, 1)
@@ -238,8 +237,8 @@ func TestFilterStaleVotes_NilVote(t *testing.T) {
 func TestFilterStaleVotes_NilTimestamp(t *testing.T) {
 	now := testTime
 	votes := []*types.ValidatorVote{
-		{ValidatorAddress: "v1", Timestamp: nil},
-		{ValidatorAddress: "v2", Timestamp: timestamppb.New(now.Add(-10 * time.Second))},
+		{ValidatorAddress: "v1", Timestamp: time.Time{}},
+		{ValidatorAddress: "v2", Timestamp: now.Add(-10 * time.Second)},
 	}
 	result := filterStaleVotes(votes, now, 300)
 	assert.Len(t, result, 1)
@@ -248,7 +247,7 @@ func TestFilterStaleVotes_NilTimestamp(t *testing.T) {
 func TestFilterStaleVotes_MaxAgeZero(t *testing.T) {
 	now := testTime
 	votes := []*types.ValidatorVote{
-		{ValidatorAddress: "v1", Timestamp: timestamppb.New(now.Add(-999 * time.Second))},
+		{ValidatorAddress: "v1", Timestamp: now.Add(-999 * time.Second)},
 	}
 	// maxAge <= 0 means no filtering
 	result := filterStaleVotes(votes, now, 0)
@@ -442,7 +441,7 @@ func TestBuildCanonicalPriceFeeds_MedianFiltersInvalidSamples(t *testing.T) {
 	require.Equal(t, "0.850000000000000000", feed.ConfidenceScore)
 	require.Equal(t, []string{"binance", "coinbase"}, feed.Sources)
 	require.NotNil(t, feed.Timestamp)
-	require.True(t, feed.Timestamp.AsTime().Equal(testTime))
+	require.True(t, feed.Timestamp.Equal(testTime))
 	require.Equal(t, 3, report.AcceptedSamples)
 	require.Equal(t, 2, report.RetainedSamples)
 	require.Equal(t, 1, report.FilteredOutliers)
@@ -528,7 +527,7 @@ func TestValidateVote_Valid(t *testing.T) {
 			{AssetPair: "LAC/USD", Price: "1.50"},
 		},
 		BlockHeight: 1,
-		Timestamp:   timestamppb.New(testTime), // same as block time
+		Timestamp:   testTime, // same as block time
 	}
 	require.NoError(t, k.ValidateVote(ctx, vote))
 }
@@ -546,23 +545,16 @@ func TestValidateVote_NilTimestamp(t *testing.T) {
 		ValidatorAddress: "val1",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: "1.50"}},
 		BlockHeight:      1,
-		Timestamp:        nil,
+		Timestamp:        time.Time{},
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "timestamp")
 }
 
 func TestValidateVote_InvalidTimestamp(t *testing.T) {
-	ctx, k := setupOracleKeeper(t)
-	require.NoError(t, k.SetParams(ctx, types.DefaultParams()))
-	err := k.ValidateVote(ctx, &types.ValidatorVote{
-		ValidatorAddress: "val1",
-		PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: "1.50"}},
-		BlockHeight:      1,
-		Timestamp:        &timestamppb.Timestamp{Nanos: 1_000_000_000},
-	})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "timestamp invalid")
+	t.Skip("not ported: gogoproto stdtime maps Timestamp to a Go time.Time value, which " +
+		"has no out-of-range/invalid state (the old *timestamppb.Timestamp{Nanos: 1e9} " +
+		"could be malformed). ValidateVote only rejects the zero (missing) timestamp.")
 }
 
 func TestValidateVote_FutureTimestamp(t *testing.T) {
@@ -572,7 +564,7 @@ func TestValidateVote_FutureTimestamp(t *testing.T) {
 		ValidatorAddress: "val1",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: "1.50"}},
 		BlockHeight:      1,
-		Timestamp:        timestamppb.New(testTime.Add(60 * time.Second)),
+		Timestamp:        testTime.Add(60 * time.Second),
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "future")
@@ -586,7 +578,7 @@ func TestValidateVote_StaleVote(t *testing.T) {
 		ValidatorAddress: "val1",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: "1.50"}},
 		BlockHeight:      1,
-		Timestamp:        timestamppb.New(testTime.Add(-600 * time.Second)),
+		Timestamp:        testTime.Add(-600 * time.Second),
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "age")
@@ -599,7 +591,7 @@ func TestValidateVote_InvalidPrice(t *testing.T) {
 		ValidatorAddress: "val1",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: "0"}},
 		BlockHeight:      1,
-		Timestamp:        timestamppb.New(testTime),
+		Timestamp:        testTime,
 	})
 	require.Error(t, err)
 }
@@ -611,7 +603,7 @@ func TestValidateVote_EmptyAssetPair(t *testing.T) {
 		ValidatorAddress: "val1",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "", Price: "1.50"}},
 		BlockHeight:      1,
-		Timestamp:        timestamppb.New(testTime),
+		Timestamp:        testTime,
 	})
 	require.Error(t, err)
 }
@@ -623,7 +615,7 @@ func TestValidateVote_AssetPairNotAllowed(t *testing.T) {
 		ValidatorAddress: "val1",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "DOGE/USD", Price: "0.10"}},
 		BlockHeight:      1,
-		Timestamp:        timestamppb.New(testTime),
+		Timestamp:        testTime,
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not in allowed")
@@ -636,7 +628,7 @@ func TestValidateVote_NilPriceFeed(t *testing.T) {
 		ValidatorAddress: "val1",
 		PriceFeeds:       []*types.PriceFeed{nil},
 		BlockHeight:      1,
-		Timestamp:        timestamppb.New(testTime),
+		Timestamp:        testTime,
 	})
 	require.Error(t, err)
 }
@@ -664,7 +656,7 @@ func TestAggregateVotes_AllStale(t *testing.T) {
 		ValidatorAddress: "val1",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: "1.50"}},
 		BlockHeight:      1,
-		Timestamp:        timestamppb.New(testTime.Add(-600 * time.Second)),
+		Timestamp:        testTime.Add(-600 * time.Second),
 	}))
 
 	require.NoError(t, k.AggregateVotes(ctx))
@@ -690,7 +682,7 @@ func TestAggregateVotes_SingleVote(t *testing.T) {
 			{AssetPair: "LAC/USD", Price: "1.50"},
 		},
 		BlockHeight: 1,
-		Timestamp:   timestamppb.New(testTime),
+		Timestamp:   testTime,
 	}))
 
 	require.NoError(t, k.AggregateVotes(ctx))
@@ -714,7 +706,7 @@ func TestAggregateVotes_OddValidators(t *testing.T) {
 				{AssetPair: "LAC/USD", Price: price},
 			},
 			BlockHeight: int64(i + 1),
-			Timestamp:   timestamppb.New(testTime),
+			Timestamp:   testTime,
 		}))
 	}
 
@@ -744,7 +736,7 @@ func TestAggregateVotes_EvenValidators(t *testing.T) {
 				{AssetPair: "LAC/USD", Price: price},
 			},
 			BlockHeight: int64(i + 1),
-			Timestamp:   timestamppb.New(testTime),
+			Timestamp:   testTime,
 		}))
 	}
 
@@ -768,7 +760,7 @@ func TestAggregateVotes_MultipleAssets(t *testing.T) {
 			{AssetPair: "ETH/USD", Price: "2000"},
 		},
 		BlockHeight: 1,
-		Timestamp:   timestamppb.New(testTime),
+		Timestamp:   testTime,
 	}))
 	require.NoError(t, k.SetValidatorVote(ctx, &types.ValidatorVote{
 		ValidatorAddress: "val2",
@@ -777,7 +769,7 @@ func TestAggregateVotes_MultipleAssets(t *testing.T) {
 			{AssetPair: "ETH/USD", Price: "2010"},
 		},
 		BlockHeight: 1,
-		Timestamp:   timestamppb.New(testTime),
+		Timestamp:   testTime,
 	}))
 
 	require.NoError(t, k.AggregateVotes(ctx))
@@ -810,7 +802,7 @@ func TestAggregateVotes_OutlierFiltering(t *testing.T) {
 				{AssetPair: "LAC/USD", Price: price},
 			},
 			BlockHeight: int64(i + 1),
-			Timestamp:   timestamppb.New(testTime),
+			Timestamp:   testTime,
 		}))
 	}
 
@@ -840,7 +832,7 @@ func TestAggregateVotes_OutlierFilteringRecomputesStdDev(t *testing.T) {
 				{AssetPair: "LAC/USD", Price: price},
 			},
 			BlockHeight: int64(i + 1),
-			Timestamp:   timestamppb.New(testTime),
+			Timestamp:   testTime,
 		}))
 	}
 
@@ -866,7 +858,7 @@ func TestAggregateVotes_EmitsEvent(t *testing.T) {
 			{AssetPair: "LAC/USD", Price: "1.50"},
 		},
 		BlockHeight: 1,
-		Timestamp:   timestamppb.New(testTime),
+		Timestamp:   testTime,
 	}))
 
 	require.NoError(t, k.AggregateVotes(ctx))
@@ -893,7 +885,7 @@ func TestValidateVote_DuplicateAssetPair(t *testing.T) {
 			{AssetPair: " LAC/USD ", Price: "1.55"},
 		},
 		BlockHeight: 1,
-		Timestamp:   timestamppb.New(testTime),
+		Timestamp:   testTime,
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "duplicate asset pair")
@@ -916,19 +908,19 @@ func TestAggregateVotes_IgnoresDuplicateFeedsFromSingleValidator(t *testing.T) {
 			{AssetPair: "LAC/USD", Price: "1000"},
 		},
 		BlockHeight: 1,
-		Timestamp:   timestamppb.New(testTime),
+		Timestamp:   testTime,
 	}))
 	require.NoError(t, k.SetValidatorVote(ctx, &types.ValidatorVote{
 		ValidatorAddress: "val-honest-1",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: "100"}},
 		BlockHeight:      1,
-		Timestamp:        timestamppb.New(testTime),
+		Timestamp:        testTime,
 	}))
 	require.NoError(t, k.SetValidatorVote(ctx, &types.ValidatorVote{
 		ValidatorAddress: "val-honest-2",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: "LAC/USD", Price: "101"}},
 		BlockHeight:      1,
-		Timestamp:        timestamppb.New(testTime),
+		Timestamp:        testTime,
 	}))
 
 	require.NoError(t, k.AggregateVotes(ctx))

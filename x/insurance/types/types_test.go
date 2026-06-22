@@ -5,14 +5,13 @@ import (
 	"testing"
 	"time"
 
-	basev1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
+	sdkmath "cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/codec"
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func validInsuranceAddress(seed string) string {
@@ -540,22 +539,14 @@ func TestGenesis_Validate_NegativeClaimAmount(t *testing.T) {
 		{
 			Id:            "claim-1",
 			Status:        ClaimStatus_CLAIM_STATUS_PENDING,
-			ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "-100"},
+			ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(-100)},
 		},
 	}
 	require.Error(t, gs.Validate())
 }
 
 func TestGenesis_Validate_InvalidClaimAmount(t *testing.T) {
-	gs := DefaultGenesis()
-	gs.Claims = []*Claim{
-		{
-			Id:            "claim-2",
-			Status:        ClaimStatus_CLAIM_STATUS_PENDING,
-			ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "not_number"},
-		},
-	}
-	require.Error(t, gs.Validate())
+	t.Skip("not ported: Claim.ClaimedAmount is now a value sdk.Coin whose Amount is math.Int; a non-numeric string like \"not_number\" can no longer be decoded into the field, so this invalid-amount path no longer exists (genesis.go now only rejects a negative claim amount)")
 }
 
 // TestGenesis_Validate_RejectsAbsurdExponent is the consensus-halt
@@ -587,24 +578,18 @@ func TestGenesis_Validate_RejectsAbsurdExponent(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "pool reserved funds magnitude")
 	})
-	t.Run("genesis_claim_amount", func(t *testing.T) {
-		gs := DefaultGenesis()
-		gs.Claims = []*Claim{
-			{
-				Id:            "claim-absurd",
-				Status:        ClaimStatus_CLAIM_STATUS_PENDING,
-				ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "1e11100100"},
-			},
-		}
-		err := gs.Validate()
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "claim-absurd amount magnitude")
-	})
+	// "genesis_claim_amount" subtest removed: not ported. Claim.ClaimedAmount is now
+	// a value sdk.Coin (math.Int); a symbolic exponent like "1e11100100" can no
+	// longer be decoded into the field, so genesis.go no longer emits a
+	// "claim amount magnitude" error for claims (it only rejects negative amounts).
+	// The pool-string-field exponent guards above are still in force.
 }
 
 func TestGenesis_Validate_RejectsInvalidTimestamps(t *testing.T) {
-	invalid := func() *timestamppb.Timestamp {
-		return &timestamppb.Timestamp{Nanos: 1_000_000_000}
+	t.Skip("not ported: all genesis timestamp fields are now *time.Time (gogoproto stdtime). A *time.Time is either nil or a well-formed value, so the \"out-of-range nanos\" invalid-timestamp path no longer exists (genesis.go validateOptionalTimestamp is a no-op)")
+	invalid := func() *time.Time {
+		ts := time.Unix(0, 0).UTC()
+		return &ts
 	}
 
 	cases := []struct {
@@ -697,8 +682,10 @@ func TestGenesis_Validate_RejectsInvalidTimestamps(t *testing.T) {
 }
 
 func TestGenesis_Validate_RejectsRuntimeImpossibleClaimTimestampOrder(t *testing.T) {
-	createdAt := timestamppb.New(time.Unix(1_700_000_100, 0).UTC())
-	beforeCreated := timestamppb.New(time.Unix(1_700_000_000, 0).UTC())
+	createdAtV := time.Unix(1_700_000_100, 0).UTC()
+	beforeCreatedV := time.Unix(1_700_000_000, 0).UTC()
+	createdAt := &createdAtV
+	beforeCreated := &beforeCreatedV
 
 	tests := []struct {
 		name    string
@@ -756,12 +743,12 @@ func TestGenesis_Validate_ValidClaimsWithAmount(t *testing.T) {
 		{
 			Id:            "claim-1",
 			Status:        ClaimStatus_CLAIM_STATUS_PENDING,
-			ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "500"},
+			ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(500)},
 		},
 		{
 			Id:            "claim-2",
 			Status:        ClaimStatus_CLAIM_STATUS_APPROVED,
-			ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "1000"},
+			ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(1000)},
 		},
 	}
 	require.NoError(t, gs.Validate())
@@ -989,7 +976,7 @@ func TestSettlementStatusConstants(t *testing.T) {
 func TestMsgUpdateParams_ValidateBasic_Valid(t *testing.T) {
 	msg := &MsgUpdateParams{
 		Authority: validInsuranceAddress("insurance-valid-0001"),
-		Params:    DefaultParams(),
+		Params:    *DefaultParams(),
 	}
 	require.NoError(t, msg.ValidateBasic())
 }
@@ -997,7 +984,7 @@ func TestMsgUpdateParams_ValidateBasic_Valid(t *testing.T) {
 func TestMsgUpdateParams_ValidateBasic_EmptyAuthority(t *testing.T) {
 	msg := &MsgUpdateParams{
 		Authority: "",
-		Params:    DefaultParams(),
+		Params:    *DefaultParams(),
 	}
 	require.Error(t, msg.ValidateBasic())
 }
@@ -1005,17 +992,13 @@ func TestMsgUpdateParams_ValidateBasic_EmptyAuthority(t *testing.T) {
 func TestMsgUpdateParams_ValidateBasic_InvalidAuthority(t *testing.T) {
 	msg := &MsgUpdateParams{
 		Authority: "not_a_valid_address",
-		Params:    DefaultParams(),
+		Params:    *DefaultParams(),
 	}
 	require.Error(t, msg.ValidateBasic())
 }
 
 func TestMsgUpdateParams_ValidateBasic_NilParams(t *testing.T) {
-	msg := &MsgUpdateParams{
-		Authority: validInsuranceAddress("insurance-valid-0001"),
-		Params:    nil,
-	}
-	require.Error(t, msg.ValidateBasic())
+	t.Skip("not ported: post-gogoproto MsgUpdateParams.Params is a value Params (nullable=false), so it can no longer be nil; MsgUpdateParams.ValidateBasic now only validates the authority. The nil-params guard lives in the msg server (UpdateParams), exercised by the keeper tests")
 }
 
 // ---------- MsgProcessContribution.ValidateBasic ----------
@@ -1026,7 +1009,7 @@ func TestMsgProcessContribution_ValidateBasic_Valid(t *testing.T) {
 		ReceiptId:   "rcpt-1",
 		ToolId:      "tool-1",
 		PublisherId: "pub-1",
-		Amount:      &basev1beta1.Coin{Denom: "ulac", Amount: "500"},
+		Amount:      sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(500)},
 	}
 	require.NoError(t, msg.ValidateBasic())
 }
@@ -1037,7 +1020,7 @@ func TestMsgProcessContribution_ValidateBasic_EmptyAuthority(t *testing.T) {
 		ReceiptId:   "rcpt-1",
 		ToolId:      "tool-1",
 		PublisherId: "pub-1",
-		Amount:      &basev1beta1.Coin{Denom: "ulac", Amount: "500"},
+		Amount:      sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(500)},
 	}
 	require.Error(t, msg.ValidateBasic())
 }
@@ -1048,7 +1031,7 @@ func TestMsgProcessContribution_ValidateBasic_InvalidAuthority(t *testing.T) {
 		ReceiptId:   "rcpt-1",
 		ToolId:      "tool-1",
 		PublisherId: "pub-1",
-		Amount:      &basev1beta1.Coin{Denom: "ulac", Amount: "500"},
+		Amount:      sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(500)},
 	}
 	err := msg.ValidateBasic()
 	require.Error(t, err)
@@ -1061,7 +1044,7 @@ func TestMsgProcessContribution_ValidateBasic_EmptyReceiptID(t *testing.T) {
 		ReceiptId:   "",
 		ToolId:      "tool-1",
 		PublisherId: "pub-1",
-		Amount:      &basev1beta1.Coin{Denom: "ulac", Amount: "500"},
+		Amount:      sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(500)},
 	}
 	require.Error(t, msg.ValidateBasic())
 }
@@ -1072,7 +1055,7 @@ func TestMsgProcessContribution_ValidateBasic_EmptyToolID(t *testing.T) {
 		ReceiptId:   "rcpt-1",
 		ToolId:      "",
 		PublisherId: "pub-1",
-		Amount:      &basev1beta1.Coin{Denom: "ulac", Amount: "500"},
+		Amount:      sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(500)},
 	}
 	require.Error(t, msg.ValidateBasic())
 }
@@ -1083,7 +1066,7 @@ func TestMsgProcessContribution_ValidateBasic_EmptyPublisherID(t *testing.T) {
 		ReceiptId:   "rcpt-1",
 		ToolId:      "tool-1",
 		PublisherId: "",
-		Amount:      &basev1beta1.Coin{Denom: "ulac", Amount: "500"},
+		Amount:      sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(500)},
 	}
 	require.Error(t, msg.ValidateBasic())
 }
@@ -1094,7 +1077,7 @@ func TestMsgProcessContribution_ValidateBasic_NilAmount(t *testing.T) {
 		ReceiptId:   "rcpt-1",
 		ToolId:      "tool-1",
 		PublisherId: "pub-1",
-		Amount:      nil,
+		Amount:      sdk.Coin{},
 	}
 	require.Error(t, msg.ValidateBasic())
 }
@@ -1106,7 +1089,7 @@ func TestMsgFileClaim_ValidateBasic_Valid(t *testing.T) {
 		Claimant:      validInsuranceAddress("insurance-valid-0003"),
 		ReceiptId:     "rcpt-1",
 		ToolId:        "tool-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 		Reason:        "service failure",
 	}
 	require.NoError(t, msg.ValidateBasic())
@@ -1117,7 +1100,7 @@ func TestMsgFileClaim_ValidateBasic_EmptyClaimant(t *testing.T) {
 		Claimant:      "",
 		ReceiptId:     "rcpt-1",
 		ToolId:        "tool-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 		Reason:        "service failure",
 	}
 	require.Error(t, msg.ValidateBasic())
@@ -1128,7 +1111,7 @@ func TestMsgFileClaim_ValidateBasic_InvalidClaimant(t *testing.T) {
 		Claimant:      "claimant",
 		ReceiptId:     "rcpt-1",
 		ToolId:        "tool-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 		Reason:        "service failure",
 	}
 	err := msg.ValidateBasic()
@@ -1141,7 +1124,7 @@ func TestMsgFileClaim_ValidateBasic_EmptyReceiptID(t *testing.T) {
 		Claimant:      validInsuranceAddress("insurance-valid-0003"),
 		ReceiptId:     "",
 		ToolId:        "tool-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 		Reason:        "service failure",
 	}
 	require.Error(t, msg.ValidateBasic())
@@ -1152,7 +1135,7 @@ func TestMsgFileClaim_ValidateBasic_EmptyToolID(t *testing.T) {
 		Claimant:      validInsuranceAddress("insurance-valid-0003"),
 		ReceiptId:     "rcpt-1",
 		ToolId:        "",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 		Reason:        "service failure",
 	}
 	require.Error(t, msg.ValidateBasic())
@@ -1163,7 +1146,7 @@ func TestMsgFileClaim_ValidateBasic_NilClaimedAmount(t *testing.T) {
 		Claimant:      validInsuranceAddress("insurance-valid-0003"),
 		ReceiptId:     "rcpt-1",
 		ToolId:        "tool-1",
-		ClaimedAmount: nil,
+		ClaimedAmount: sdk.Coin{},
 		Reason:        "service failure",
 	}
 	require.Error(t, msg.ValidateBasic())
@@ -1174,7 +1157,7 @@ func TestMsgFileClaim_ValidateBasic_EmptyReason(t *testing.T) {
 		Claimant:      validInsuranceAddress("insurance-valid-0003"),
 		ReceiptId:     "rcpt-1",
 		ToolId:        "tool-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+		ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 		Reason:        "",
 	}
 	require.Error(t, msg.ValidateBasic())
@@ -1191,7 +1174,7 @@ func TestMsgFileClaim_ValidateBasic_RejectsPaddedReason(t *testing.T) {
 				Claimant:      validInsuranceAddress("insurance-valid-0003"),
 				ReceiptId:     "rcpt-1",
 				ToolId:        "tool-1",
-				ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+				ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 				Reason:        reason,
 			}
 			err := msg.ValidateBasic()
@@ -1213,17 +1196,7 @@ func TestMsgFileClaim_ValidateBasic_RejectsPaddedReason(t *testing.T) {
 // millions of digits per validator, chain halts. ValidateBasic gates
 // statelessly so adversarial amounts never reach the handler.
 func TestMsgFileClaim_ValidateBasic_RejectsAbsurdAmountExponent(t *testing.T) {
-	msg := &MsgFileClaim{
-		Claimant:      validInsuranceAddress("insurance-valid-0003"),
-		ReceiptId:     "rcpt-1",
-		ToolId:        "tool-1",
-		ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "1e11100100"},
-		Reason:        "fraud",
-	}
-	err := msg.ValidateBasic()
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "claimed_amount")
-	require.Contains(t, err.Error(), "magnitude out of range")
+	t.Skip("not ported: ClaimedAmount is now a value sdk.Coin (math.Int); a symbolic exponent like \"1e11100100\" is rejected by the wire decoder before ValidateBasic, so the shopspring-exponent DoS guard was removed (see types/msgs.go validateInsuranceCoin comment)")
 }
 
 // TestMsgProcessContribution_ValidateBasic_RejectsAbsurdAmountExponent is
@@ -1231,67 +1204,47 @@ func TestMsgFileClaim_ValidateBasic_RejectsAbsurdAmountExponent(t *testing.T) {
 // stored contribution amount feeds into pool-funds arithmetic
 // (insurance/keeper/keeper.go Div/Add/LessThan on TotalFunds etc.).
 func TestMsgProcessContribution_ValidateBasic_RejectsAbsurdAmountExponent(t *testing.T) {
-	msg := &MsgProcessContribution{
-		Authority:   validInsuranceAddress("insurance-valid-0002"),
-		ReceiptId:   "rcpt-1",
-		ToolId:      "tool-1",
-		PublisherId: "pub-1",
-		Amount:      &basev1beta1.Coin{Denom: "ulac", Amount: "1e11100100"},
-	}
-	err := msg.ValidateBasic()
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "amount")
-	require.Contains(t, err.Error(), "magnitude out of range")
+	t.Skip("not ported: Amount is now a value sdk.Coin (math.Int); a symbolic exponent like \"1e11100100\" is rejected by the wire decoder before ValidateBasic, so the exponent DoS guard was removed")
 }
 
 // TestMsgProcessPayout_ValidateBasic_RejectsAbsurdAmountExponent completes
 // the trio for the user-reachable insurance msgs that carry a
 // v1beta1.Coin amount.
 func TestMsgProcessPayout_ValidateBasic_RejectsAbsurdAmountExponent(t *testing.T) {
-	msg := &MsgProcessPayout{
-		Authority: validInsuranceAddress("insurance-valid-0004"),
-		ClaimId:   "claim-1",
-		Recipient: validInsuranceAddress("insurance-valid-0005"),
-		Amount:    &basev1beta1.Coin{Denom: "ulac", Amount: "1e11100100"},
-	}
-	err := msg.ValidateBasic()
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "amount")
-	require.Contains(t, err.Error(), "magnitude out of range")
+	t.Skip("not ported: Amount is now a value sdk.Coin (math.Int); a symbolic exponent like \"1e11100100\" is rejected by the wire decoder before ValidateBasic, so the exponent DoS guard was removed")
 }
 
 func TestInsuranceAmountMessages_ValidateBasic_RejectInvalidCoins(t *testing.T) {
-	validCoin := func() *basev1beta1.Coin {
-		return &basev1beta1.Coin{Denom: "ulac", Amount: "100"}
+	// Post-gogoproto these Coin fields are value sdk.Coin with a math.Int amount.
+	// The wire decoder rejects non-integer amount strings, so the string-amount
+	// mutation cases (empty_amount, padded_amount, invalid_amount "1.5") can no
+	// longer be expressed; only the denom mutations plus the integer-expressible
+	// amount cases (zero, negative, nil) remain.
+	validCoin := func() sdk.Coin {
+		return sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)}
 	}
-	amountCases := map[string]func(*basev1beta1.Coin){
-		"empty_denom": func(coin *basev1beta1.Coin) {
+	amountCases := map[string]func(*sdk.Coin){
+		"empty_denom": func(coin *sdk.Coin) {
 			coin.Denom = ""
 		},
-		"padded_denom": func(coin *basev1beta1.Coin) {
+		"padded_denom": func(coin *sdk.Coin) {
 			coin.Denom = " ulac"
 		},
-		"invalid_denom": func(coin *basev1beta1.Coin) {
+		"invalid_denom": func(coin *sdk.Coin) {
 			coin.Denom = "1bad"
 		},
-		"empty_amount": func(coin *basev1beta1.Coin) {
-			coin.Amount = ""
+		"nil_amount": func(coin *sdk.Coin) {
+			coin.Amount = sdkmath.Int{}
 		},
-		"padded_amount": func(coin *basev1beta1.Coin) {
-			coin.Amount = "100 "
+		"zero_amount": func(coin *sdk.Coin) {
+			coin.Amount = sdkmath.NewInt(0)
 		},
-		"invalid_amount": func(coin *basev1beta1.Coin) {
-			coin.Amount = "1.5"
-		},
-		"zero_amount": func(coin *basev1beta1.Coin) {
-			coin.Amount = "0"
-		},
-		"negative_amount": func(coin *basev1beta1.Coin) {
-			coin.Amount = "-1"
+		"negative_amount": func(coin *sdk.Coin) {
+			coin.Amount = sdkmath.NewInt(-1)
 		},
 	}
-	messageCases := map[string]func(*basev1beta1.Coin) interface{ ValidateBasic() error }{
-		"process_contribution": func(coin *basev1beta1.Coin) interface{ ValidateBasic() error } {
+	messageCases := map[string]func(sdk.Coin) interface{ ValidateBasic() error }{
+		"process_contribution": func(coin sdk.Coin) interface{ ValidateBasic() error } {
 			return &MsgProcessContribution{
 				Authority:   validInsuranceAddress("insurance-valid-0002"),
 				ReceiptId:   "rcpt-1",
@@ -1300,7 +1253,7 @@ func TestInsuranceAmountMessages_ValidateBasic_RejectInvalidCoins(t *testing.T) 
 				Amount:      coin,
 			}
 		},
-		"file_claim": func(coin *basev1beta1.Coin) interface{ ValidateBasic() error } {
+		"file_claim": func(coin sdk.Coin) interface{ ValidateBasic() error } {
 			return &MsgFileClaim{
 				Claimant:      validInsuranceAddress("insurance-valid-0003"),
 				ReceiptId:     "rcpt-1",
@@ -1309,7 +1262,7 @@ func TestInsuranceAmountMessages_ValidateBasic_RejectInvalidCoins(t *testing.T) 
 				Reason:        "service failure",
 			}
 		},
-		"process_claim_approved_amount": func(coin *basev1beta1.Coin) interface{ ValidateBasic() error } {
+		"process_claim_approved_amount": func(coin sdk.Coin) interface{ ValidateBasic() error } {
 			return &MsgProcessClaim{
 				Authority:      validInsuranceAddress("insurance-valid-0006"),
 				ClaimId:        "claim-1",
@@ -1317,7 +1270,7 @@ func TestInsuranceAmountMessages_ValidateBasic_RejectInvalidCoins(t *testing.T) 
 				ApprovedAmount: coin,
 			}
 		},
-		"process_payout": func(coin *basev1beta1.Coin) interface{ ValidateBasic() error } {
+		"process_payout": func(coin sdk.Coin) interface{ ValidateBasic() error } {
 			return &MsgProcessPayout{
 				Authority: validInsuranceAddress("insurance-valid-0004"),
 				ClaimId:   "claim-1",
@@ -1329,9 +1282,15 @@ func TestInsuranceAmountMessages_ValidateBasic_RejectInvalidCoins(t *testing.T) 
 
 	for messageName, buildMessage := range messageCases {
 		for amountName, mutate := range amountCases {
+			// MsgProcessClaim.ApprovedAmount is optional (only validated when
+			// present and the claim is being approved); a nil amount is valid
+			// there, so skip that combination.
+			if messageName == "process_claim_approved_amount" && amountName == "nil_amount" {
+				continue
+			}
 			t.Run(messageName+"/"+amountName, func(t *testing.T) {
 				coin := validCoin()
-				mutate(coin)
+				mutate(&coin)
 				err := buildMessage(coin).ValidateBasic()
 				require.Error(t, err)
 			})
@@ -1350,7 +1309,7 @@ func TestInsuranceIdentifierMessages_ValidateBasic_RejectPaddedIdentifiers(t *te
 				ReceiptId:   " rcpt-1",
 				ToolId:      "tool-1",
 				PublisherId: "pub-1",
-				Amount:      &basev1beta1.Coin{Denom: "ulac", Amount: "500"},
+				Amount:      sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(500)},
 			},
 			want: "receipt_id",
 		},
@@ -1360,7 +1319,7 @@ func TestInsuranceIdentifierMessages_ValidateBasic_RejectPaddedIdentifiers(t *te
 				ReceiptId:   "rcpt-1",
 				ToolId:      "tool-1 ",
 				PublisherId: "pub-1",
-				Amount:      &basev1beta1.Coin{Denom: "ulac", Amount: "500"},
+				Amount:      sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(500)},
 			},
 			want: "tool_id",
 		},
@@ -1370,7 +1329,7 @@ func TestInsuranceIdentifierMessages_ValidateBasic_RejectPaddedIdentifiers(t *te
 				ReceiptId:   "rcpt-1",
 				ToolId:      "tool-1",
 				PublisherId: "\tpub-1",
-				Amount:      &basev1beta1.Coin{Denom: "ulac", Amount: "500"},
+				Amount:      sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(500)},
 			},
 			want: "publisher_id",
 		},
@@ -1379,7 +1338,7 @@ func TestInsuranceIdentifierMessages_ValidateBasic_RejectPaddedIdentifiers(t *te
 				Claimant:      validInsuranceAddress("insurance-valid-0003"),
 				ReceiptId:     "\nrcpt-1",
 				ToolId:        "tool-1",
-				ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+				ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 				Reason:        "service failure",
 			},
 			want: "receipt_id",
@@ -1389,7 +1348,7 @@ func TestInsuranceIdentifierMessages_ValidateBasic_RejectPaddedIdentifiers(t *te
 				Claimant:      validInsuranceAddress("insurance-valid-0003"),
 				ReceiptId:     "rcpt-1",
 				ToolId:        "tool-1\t",
-				ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+				ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 				Reason:        "service failure",
 			},
 			want: "tool_id",
@@ -1400,7 +1359,7 @@ func TestInsuranceIdentifierMessages_ValidateBasic_RejectPaddedIdentifiers(t *te
 				ReceiptId:     "rcpt-1",
 				ToolId:        "tool-1",
 				PublisherId:   " pub-1",
-				ClaimedAmount: &basev1beta1.Coin{Denom: "ulac", Amount: "100"},
+				ClaimedAmount: sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(100)},
 				Reason:        "service failure",
 			},
 			want: "publisher_id",
@@ -1418,7 +1377,7 @@ func TestInsuranceIdentifierMessages_ValidateBasic_RejectPaddedIdentifiers(t *te
 				Authority: validInsuranceAddress("insurance-valid-0004"),
 				ClaimId:   "\tclaim-1",
 				Recipient: validInsuranceAddress("insurance-valid-0005"),
-				Amount:    &basev1beta1.Coin{Denom: "ulac", Amount: "200"},
+				Amount:    sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(200)},
 			},
 			want: "claim_id",
 		},
@@ -1526,7 +1485,7 @@ func TestMsgProcessPayout_ValidateBasic_Valid(t *testing.T) {
 		Authority: validInsuranceAddress("insurance-valid-0004"),
 		ClaimId:   "claim-1",
 		Recipient: validInsuranceAddress("insurance-valid-0005"),
-		Amount:    &basev1beta1.Coin{Denom: "ulac", Amount: "200"},
+		Amount:    sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(200)},
 	}
 	require.NoError(t, msg.ValidateBasic())
 }
@@ -1536,7 +1495,7 @@ func TestMsgProcessPayout_ValidateBasic_EmptyAuthority(t *testing.T) {
 		Authority: "",
 		ClaimId:   "claim-1",
 		Recipient: "cosmos1fl48vsnmsdzcv85q5d2q4z5ajdha8yu34mf0eh",
-		Amount:    &basev1beta1.Coin{Denom: "ulac", Amount: "200"},
+		Amount:    sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(200)},
 	}
 	require.Error(t, msg.ValidateBasic())
 }
@@ -1546,7 +1505,7 @@ func TestMsgProcessPayout_ValidateBasic_InvalidAuthority(t *testing.T) {
 		Authority: "governance",
 		ClaimId:   "claim-1",
 		Recipient: validInsuranceAddress("insurance-valid-0005"),
-		Amount:    &basev1beta1.Coin{Denom: "ulac", Amount: "200"},
+		Amount:    sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(200)},
 	}
 	err := msg.ValidateBasic()
 	require.Error(t, err)
@@ -1558,7 +1517,7 @@ func TestMsgProcessPayout_ValidateBasic_EmptyClaimID(t *testing.T) {
 		Authority: validInsuranceAddress("insurance-valid-0004"),
 		ClaimId:   "",
 		Recipient: validInsuranceAddress("insurance-valid-0005"),
-		Amount:    &basev1beta1.Coin{Denom: "ulac", Amount: "200"},
+		Amount:    sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(200)},
 	}
 	require.Error(t, msg.ValidateBasic())
 }
@@ -1568,7 +1527,7 @@ func TestMsgProcessPayout_ValidateBasic_EmptyRecipient(t *testing.T) {
 		Authority: validInsuranceAddress("insurance-valid-0004"),
 		ClaimId:   "claim-1",
 		Recipient: "",
-		Amount:    &basev1beta1.Coin{Denom: "ulac", Amount: "200"},
+		Amount:    sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(200)},
 	}
 	require.Error(t, msg.ValidateBasic())
 }
@@ -1578,7 +1537,7 @@ func TestMsgProcessPayout_ValidateBasic_InvalidRecipientAddress(t *testing.T) {
 		Authority: validInsuranceAddress("insurance-valid-0004"),
 		ClaimId:   "claim-1",
 		Recipient: "not-a-bech32-address",
-		Amount:    &basev1beta1.Coin{Denom: "ulac", Amount: "200"},
+		Amount:    sdk.Coin{Denom: "ulac", Amount: sdkmath.NewInt(200)},
 	}
 	err := msg.ValidateBasic()
 	require.Error(t, err)
@@ -1590,7 +1549,7 @@ func TestMsgProcessPayout_ValidateBasic_NilAmount(t *testing.T) {
 		Authority: validInsuranceAddress("insurance-valid-0004"),
 		ClaimId:   "claim-1",
 		Recipient: validInsuranceAddress("insurance-valid-0005"),
-		Amount:    nil,
+		Amount:    sdk.Coin{},
 	}
 	require.Error(t, msg.ValidateBasic())
 }
@@ -1722,7 +1681,9 @@ func TestErrorCodeUniqueness(t *testing.T) {
 		}
 		seen[e.code] = e.name
 	}
-	assert.Len(t, seen, 28)
+	// 27 distinct registered insurance error codes (1100-1118 and 1120-1127;
+	// code 1119 is intentionally unused). This matches types/errors.go.
+	assert.Len(t, seen, 27)
 }
 
 // ---------- Codec ----------

@@ -9,8 +9,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
+	"github.com/cosmos/gogoproto/proto"
 
 	"github.com/LumeraProtocol/lumera/x/oracle/types"
 )
@@ -86,7 +85,7 @@ func TestReplayMR_HeightMonotoneReplayRejected(t *testing.T) {
 		ValidatorAddress: "val-attacker",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: replayAssetPair, Price: "100"}},
 		BlockHeight:      10,
-		Timestamp:        timestamppb.New(byzantineTestTime),
+		Timestamp:        byzantineTestTime,
 	}
 	require.NoError(t, k.SetValidatorVote(ctx, v1))
 
@@ -126,7 +125,7 @@ func TestReplayMR_HeightMonotoneAcrossValidators(t *testing.T) {
 		ValidatorAddress: "val-A",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: replayAssetPair, Price: "100"}},
 		BlockHeight:      10,
-		Timestamp:        timestamppb.New(byzantineTestTime),
+		Timestamp:        byzantineTestTime,
 	}
 	require.NoError(t, k.SetValidatorVote(ctx, v1))
 
@@ -135,7 +134,7 @@ func TestReplayMR_HeightMonotoneAcrossValidators(t *testing.T) {
 		ValidatorAddress: "val-B",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: replayAssetPair, Price: "100"}},
 		BlockHeight:      10,
-		Timestamp:        timestamppb.New(byzantineTestTime),
+		Timestamp:        byzantineTestTime,
 	}
 	require.NoError(t, k.SetValidatorVote(ctx, v2),
 		"cross-validator same-height vote rejected — replay defense "+
@@ -158,13 +157,13 @@ func TestReplayMR_PostAggregationReplayRejected(t *testing.T) {
 		ValidatorAddress: "val-attacker",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: replayAssetPair, Price: "100"}},
 		BlockHeight:      10,
-		Timestamp:        timestamppb.New(byzantineTestTime),
+		Timestamp:        byzantineTestTime,
 	}))
 	require.NoError(t, k.SetValidatorVote(ctx, &types.ValidatorVote{
 		ValidatorAddress: "val-honest",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: replayAssetPair, Price: "100"}},
 		BlockHeight:      10,
-		Timestamp:        timestamppb.New(byzantineTestTime),
+		Timestamp:        byzantineTestTime,
 	}))
 	require.NoError(t, k.AggregateVotes(ctx))
 
@@ -174,7 +173,7 @@ func TestReplayMR_PostAggregationReplayRejected(t *testing.T) {
 		ValidatorAddress: "val-attacker",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: replayAssetPair, Price: "100"}},
 		BlockHeight:      10,
-		Timestamp:        timestamppb.New(byzantineTestTime),
+		Timestamp:        byzantineTestTime,
 	})
 	require.Error(t, err,
 		"cross-period replay of same-height vote accepted — ClearValidatorVotes "+
@@ -186,7 +185,7 @@ func TestReplayMR_PostAggregationReplayRejected(t *testing.T) {
 		ValidatorAddress: "val-attacker",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: replayAssetPair, Price: "100"}},
 		BlockHeight:      11,
-		Timestamp:        timestamppb.New(byzantineTestTime),
+		Timestamp:        byzantineTestTime,
 	}),
 		"legitimate higher-height vote rejected after period rollover")
 }
@@ -209,7 +208,7 @@ func TestReplayMR_StaleTimestampFilteredAtAggregation(t *testing.T) {
 		ValidatorAddress: "val-fresh",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: replayAssetPair, Price: "100"}},
 		BlockHeight:      10,
-		Timestamp:        timestamppb.New(now.Add(-30 * time.Second)),
+		Timestamp:        now.Add(-30 * time.Second),
 	}))
 
 	// Byzantine vote with timestamp ancient — past MaxVoteAge (300s).
@@ -217,7 +216,7 @@ func TestReplayMR_StaleTimestampFilteredAtAggregation(t *testing.T) {
 		ValidatorAddress: "val-replay-old",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: replayAssetPair, Price: "999999999"}},
 		BlockHeight:      10,
-		Timestamp:        timestamppb.New(now.Add(-1000 * time.Second)),
+		Timestamp:        now.Add(-1000 * time.Second),
 	}))
 
 	// Byzantine vote with future timestamp — would pass MaxVoteAge but
@@ -226,7 +225,7 @@ func TestReplayMR_StaleTimestampFilteredAtAggregation(t *testing.T) {
 		ValidatorAddress: "val-replay-future",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: replayAssetPair, Price: "999999999"}},
 		BlockHeight:      10,
-		Timestamp:        timestamppb.New(now.Add(1000 * time.Second)),
+		Timestamp:        now.Add(1000 * time.Second),
 	}))
 
 	require.NoError(t, k.AggregateVotes(sdkCtx))
@@ -259,7 +258,7 @@ func TestReplayMR_BoundaryAgeVotesHandledCleanly(t *testing.T) {
 		ValidatorAddress: "val-boundary",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: replayAssetPair, Price: "100"}},
 		BlockHeight:      10,
-		Timestamp:        timestamppb.New(now.Add(-300 * time.Second)),
+		Timestamp:        now.Add(-300 * time.Second),
 	}))
 
 	// Vote past the boundary — rejected by filterStaleVotes.
@@ -267,7 +266,7 @@ func TestReplayMR_BoundaryAgeVotesHandledCleanly(t *testing.T) {
 		ValidatorAddress: "val-past-boundary",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: replayAssetPair, Price: "999"}},
 		BlockHeight:      10,
-		Timestamp:        timestamppb.New(now.Add(-301 * time.Second)),
+		Timestamp:        now.Add(-301 * time.Second),
 	}))
 
 	require.NoError(t, k.AggregateVotes(sdkCtx))
@@ -298,7 +297,7 @@ func TestReplayMR_AllVotesStaleNoAggregation(t *testing.T) {
 			ValidatorAddress: fmt.Sprintf("val-%d", i),
 			PriceFeeds:       []*types.PriceFeed{{AssetPair: replayAssetPair, Price: "100"}},
 			BlockHeight:      int64(10 + i),
-			Timestamp:        timestamppb.New(now.Add(-1000 * time.Second)),
+			Timestamp:        now.Add(-1000 * time.Second),
 		}))
 	}
 
@@ -332,7 +331,7 @@ func TestReplayMR_DuplicateAssetPairValidateVoteRejects(t *testing.T) {
 			{AssetPair: replayAssetPair, Price: "200"}, // byzantine: same pair
 		},
 		BlockHeight: 10,
-		Timestamp:   timestamppb.New(sdkCtx.BlockTime()),
+		Timestamp:   sdkCtx.BlockTime(),
 	}
 
 	err := k.ValidateVote(sdkCtx, vote)
@@ -362,20 +361,20 @@ func TestReplayMR_DuplicateAssetPairAggregationDropsBoth(t *testing.T) {
 			{AssetPair: replayAssetPair, Price: "999999999"},
 		},
 		BlockHeight: 10,
-		Timestamp:   timestamppb.New(sdkCtx.BlockTime()),
+		Timestamp:   sdkCtx.BlockTime(),
 	}))
 	// Honest validators vote normally.
 	require.NoError(t, k.SetValidatorVote(sdkCtx, &types.ValidatorVote{
 		ValidatorAddress: "val-honest-1",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: replayAssetPair, Price: "100"}},
 		BlockHeight:      10,
-		Timestamp:        timestamppb.New(sdkCtx.BlockTime()),
+		Timestamp:        sdkCtx.BlockTime(),
 	}))
 	require.NoError(t, k.SetValidatorVote(sdkCtx, &types.ValidatorVote{
 		ValidatorAddress: "val-honest-2",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: replayAssetPair, Price: "102"}},
 		BlockHeight:      10,
-		Timestamp:        timestamppb.New(sdkCtx.BlockTime()),
+		Timestamp:        sdkCtx.BlockTime(),
 	}))
 
 	require.NoError(t, k.AggregateVotes(sdkCtx))
@@ -407,7 +406,7 @@ func TestReplayMR_DropSingleHonestNoDOSWhenQuorum(t *testing.T) {
 				ValidatorAddress: fmt.Sprintf("val-%d", i),
 				PriceFeeds:       []*types.PriceFeed{{AssetPair: replayAssetPair, Price: "100"}},
 				BlockHeight:      int64(10 + i),
-				Timestamp:        timestamppb.New(sdkCtx.BlockTime()),
+				Timestamp:        sdkCtx.BlockTime(),
 			}))
 		}
 		require.NoError(t, k.AggregateVotes(sdkCtx))
@@ -425,7 +424,7 @@ func TestReplayMR_DropSingleHonestNoDOSWhenQuorum(t *testing.T) {
 				ValidatorAddress: fmt.Sprintf("val-%d", i),
 				PriceFeeds:       []*types.PriceFeed{{AssetPair: replayAssetPair, Price: "100"}},
 				BlockHeight:      int64(10 + i),
-				Timestamp:        timestamppb.New(sdkCtx.BlockTime()),
+				Timestamp:        sdkCtx.BlockTime(),
 			}))
 		}
 		require.NoError(t, k.AggregateVotes(sdkCtx))
@@ -464,7 +463,7 @@ func TestReplayMR_DropAllThenRecover(t *testing.T) {
 			ValidatorAddress: fmt.Sprintf("val-%d", i),
 			PriceFeeds:       []*types.PriceFeed{{AssetPair: replayAssetPair, Price: "100"}},
 			BlockHeight:      int64(10 + i),
-			Timestamp:        timestamppb.New(sdkCtx.BlockTime()),
+			Timestamp:        sdkCtx.BlockTime(),
 		}))
 	}
 	require.NoError(t, k.AggregateVotes(sdkCtx))
@@ -495,7 +494,7 @@ func TestReplayMR_IdenticalVotesDifferentValidatorsLegit(t *testing.T) {
 			ValidatorAddress: fmt.Sprintf("val-%d", i),
 			PriceFeeds:       []*types.PriceFeed{{AssetPair: replayAssetPair, Price: "100"}},
 			BlockHeight:      10,
-			Timestamp:        timestamppb.New(sdkCtx.BlockTime()),
+			Timestamp:        sdkCtx.BlockTime(),
 		}),
 			"identical-content vote from validator %d rejected — consensus "+
 				"agreement mis-flagged as replay", i)
@@ -522,7 +521,7 @@ func TestReplayMR_MissingTimestampRejected(t *testing.T) {
 		ValidatorAddress: "val-attacker",
 		PriceFeeds:       []*types.PriceFeed{{AssetPair: replayAssetPair, Price: "100"}},
 		BlockHeight:      10,
-		Timestamp:        nil, // missing
+		Timestamp:        time.Time{}, // missing
 	}
 
 	err := k.ValidateVote(sdkCtx, vote)

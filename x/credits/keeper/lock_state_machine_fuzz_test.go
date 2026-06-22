@@ -2,15 +2,12 @@ package keeper
 
 import (
 	"fmt"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/stretchr/testify/require"
 	"strings"
 	"testing"
 	"time"
 	"unicode/utf8"
-
-	v1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/LumeraProtocol/lumera/x/credits/types"
 )
@@ -80,10 +77,10 @@ func injectLock(t *testing.T, ctx sdk.Context, k *Keeper, bank *mockBankKeeper,
 	lock := &types.Lock{
 		LockId:    lockID,
 		Router:    sdk.AccAddress([]byte("router_sm_test______")).String(),
-		Amount:    &v1beta1.Coin{Denom: types.DefaultCreditDenom, Amount: fmt.Sprintf("%d", amount)},
+		Amount:    protoCoin(types.DefaultCreditDenom, fmt.Sprintf("%d", amount)),
 		Status:    status,
-		CreatedAt: timestamppb.New(ctx.BlockTime()),
-		ExpiresAt: timestamppb.New(ctx.BlockTime().Add(time.Hour)),
+		CreatedAt: ctx.BlockTime(),
+		ExpiresAt: ctx.BlockTime().Add(time.Hour),
 	}
 	require.NoError(t, k.SaveLock(ctx, lock))
 
@@ -300,14 +297,12 @@ func FuzzLockStateMachine_ExpirySweepTransitions(f *testing.F) {
 
 		// Inject the lock with a past ExpiresAt.
 		lock := &types.Lock{
-			LockId: lockID,
-			Router: sdk.AccAddress([]byte("router_sm_test______")).String(),
-			Amount: &v1beta1.Coin{
-				Denom: types.DefaultCreditDenom, Amount: fmt.Sprintf("%d", amount),
-			},
+			LockId:    lockID,
+			Router:    sdk.AccAddress([]byte("router_sm_test______")).String(),
+			Amount:    protoCoin(types.DefaultCreditDenom, fmt.Sprintf("%d", amount)),
 			Status:    status,
-			CreatedAt: timestamppb.New(now.Add(-time.Duration(expiredAgoSec+3600) * time.Second)),
-			ExpiresAt: timestamppb.New(now.Add(-time.Duration(expiredAgoSec) * time.Second)),
+			CreatedAt: now.Add(-time.Duration(expiredAgoSec+3600) * time.Second),
+			ExpiresAt: now.Add(-time.Duration(expiredAgoSec) * time.Second),
 		}
 		require.NoError(t, k.SaveLock(ctx, lock))
 
