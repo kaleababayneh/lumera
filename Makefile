@@ -66,7 +66,7 @@ TOOLS := \
 ###################################################
 ###                   Build                     ###
 ###################################################
-.PHONY: build build-debug build-proto  build-claiming-faucet
+.PHONY: build build-debug build-proto  build-claiming-faucet explorer explorer-run
 .PHONY: clean-proto clean-cache install-tools openrpc release
 
 install-tools:
@@ -160,6 +160,22 @@ build-claiming-faucet:
 	@mkdir -p ${BUILD_DIR}
 	${GO} build -o ${BUILD_DIR}/claiming_faucet ./claiming_faucet/
 	chmod +x ${BUILD_DIR}/claiming_faucet
+
+# On-chain explorer: a live block explorer that indexes every block/tx/event
+# across all modules of a running node into a local bbolt DB, with a web UI.
+EXPLORER_NODE  ?= tcp://localhost:26657
+EXPLORER_LISTEN ?= :8090
+EXPLORER_DB    ?= /tmp/lumera-explorer.db
+
+explorer:
+	@echo "Building explorer binary -> ${BUILD_DIR}/lumera-explorer ..."
+	@mkdir -p ${BUILD_DIR}
+	${GO} build -o ${BUILD_DIR}/lumera-explorer ./explorer
+	chmod +x ${BUILD_DIR}/lumera-explorer
+
+explorer-run: explorer
+	@echo "Explorer -> ${EXPLORER_LISTEN}  (node ${EXPLORER_NODE})"
+	${BUILD_DIR}/lumera-explorer --node ${EXPLORER_NODE} --listen ${EXPLORER_LISTEN} --db ${EXPLORER_DB}
 
 build-debug: ${BUILD_DIR}/debug/lumerad
 

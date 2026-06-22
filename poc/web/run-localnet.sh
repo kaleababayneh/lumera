@@ -9,7 +9,9 @@ HM=${LUMERA_HOME:-/tmp/lumera-web}
 NODE=${LUMERA_NODE:-tcp://localhost:26657}
 CHAIN=${LUMERA_CHAIN_ID:-lumera-local-1}
 
-pkill -f "lumerad start --home $HM" 2>/dev/null || true; sleep 2
+pkill -f "lumerad start --home $HM" 2>/dev/null || true
+pkill -f "lumera-explorer" 2>/dev/null || true
+sleep 2
 rm -rf "$HM"
 KR=(--keyring-backend test --home "$HM")
 C=(--home "$HM" --node "$NODE" --chain-id "$CHAIN" --keyring-backend test --gas 700000 --fees 200000ulume -y)
@@ -95,11 +97,27 @@ done
 # Build the MCP router so the web "Agent terminal" can drive a real agent over MCP.
 go build -o /tmp/lumera-mcp-router ./poc/mcp-router 2>/dev/null || true
 
+# Build + launch the on-chain explorer. It indexes EVERY block/tx/event across
+# ALL modules from this node into a local bbolt DB and serves a live UI on :8090.
+# Rebuilt each boot so its in-process decoder matches the freshly-built node
+# (any new module you add is decoded automatically). It backfills from genesis,
+# so it captures everything even though it starts after the node.
+echo "building + starting explorer…"
+if go build -o /tmp/lumera-explorer ./explorer 2>/tmp/lumera-explorer.build.log; then
+  nohup /tmp/lumera-explorer --node "$NODE" --listen :8090 \
+    --db /tmp/lumera-explorer.db > /tmp/lumera-explorer.log 2>&1 &
+  echo "  explorer pid $! → http://localhost:8090"
+else
+  echo "  explorer build FAILED (see /tmp/lumera-explorer.build.log) — skipping"
+fi
+
 echo "node ready @h$(height)"
 echo "  agent/router/supernode (val): $VAL"
 echo "  publisher (pub):              $PUB"
 echo "  challenger (chl):             $CHL"
 for a in "${ACCTS[@]}"; do echo "  $a (test account):            $("$LD" keys show "$a" -a "${KR[@]}")"; done
+echo
+echo "On-chain explorer (live, every module):  http://localhost:8090"
 echo
 echo "Now start the web PoC:   go build -o /tmp/lumera-poc-web ./poc/web && LUMERA_HOME=$HM /tmp/lumera-poc-web"
 echo "Then open:               http://localhost:8787"

@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lumera Explorer</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23000'/%3E%3Crect x='6' y='6' width='20' height='20' fill='none' stroke='%23fff' stroke-width='2'/%3E%3Crect x='12' y='12' width='8' height='8' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#000; --fg:#fff; --line:rgba(255,255,255,.10); --line-2:rgba(255,255,255,.20);
+    --muted:rgba(255,255,255,.52); --dim:rgba(255,255,255,.34); --panel:#070707; --panel-2:#0c0c0c;
+    --hover:rgba(255,255,255,.05); --live:#3fb950; --danger:#f0524d; --preview:#e0a93f;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box;border-radius:0}
+  html,body{margin:0;background:var(--bg);color:var(--fg)}
+  body{font:14px/1.55 "Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+  ::selection{background:rgba(255,255,255,.22)}
+  a{color:inherit;text-decoration:none;cursor:pointer}
+  code,.mono{font-family:var(--mono)}
+  .up{text-transform:uppercase;letter-spacing:.13em}
+  svg{display:block}
+  ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.16)}::-webkit-scrollbar-track{background:transparent}
+  .num{font-variant-numeric:tabular-nums}
+
+  .app{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+  .sidebar{border-right:1px solid var(--line);background:#020202;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;z-index:40}
+  .brand{display:flex;align-items:center;gap:11px;padding:18px 18px;border-bottom:1px solid var(--line)}
+  .brand .mark{width:28px;height:28px;border:1px solid var(--line-2);display:grid;place-items:center;position:relative;overflow:hidden;flex:0 0 28px}
+  .brand .mark::before{content:"";position:absolute;inset:4px;background:conic-gradient(from 0deg,#fff,rgba(255,255,255,.12),#fff);animation:spin 9s linear infinite}
+  .brand .mark::after{content:"";position:absolute;inset:8px;background:#000}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .brand b{font-size:14px;letter-spacing:.04em;font-weight:700}.brand small{display:block;color:var(--dim);font-size:9px;letter-spacing:.18em}
+  .nav{padding:12px;flex:1;overflow:auto}
+  .nav .grp{font-size:9px;color:var(--dim);letter-spacing:.18em;padding:14px 10px 7px}
+  .nav a{display:flex;align-items:center;gap:11px;padding:9px 11px;color:var(--muted);font-size:13px;font-weight:500;border:1px solid transparent;margin-bottom:2px}
+  .nav a:hover{background:var(--hover);color:#fff}.nav a.active{background:var(--panel-2);color:#fff;border-color:var(--line)}
+  .nav a .ct{margin-left:auto;font-size:10px;color:var(--dim);border:1px solid var(--line);padding:1px 6px}
+  .sidefoot{border-top:1px solid var(--line);padding:13px 16px;font-size:11px;color:var(--muted)}
+  .sidefoot .row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .dot{width:7px;height:7px;background:var(--live);border-radius:50%;animation:pulse 2s infinite;flex:0 0 7px}
+  .dot.off{background:var(--danger);animation:none}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(63,185,80,.5)}70%{box-shadow:0 0 0 6px rgba(63,185,80,0)}100%{box-shadow:0 0 0 0 rgba(63,185,80,0)}}
+
+  .main{display:flex;flex-direction:column;min-width:0}
+  .topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:12px 22px;border-bottom:1px solid var(--line);background:rgba(0,0,0,.86);backdrop-filter:blur(8px)}
+  .kpi{display:flex;flex-direction:column;line-height:1.15}
+  .kpi .v{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+  .kpi .k{font-size:9px;color:var(--dim);letter-spacing:.14em;text-transform:uppercase}
+  .topbar .sep{width:1px;height:26px;background:var(--line)}
+  .search{margin-left:auto;position:relative;width:340px;max-width:42vw}
+  .search input{width:100%;background:#050505;border:1px solid var(--line-2);color:#fff;font:12.5px var(--mono);padding:9px 11px 9px 32px}
+  .search input:focus{outline:none;border-color:rgba(255,255,255,.4)}
+  .search .si{position:absolute;left:10px;top:9px;color:var(--dim)}
+  .content{padding:22px;max-width:1280px;width:100%}
+
+  .grid{display:grid;gap:14px}
+  .cols-4{grid-template-columns:repeat(4,1fr)}
+  .cols-2{grid-template-columns:1fr 1fr}
+  @media(max-width:1000px){.cols-4{grid-template-columns:1fr 1fr}.cols-2{grid-template-columns:1fr}}
+  .card{border:1px solid var(--line);background:var(--panel)}
+  .card .hd{display:flex;align-items:center;gap:10px;padding:12px 15px;border-bottom:1px solid var(--line);font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+  .card .hd .more{margin-left:auto;font-size:10px;color:var(--dim)}
+  .stat{padding:16px 16px 15px;border:1px solid var(--line);background:var(--panel)}
+  .stat .v{font-size:27px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+  .stat .k{font-size:10px;color:var(--dim);letter-spacing:.14em;text-transform:uppercase;margin-top:8px}
+  .stat .s{font-size:11px;color:var(--muted);margin-top:3px}
+
+  table{width:100%;border-collapse:collapse}
+  th{font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--dim);text-align:left;font-weight:600;padding:9px 14px;border-bottom:1px solid var(--line)}
+  td{padding:10px 14px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}
+  tr.clk:hover td{background:var(--hover)}
+  tr.flash td{animation:flash 1.1s ease}
+  @keyframes flash{0%{background:rgba(63,185,80,.16)}100%{background:transparent}}
+  .empty{padding:30px;text-align:center;color:var(--dim);font-size:13px}
+
+  .tag{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;padding:2px 7px;border:1px solid var(--line-2);white-space:nowrap;letter-spacing:.02em}
+  .tag .b{width:6px;height:6px;flex:0 0 6px}
+  .ok{color:var(--live);border-color:rgba(63,185,80,.4)}
+  .fail{color:var(--danger);border-color:rgba(240,82,77,.45)}
+  .h{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .h.lnk:hover{color:#fff;text-decoration:underline}
+  .mut{color:var(--muted)}.dim{color:var(--dim)}
+  .copy{cursor:pointer;color:var(--dim);font-size:11px}.copy:hover{color:#fff}
+
+  .modbars{display:flex;flex-direction:column;gap:9px;padding:14px 16px}
+  .modbar{display:grid;grid-template-columns:120px 1fr 52px;align-items:center;gap:11px;font-size:12px}
+  .modbar .nm{display:flex;align-items:center;gap:7px;font-weight:600}
+  .modbar .track{height:7px;background:#111;position:relative;overflow:hidden}
+  .modbar .fill{position:absolute;left:0;top:0;bottom:0}
+  .modbar .ct{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);font-size:11.5px}
+
+  .filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  .filters select,.filters input{background:#050505;border:1px solid var(--line-2);color:#fff;font:12px var(--mono);padding:7px 9px}
+  .filters select:focus,.filters input:focus{outline:none;border-color:rgba(255,255,255,.4)}
+  .chip{font-size:11px;padding:6px 11px;border:1px solid var(--line-2);color:var(--muted);cursor:pointer}
+  .chip:hover{color:#fff;border-color:rgba(255,255,255,.4)}.chip.on{color:#fff;background:var(--panel-2);border-color:var(--line-2)}
+
+  .detail{border:1px solid var(--line);background:var(--panel)}
+  .detail .dh{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .detail .dh h2{margin:0;font-size:16px;font-weight:700}
+  .kv{display:grid;grid-template-columns:170px 1fr;gap:0}
+  .kv .r{display:contents}
+  .kv .k{padding:10px 18px;border-bottom:1px solid var(--line);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .kv .v{padding:10px 18px;border-bottom:1px solid var(--line);font-size:13px;font-family:var(--mono);word-break:break-all}
+  .msgblk{border:1px solid var(--line);margin:14px 18px}
+  .msgblk .mh{display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid var(--line);background:var(--panel-2)}
+  .msgblk .mh .ix{color:var(--dim);font-size:11px;font-family:var(--mono)}
+  .msgblk .mh .ty{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-left:auto}
+  pre.json{margin:0;padding:13px 15px;font-family:var(--mono);font-size:12px;line-height:1.6;overflow:auto;color:#cdd9e5;background:#040404}
+  .json .k{color:#7ee787}.json .s{color:#a5d6ff}.json .n{color:#79c0ff}.json .b{color:#ff7b72}
+  .evgrp{border:1px solid var(--line);margin:14px 18px}
+  .evgrp .eh{padding:10px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:9px;background:var(--panel-2);font-size:12px;font-weight:600}
+  .evtbl td{font-family:var(--mono);font-size:11.5px;padding:7px 14px}
+  .evtbl td.kk{color:var(--dim);width:200px}
+  .sec-title{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding:16px 18px 6px}
+
+  .modcard{border:1px solid var(--line);background:var(--panel);padding:0;display:flex;flex-direction:column}
+  .modcard .top{padding:14px 15px;border-bottom:1px solid var(--line)}
+  .modcard .nm{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px}
+  .modcard .grp{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);border:1px solid var(--line);padding:1px 6px;margin-left:auto}
+  .modcard .bl{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5}
+  .modcard .cts{display:flex;gap:0;border-bottom:1px solid var(--line)}
+  .modcard .cts .c{flex:1;padding:11px 12px;border-right:1px solid var(--line);text-align:center}
+  .modcard .cts .c:last-child{border-right:0}
+  .modcard .cts .c .v{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
+  .modcard .cts .c .l{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-top:3px}
+  .modcard .lists{padding:12px 14px;font-size:11px}
+  .modcard .lists .h{color:var(--dim);letter-spacing:.1em;text-transform:uppercase;font-size:9px;margin:8px 0 5px;font-family:inherit}
+  .pill{display:inline-block;font-size:10.5px;font-family:var(--mono);color:var(--muted);border:1px solid var(--line);padding:2px 6px;margin:0 4px 4px 0}
+
+  .crumb{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-bottom:14px}
+  .crumb a:hover{color:#fff}
+  .btn{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:7px 12px;border:1px solid var(--line-2);color:var(--muted);cursor:pointer}
+  .btn:hover{color:#fff;border-color:rgba(255,255,255,.4)}
+  .toast{position:fixed;bottom:18px;right:18px;background:#0c0c0c;border:1px solid var(--line-2);padding:10px 14px;font-size:12px;z-index:90;opacity:0;transition:.2s;pointer-events:none}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="mark"></div>
+      <div><b>LUMERA</b><small>EXPLORER</small></div>
+    </div>
+    <nav class="nav" id="nav">
+      <div class="grp">CHAIN</div>
+      <a data-route="overview"><span class="ic">▦</span> Overview</a>
+      <a data-route="blocks"><span class="ic">▤</span> Blocks <span class="ct" id="nb">0</span></a>
+      <a data-route="txs"><span class="ic">⇄</span> Transactions <span class="ct" id="nt">0</span></a>
+      <a data-route="events"><span class="ic">✦</span> Events <span class="ct" id="ne">0</span></a>
+      <div class="grp">MODULES</div>
+      <a data-route="modules"><span class="ic">◰</span> All Modules</a>
+      <div id="modnav"></div>
+    </nav>
+    <div class="sidefoot">
+      <div class="row"><span class="dot" id="livedot"></span> <span id="livetxt">connecting…</span></div>
+      <div class="row mono" id="footnode" style="font-size:10px;color:var(--dim)"></div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="kpi"><div class="v num" id="kHeight">—</div><div class="k">Height</div></div>
+      <div class="sep"></div>
+      <div class="kpi"><div class="v num" id="kTxs">—</div><div class="k">Txs</div></div>
+      <div class="sep"></div>
+      <div class="kpi"><div class="v num" id="kEvents">—</div><div class="k">Events</div></div>
+      <div class="sep"></div>
+      <div class="kpi"><div class="v" id="kChain">—</div><div class="k">Chain</div></div>
+      <div class="search">
+        <span class="si">⌕</span>
+        <input id="search" placeholder="search tx hash / block height / address…" autocomplete="off" spellcheck="false"/>
+      </div>
+    </div>
+    <div class="content" id="view"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+//=============================================================== helpers
+const $ = s => document.querySelector(s);
+const el = (t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;};
+const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+async function getJSON(u){const r=await fetch(u);if(!r.ok)throw new Error(await r.text());return r.json();}
+function fmtN(n){return (n==null?0:n).toLocaleString('en-US');}
+function shortHash(h,a=8,b=6){if(!h)return '';return h.length<=a+b+2?h:h.slice(0,a)+'…'+h.slice(-b);}
+function timeAgo(t){if(!t)return '';const d=(Date.now()-new Date(t).getTime())/1000;
+  if(d<1)return 'now';if(d<60)return Math.floor(d)+'s ago';if(d<3600)return Math.floor(d/60)+'m ago';
+  if(d<86400)return Math.floor(d/3600)+'h ago';return Math.floor(d/86400)+'d ago';}
+function copy(s){navigator.clipboard.writeText(s);toast('copied');}
+let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1300);}
+
+const MOD_COLOR={registry:'#6ea8fe',credits:'#3fb950',supernode:'#d2a8ff',incentives:'#e0a93f',
+  insurance:'#56d4dd',oracle:'#f0883e',policies:'#9aa0a6',nft:'#ff7b9c',reserve:'#9ece6a',action:'#7aa2f7',
+  audit:'#bb9af7',cac:'#2ac3de',claim:'#e0af68',lumeraid:'#7dcfff',evmigration:'#f7768e',
+  bank:'#3fb950',staking:'#d2a8ff',gov:'#6ea8fe',distribution:'#79c0ff',slashing:'#f0524d',
+  vm:'#f0883e',erc20:'#f0883e',feemarket:'#f0883e',ibc:'#56d4dd',wasm:'#e0a93f'};
+const modColor=m=>MOD_COLOR[m]||'rgba(255,255,255,.5)';
+function modTag(m){return `<span class="tag"><span class="b" style="background:${modColor(m)}"></span>${esc(m)}</span>`;}
+function statusTag(ok,code){return ok?`<span class="tag ok"><span class="b" style="background:var(--live)"></span>OK</span>`
+  :`<span class="tag fail"><span class="b" style="background:var(--danger)"></span>FAIL ${code||''}</span>`;}
+
+// minimal JSON syntax highlighter
+function hlJSON(obj){
+  let j=typeof obj==='string'?obj:JSON.stringify(obj,null,2);
+  j=esc(j);
+  return j.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?)/g,
+    m=>{let c='n';if(/^"/.test(m)){c=/:$/.test(m)?'k':'s';}else if(/true|false|null/.test(m)){c='b';}
+      return `<span class="${c}">${m}</span>`;});
+}
+
+//=============================================================== state + stream
+let STATUS={};
+let MODCOUNTS=[];
+function applyStatus(s){
+  STATUS=s;
+  $('#kHeight').textContent=fmtN(s.height);
+  $('#kTxs').textContent=fmtN(s.totalTxs);
+  $('#kEvents').textContent=fmtN(s.totalEvents);
+  $('#kChain').textContent=s.chainId||'—';
+  $('#nb').textContent=fmtN(s.totalBlocks);
+  $('#nt').textContent=fmtN(s.totalTxs);
+  $('#ne').textContent=fmtN(s.totalEvents);
+  $('#footnode').textContent=(s.moniker||'')+(s.nodeVersion?(' · v'+s.nodeVersion):'');
+  MODCOUNTS=s.modules||[];
+  renderModNav();
+}
+function renderModNav(){
+  const top=MODCOUNTS.filter(m=>m.txs>0||m.events>0).slice(0,8);
+  $('#modnav').innerHTML=top.map(m=>`<a data-route="module:${m.module}">
+    <span class="ic" style="color:${modColor(m.module)}">●</span> ${esc(m.module)}
+    <span class="ct">${fmtN(m.txs||m.events)}</span></a>`).join('');
+  bindNav();
+}
+let live=false;
+function connectStream(){
+  const ev=new EventSource('/api/stream');
+  ev.onopen=()=>{live=true;$('#livedot').classList.remove('off');$('#livetxt').textContent='live · streaming';};
+  ev.onerror=()=>{live=false;$('#livedot').classList.add('off');$('#livetxt').textContent='reconnecting…';};
+  ev.onmessage=e=>{
+    let m;try{m=JSON.parse(e.data);}catch(_){return;}
+    if(m.kind==='status'){applyStatus(m.data);if(ROUTE.name==='overview'||ROUTE.name==='modules')maybeRefreshOverview();}
+    else if(m.kind==='block'){onLiveBlock(m.data);}
+    else if(m.kind==='tx'){onLiveTx(m.data);}
+  };
+}
+
+//=============================================================== router
+let ROUTE={name:'overview',arg:null};
+function parseHash(){
+  const h=location.hash.replace(/^#\/?/,'');
+  if(!h)return {name:'overview'};
+  const p=h.split('/');
+  if(p[0]==='tx')return{name:'tx',arg:p[1]};
+  if(p[0]==='block')return{name:'block',arg:p[1]};
+  if(p[0]==='module')return{name:'module',arg:p[1]};
+  if(p[0]==='address')return{name:'address',arg:p[1]};
+  return {name:p[0]||'overview'};
+}
+function go(r){location.hash='#/'+r;}
+function bindNav(){
+  document.querySelectorAll('#nav a').forEach(a=>{
+    a.onclick=()=>{const r=a.dataset.route;if(r.startsWith('module:'))go('module/'+r.slice(7));else go(r);};
+  });
+}
+function setActiveNav(){
+  document.querySelectorAll('#nav a').forEach(a=>{
+    const r=a.dataset.route;let on=false;
+    if(r===ROUTE.name)on=true;
+    if(r&&r.startsWith('module:')&&ROUTE.name==='module'&&r.slice(7)===ROUTE.arg)on=true;
+    a.classList.toggle('active',on);
+  });
+}
+async function route(){
+  ROUTE=parseHash();setActiveNav();
+  const v=$('#view');
+  try{
+    if(ROUTE.name==='overview')return renderOverview(v);
+    if(ROUTE.name==='blocks')return renderBlocks(v);
+    if(ROUTE.name==='txs')return renderTxs(v,{});
+    if(ROUTE.name==='events')return renderEvents(v,{});
+    if(ROUTE.name==='modules')return renderModules(v);
+    if(ROUTE.name==='module')return renderModule(v,ROUTE.arg);
+    if(ROUTE.name==='address')return renderAddress(v,ROUTE.arg);
+    if(ROUTE.name==='tx')return renderTxDetail(v,ROUTE.arg);
+    if(ROUTE.name==='block')return renderBlockDetail(v,ROUTE.arg);
+    v.innerHTML='<div class="empty">not found</div>';
+  }catch(e){v.innerHTML=`<div class="empty">error: ${esc(e.message)}</div>`;}
+}
+
+//=============================================================== rows
+function txRow(t){
+  const mods=(t.modules||[]).map(modTag).join(' ');
+  const c=modColor((t.modules||[])[0]);
+  return `<tr class="clk" onclick="go('tx/${t.hash}')" style="box-shadow:inset 3px 0 0 ${c}">
+    <td><span class="h lnk">${shortHash(t.hash)}</span></td>
+    <td>${statusTag(t.success,t.code)}</td>
+    <td><a class="lnk h" onclick="event.stopPropagation();go('block/${t.height}')">${fmtN(t.height)}</a></td>
+    <td>${esc(t.summary||'')} ${mods}</td>
+    <td class="dim num" style="text-align:right">${esc(t.fee||'')}</td>
+    <td class="dim" style="text-align:right;white-space:nowrap">${timeAgo(t.time)}</td>
+  </tr>`;
+}
+function blockRow(b){
+  return `<tr class="clk" onclick="go('block/${b.height}')">
+    <td><span class="h lnk">#${fmtN(b.height)}</span></td>
+    <td class="h dim">${shortHash(b.hash,10,6)}</td>
+    <td class="num">${b.numTxs} tx</td>
+    <td class="dim h">${shortHash(b.proposer,8,4)}</td>
+    <td class="dim" style="text-align:right;white-space:nowrap">${timeAgo(b.time)}</td>
+  </tr>`;
+}
+
+//=============================================================== overview
+async function renderOverview(v){
+  v.innerHTML=`
+  <div class="grid cols-4" style="margin-bottom:14px">
+    <div class="stat"><div class="v num" id="oHeight">—</div><div class="k">Block Height</div><div class="s" id="oTime"></div></div>
+    <div class="stat"><div class="v num" id="oTxs">—</div><div class="k">Transactions</div><div class="s">since genesis</div></div>
+    <div class="stat"><div class="v num" id="oEvents">—</div><div class="k">Events Emitted</div><div class="s">tx + block</div></div>
+    <div class="stat"><div class="v num" id="oMods">—</div><div class="k">Active Modules</div><div class="s">with activity</div></div>
+  </div>
+  <div class="grid cols-2" style="margin-bottom:14px">
+    <div class="card"><div class="hd">Latest Blocks <a class="more lnk" onclick="go('blocks')">view all →</a></div>
+      <table><tbody id="ovBlocks"><tr><td class="empty">loading…</td></tr></tbody></table></div>
+    <div class="card"><div class="hd">Latest Transactions <a class="more lnk" onclick="go('txs')">view all →</a></div>
+      <table><tbody id="ovTxs"><tr><td class="empty">loading…</td></tr></tbody></table></div>
+  </div>
+  <div class="card"><div class="hd">Module Activity <a class="more lnk" onclick="go('modules')">all modules →</a></div>
+    <div class="modbars" id="ovMods"></div></div>`;
+  refreshOverview();
+}
+async function refreshOverview(){
+  const s=STATUS;
+  $('#oHeight')&&($('#oHeight').textContent=fmtN(s.height));
+  $('#oTime')&&($('#oTime').textContent=s.blockTime?timeAgo(s.blockTime):'');
+  $('#oTxs')&&($('#oTxs').textContent=fmtN(s.totalTxs));
+  $('#oEvents')&&($('#oEvents').textContent=fmtN(s.totalEvents));
+  $('#oMods')&&($('#oMods').textContent=fmtN((s.modules||[]).filter(m=>m.txs>0||m.events>0).length));
+  const [b,t]=await Promise.all([getJSON('/api/blocks?limit=8'),getJSON('/api/txs?limit=9')]);
+  const ob=$('#ovBlocks');if(ob)ob.innerHTML=b.blocks.length?b.blocks.map(blockRow).join(''):'<tr><td class="empty">no blocks</td></tr>';
+  const ot=$('#ovTxs');if(ot)ot.innerHTML=t.txs.length?t.txs.map(txRow).join(''):'<tr><td class="empty">no transactions yet</td></tr>';
+  renderModBars($('#ovMods'),s.modules||[]);
+}
+let ovT;function maybeRefreshOverview(){clearTimeout(ovT);ovT=setTimeout(()=>{if(ROUTE.name==='overview')refreshOverview();if(ROUTE.name==='modules')renderModules($('#view'));},400);}
+function renderModBars(node,mods){
+  if(!node)return;
+  const act=mods.filter(m=>m.txs>0||m.events>0);
+  if(!act.length){node.innerHTML='<div class="empty">no module activity yet</div>';return;}
+  const max=Math.max(...act.map(m=>m.txs+m.events),1);
+  node.innerHTML=act.map(m=>{const val=m.txs+m.events;const pct=Math.max(4,Math.round(val/max*100));
+    return `<div class="modbar"><a class="nm lnk" onclick="go('module/${m.module}')"><span class="b" style="width:8px;height:8px;background:${modColor(m.module)}"></span>${esc(m.module)}</a>
+      <div class="track"><div class="fill" style="width:${pct}%;background:${modColor(m.module)};opacity:.85"></div></div>
+      <div class="ct">${fmtN(val)}</div></div>`;}).join('');
+}
+
+//=============================================================== live updates
+function onLiveBlock(b){
+  const ob=$('#ovBlocks');
+  if(ob&&ROUTE.name==='overview'){const r=el('tbody');r.innerHTML=blockRow(b);const tr=r.firstChild;tr.classList.add('flash');ob.prepend(tr);while(ob.children.length>8)ob.lastChild.remove();}
+  const bl=$('#blkList');
+  if(bl&&ROUTE.name==='blocks'){const r=el('tbody');r.innerHTML=blockRow(b);const tr=r.firstChild;tr.classList.add('flash');bl.prepend(tr);while(bl.children.length>80)bl.lastChild.remove();}
+}
+function onLiveTx(t){
+  const fits=f=>{
+    if(ROUTE.name==='module'&&!(t.modules||[]).includes(ROUTE.arg))return false;
+    return true;
+  };
+  const lists=[['#ovTxs','overview',9],['#txList','txs',120],['#txList','module',120]];
+  for(const [sel,rn,max] of lists){
+    const node=document.querySelector(sel);
+    if(node&&ROUTE.name===rn&&fits()){const r=el('tbody');r.innerHTML=txRow(t);const tr=r.firstChild;tr.classList.add('flash');node.prepend(tr);while(node.children.length>max)node.lastChild.remove();}
+  }
+}
+
+//=============================================================== blocks
+async function renderBlocks(v){
+  v.innerHTML=`<div class="card"><div class="hd">Blocks · live</div>
+    <table><thead><tr><th>Height</th><th>Hash</th><th>Txs</th><th>Proposer</th><th style="text-align:right">Age</th></tr></thead>
+    <tbody id="blkList"><tr><td class="empty">loading…</td></tr></tbody></table>
+    <div style="padding:12px 14px;border-top:1px solid var(--line)"><span class="btn" id="moreBlocks">load older</span></div></div>`;
+  const d=await getJSON('/api/blocks?limit=60');
+  $('#blkList').innerHTML=d.blocks.length?d.blocks.map(blockRow).join(''):'<tr><td class="empty">no blocks</td></tr>';
+  $('#moreBlocks').onclick=async()=>{
+    const rows=$('#blkList').querySelectorAll('tr');const last=rows[rows.length-1];
+    const before=last?Number(last.querySelector('.lnk').textContent.replace(/[#,]/g,'')):0;
+    const more=await getJSON('/api/blocks?limit=60&before='+before);
+    $('#blkList').insertAdjacentHTML('beforeend',more.blocks.map(blockRow).join(''));
+  };
+}
+
+//=============================================================== txs (+filters)
+async function renderTxs(v,opts){
+  const mods=MODCOUNTS.map(m=>m.module);
+  v.innerHTML=`
+  <div class="filters">
+    <select id="fMod"><option value="">all modules</option>${mods.map(m=>`<option value="${m}">${m}</option>`).join('')}</select>
+    <span class="chip ${''}" data-st="">all</span>
+    <span class="chip" data-st="success">success</span>
+    <span class="chip" data-st="failed">failed</span>
+    <input id="fAddr" placeholder="filter by address…" style="margin-left:auto;width:280px"/>
+  </div>
+  <div class="card"><div class="hd">Transactions · live <span class="more" id="txCount"></span></div>
+    <table><thead><tr><th>Hash</th><th>Status</th><th>Height</th><th>Action</th><th style="text-align:right">Fee</th><th style="text-align:right">Age</th></tr></thead>
+    <tbody id="txList"><tr><td class="empty">loading…</td></tr></tbody></table>
+    <div style="padding:12px 14px;border-top:1px solid var(--line)"><span class="btn" id="moreTxs">load more</span></div></div>`;
+  let st='';let off=0;
+  const load=async(reset)=>{
+    if(reset)off=0;
+    const mod=$('#fMod').value, addr=$('#fAddr').value.trim();
+    const q=new URLSearchParams({limit:'60',offset:String(off),module:mod,status:st,address:addr});
+    const d=await getJSON('/api/txs?'+q);
+    const html=d.txs.length?d.txs.map(txRow).join(''):'<tr><td class="empty">no matching transactions</td></tr>';
+    if(reset)$('#txList').innerHTML=html;else $('#txList').insertAdjacentHTML('beforeend',d.txs.map(txRow).join(''));
+    off+=d.txs.length;
+  };
+  $('#fMod').onchange=()=>load(true);
+  $('#fAddr').oninput=debounce(()=>load(true),350);
+  v.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{v.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));c.classList.add('on');st=c.dataset.st;load(true);});
+  v.querySelector('.chip').classList.add('on');
+  $('#moreTxs').onclick=()=>load(false);
+  load(true);
+}
+function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);};}
+
+//=============================================================== events
+async function renderEvents(v,opts){
+  const mods=MODCOUNTS.map(m=>m.module);
+  v.innerHTML=`
+  <div class="filters">
+    <select id="eMod"><option value="">all modules</option>${mods.map(m=>`<option value="${m}">${m}</option>`).join('')}</select>
+    <input id="eType" placeholder="event type…" style="width:220px"/>
+  </div>
+  <div class="card"><div class="hd">Events · newest first</div>
+    <table><thead><tr><th>Type</th><th>Module</th><th>Attributes</th><th>Source</th><th style="text-align:right">Age</th></tr></thead>
+    <tbody id="evList"><tr><td class="empty">loading…</td></tr></tbody></table></div>`;
+  const load=async()=>{
+    const q=new URLSearchParams({limit:'120',module:$('#eMod').value,type:$('#eType').value.trim()});
+    const d=await getJSON('/api/events?'+q);
+    $('#evList').innerHTML=d.events.length?d.events.map(evRow).join(''):'<tr><td class="empty">no events</td></tr>';
+  };
+  $('#eMod').onchange=load;$('#eType').oninput=debounce(load,350);
+  load();
+}
+function evRow(e){
+  const attrs=(e.attrs||[]).slice(0,4).map(a=>`<span class="dim">${esc(a.key)}</span>=<span class="mut">${esc(shortHash(a.value,16,6))}</span>`).join('  ');
+  const link=e.txHash?`go('tx/${e.txHash}')`:`go('block/${e.height}')`;
+  return `<tr class="clk" onclick="${link}" style="box-shadow:inset 3px 0 0 ${modColor(e.module)}">
+    <td class="h" style="color:#fff">${esc(e.type)}</td>
+    <td>${modTag(e.module)}</td>
+    <td class="mono" style="font-size:11px">${attrs||'<span class="dim">—</span>'}</td>
+    <td class="dim" style="font-size:11px">${e.source}${e.height?(' · #'+fmtN(e.height)):''}</td>
+    <td class="dim" style="text-align:right;white-space:nowrap">${timeAgo(e.time)}</td>
+  </tr>`;
+}
+
+//=============================================================== modules
+async function renderModules(v){
+  const d=await getJSON('/api/modules');
+  const cards=d.modules.map(m=>{
+    const msgs=(m.msgTypes||[]).slice(0,6).map(t=>`<span class="pill">${esc(t.split('.').pop())}</span>`).join('');
+    const evs=(m.eventTypes||[]).slice(0,8).map(t=>`<span class="pill">${esc(t)}</span>`).join('');
+    return `<div class="modcard">
+      <div class="top"><div class="nm"><span class="b" style="width:9px;height:9px;background:${modColor(m.name)}"></span>${esc(m.title||m.name)}<span class="grp">${esc(m.group)}</span></div>
+        <div class="bl">${esc(m.blurb||'')}</div></div>
+      <div class="cts">
+        <div class="c"><div class="v num">${fmtN(m.txs)}</div><div class="l">Txs</div></div>
+        <div class="c"><div class="v num">${fmtN(m.msgs)}</div><div class="l">Msgs</div></div>
+        <div class="c"><div class="v num">${fmtN(m.events)}</div><div class="l">Events</div></div>
+      </div>
+      <div class="lists">
+        ${msgs?`<div class="h">Messages</div>${msgs}`:''}
+        ${evs?`<div class="h">Events</div>${evs}`:''}
+        <div style="margin-top:10px"><a class="btn" onclick="go('module/${m.name}')">view activity →</a></div>
+      </div></div>`;
+  }).join('');
+  v.innerHTML=`<div class="sec-title" style="padding-left:0">All Modules — ${d.modules.length} compiled into this node</div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(330px,1fr))">${cards}</div>`;
+}
+
+async function renderModule(v,name){
+  v.innerHTML=`<div class="crumb"><a onclick="go('modules')">Modules</a> / <b>${esc(name)}</b></div>
+    <div class="card"><div class="hd"><span class="b" style="width:8px;height:8px;background:${modColor(name)};display:inline-block;margin-right:6px"></span>${esc(name)} · transactions</div>
+    <table><thead><tr><th>Hash</th><th>Status</th><th>Height</th><th>Action</th><th style="text-align:right">Fee</th><th style="text-align:right">Age</th></tr></thead>
+    <tbody id="txList"><tr><td class="empty">loading…</td></tr></tbody></table></div>
+    <div class="card" style="margin-top:14px"><div class="hd">${esc(name)} · events</div>
+    <table><tbody id="modEv"><tr><td class="empty">loading…</td></tr></tbody></table></div>`;
+  const [t,e]=await Promise.all([getJSON('/api/txs?limit=80&module='+name),getJSON('/api/events?limit=80&module='+name)]);
+  $('#txList').innerHTML=t.txs.length?t.txs.map(txRow).join(''):'<tr><td class="empty">no transactions for this module yet</td></tr>';
+  $('#modEv').innerHTML=e.events.length?e.events.map(evRow).join(''):'<tr><td class="empty">no events</td></tr>';
+}
+
+async function renderAddress(v,addr){
+  v.innerHTML=`<div class="crumb"><b>Address</b></div>
+    <div class="detail" style="margin-bottom:14px"><div class="kv">
+      <div class="r"><div class="k">Address</div><div class="v">${esc(addr)} <span class="copy" onclick="copy('${esc(addr)}')">copy</span></div></div></div></div>
+    <div class="card"><div class="hd">Transactions involving this address</div>
+    <table><thead><tr><th>Hash</th><th>Status</th><th>Height</th><th>Action</th><th style="text-align:right">Fee</th><th style="text-align:right">Age</th></tr></thead>
+    <tbody id="txList"><tr><td class="empty">loading…</td></tr></tbody></table></div>`;
+  const t=await getJSON('/api/txs?limit=100&address='+encodeURIComponent(addr));
+  $('#txList').innerHTML=t.txs.length?t.txs.map(txRow).join(''):'<tr><td class="empty">no transactions found</td></tr>';
+}
+
+//=============================================================== tx detail
+async function renderTxDetail(v,hash){
+  let d;try{d=await getJSON('/api/tx/'+hash);}catch(e){v.innerHTML=`<div class="crumb"><a onclick="go('txs')">Transactions</a> / <b>${shortHash(hash)}</b></div><div class="empty">transaction not indexed (try searching again after it confirms)</div>`;return;}
+  const t=d.tx;
+  const msgs=(t.msgs||[]).map((m,i)=>`
+    <div class="msgblk"><div class="mh"><span class="ix">#${i}</span>${modTag(m.module)}<b>${esc(m.label)}</b><span class="ty">${esc(m.type)}</span></div>
+    <pre class="json">${hlJSON(m.json)}</pre></div>`).join('');
+  const evs=(t.events||[]).map(e=>`
+    <div class="evgrp"><div class="eh"><span class="b" style="width:7px;height:7px;background:${modColor(e.module)};display:inline-block"></span>${esc(e.type)} ${modTag(e.module)}</div>
+    <table class="evtbl"><tbody>${(e.attrs||[]).map(a=>`<tr><td class="kk">${esc(a.key)}</td><td>${esc(a.value)}</td></tr>`).join('')||'<tr><td class="dim">no attributes</td></tr>'}</tbody></table></div>`).join('');
+  v.innerHTML=`
+  <div class="crumb"><a onclick="go('txs')">Transactions</a> / <b>${shortHash(hash,10,8)}</b></div>
+  <div class="detail" style="margin-bottom:14px">
+    <div class="dh">${statusTag(t.success,t.code)}<h2 class="mono" style="font-size:14px">${shortHash(t.hash,14,10)}</h2>
+      <span class="copy" onclick="copy('${t.hash}')">copy hash</span></div>
+    <div class="kv">
+      <div class="r"><div class="k">Height</div><div class="v"><a class="lnk" onclick="go('block/${t.height}')">#${fmtN(t.height)}</a> · index ${t.index}</div></div>
+      <div class="r"><div class="k">Time</div><div class="v">${t.time?new Date(t.time).toLocaleString():''} <span class="dim">(${timeAgo(t.time)})</span></div></div>
+      <div class="r"><div class="k">Result</div><div class="v">${t.success?'<span style="color:var(--live)">success</span>':'<span style="color:var(--danger)">failed — code '+t.code+(t.codespace?(' ('+esc(t.codespace)+')'):'')+'</span>'}</div></div>
+      ${t.signer?`<div class="r"><div class="k">Signer</div><div class="v"><a class="lnk" onclick="go('address/${esc(t.signer)}')">${esc(t.signer)}</a></div></div>`:''}
+      <div class="r"><div class="k">Fee</div><div class="v">${esc(t.fee||'0')}</div></div>
+      <div class="r"><div class="k">Gas</div><div class="v">${fmtN(t.gasUsed)} / ${fmtN(t.gasWanted)}</div></div>
+      ${t.memo?`<div class="r"><div class="k">Memo</div><div class="v">${esc(t.memo)}</div></div>`:''}
+      ${!t.success&&t.log?`<div class="r"><div class="k">Error log</div><div class="v" style="color:var(--danger)">${esc(t.log)}</div></div>`:''}
+      <div class="r"><div class="k">Modules</div><div class="v">${(t.modules||[]).map(modTag).join(' ')}</div></div>
+    </div>
+  </div>
+  <div class="detail" style="margin-bottom:14px"><div class="sec-title">Messages · ${(t.msgs||[]).length}</div>${msgs||'<div class="empty">no messages</div>'}</div>
+  <div class="detail"><div class="sec-title">Events · ${(t.events||[]).length}</div>${evs||'<div class="empty">no events</div>'}</div>`;
+}
+
+//=============================================================== block detail
+async function renderBlockDetail(v,height){
+  let d;try{d=await getJSON('/api/block/'+height);}catch(e){v.innerHTML=`<div class="crumb"><a onclick="go('blocks')">Blocks</a> / <b>#${esc(height)}</b></div><div class="empty">block not indexed</div>`;return;}
+  const b=d.block;
+  const txs=(d.txs||[]).map(txRow).join('');
+  const bevs=(b.blockEvents||[]).map(e=>`
+    <div class="evgrp"><div class="eh"><span class="b" style="width:7px;height:7px;background:${modColor(e.module)};display:inline-block"></span>${esc(e.type)} ${modTag(e.module)}</div>
+    <table class="evtbl"><tbody>${(e.attrs||[]).slice(0,12).map(a=>`<tr><td class="kk">${esc(a.key)}</td><td>${esc(a.value)}</td></tr>`).join('')||'<tr><td class="dim">no attributes</td></tr>'}</tbody></table></div>`).join('');
+  v.innerHTML=`
+  <div class="crumb"><a onclick="go('blocks')">Blocks</a> / <b>#${fmtN(b.height)}</b></div>
+  <div class="detail" style="margin-bottom:14px"><div class="kv">
+    <div class="r"><div class="k">Height</div><div class="v">#${fmtN(b.height)}</div></div>
+    <div class="r"><div class="k">Hash</div><div class="v">${esc(b.hash)} <span class="copy" onclick="copy('${b.hash}')">copy</span></div></div>
+    <div class="r"><div class="k">Time</div><div class="v">${b.time?new Date(b.time).toLocaleString():''} <span class="dim">(${timeAgo(b.time)})</span></div></div>
+    <div class="r"><div class="k">Proposer</div><div class="v">${esc(b.proposer)}</div></div>
+    <div class="r"><div class="k">Transactions</div><div class="v">${b.numTxs}</div></div>
+  </div></div>
+  <div class="card" style="margin-bottom:14px"><div class="hd">Transactions in block</div>
+    <table><tbody>${txs||'<tr><td class="empty">no transactions in this block</td></tr>'}</tbody></table></div>
+  <div class="detail"><div class="sec-title">Block (begin/end) events · ${(b.blockEvents||[]).length}</div>${bevs||'<div class="empty">no block events</div>'}</div>`;
+}
+
+//=============================================================== search
+$('#search').addEventListener('keydown',async e=>{
+  if(e.key!=='Enter')return;
+  const q=e.target.value.trim();if(!q)return;
+  try{const r=await getJSON('/api/search?q='+encodeURIComponent(q));
+    if(r.kind==='tx')go('tx/'+r.target);
+    else if(r.kind==='block')go('block/'+r.target);
+    else if(r.kind==='address')go('address/'+r.target);
+    else toast('not found: '+q);
+  }catch(_){toast('search failed');}
+  e.target.value='';
+});
+
+//=============================================================== boot
+window.addEventListener('hashchange',route);
+(async function boot(){
+  bindNav();
+  try{applyStatus(await getJSON('/api/status'));}catch(_){}
+  connectStream();
+  route();
+  setInterval(async()=>{try{if(!live)applyStatus(await getJSON('/api/status'));}catch(_){}} ,3000);
+})();
+</script>
+</body>
+</html>
