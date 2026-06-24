@@ -106,3 +106,18 @@ func (k Keeper) GetToolPublisher(ctx context.Context, toolID string) (sdk.AccAdd
 func (k Keeper) IsToolRegistered(ctx context.Context, toolID string) (bool, error) {
 	return k.HasTool(sdk.UnwrapSDKContext(ctx), toolID), nil
 }
+
+// IsDeterministicTool reports whether a tool produces deterministic output,
+// read from its registered CachePolicy.Deterministic flag. Consumed by the cac
+// module to decide whether a tool's results are safe to content-address and
+// serve from cache. A tool with no cache policy is treated as non-deterministic.
+func (k Keeper) IsDeterministicTool(ctx context.Context, toolID string) (bool, error) {
+	tool, found := k.GetToolCard(sdk.UnwrapSDKContext(ctx), toolID)
+	if !found || tool == nil {
+		return false, types.ErrToolNotFound
+	}
+	if tool.Cache == nil {
+		return false, nil
+	}
+	return tool.Cache.Deterministic, nil
+}
