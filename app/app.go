@@ -111,6 +111,7 @@ import (
 	lumeraidmodulekeeper "github.com/LumeraProtocol/lumera/x/lumeraid/keeper"
 	nftmodulekeeper "github.com/LumeraProtocol/lumera/x/nft/keeper"
 	oraclemodulekeeper "github.com/LumeraProtocol/lumera/x/oracle/keeper"
+	passportmodulekeeper "github.com/LumeraProtocol/lumera/x/passport/keeper"
 	policiesmodulekeeper "github.com/LumeraProtocol/lumera/x/policies/keeper"
 	registrymodulekeeper "github.com/LumeraProtocol/lumera/x/registry/keeper"
 	reservemodulekeeper "github.com/LumeraProtocol/lumera/x/reserve/keeper"
@@ -232,6 +233,7 @@ type App struct {
 	ReserveKeeper    *reservemodulekeeper.Keeper
 	IncentivesKeeper incentivesmodulekeeper.Keeper
 	VaultsKeeper     *vaultsmodulekeeper.Keeper
+	PassportKeeper   passportmodulekeeper.Keeper
 
 	// EVM keepers
 	FeeMarketKeeper    feemarketkeeper.Keeper
@@ -360,6 +362,7 @@ func New(
 		&app.ReserveKeeper,
 		&app.IncentivesKeeper,
 		&app.VaultsKeeper,
+		&app.PassportKeeper,
 
 		// this line is used by starport scaffolding # stargate/app/keeperDefinition
 	); err != nil {

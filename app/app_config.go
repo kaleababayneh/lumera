@@ -56,6 +56,8 @@ import (
 	nfttypes "github.com/LumeraProtocol/lumera/x/nft/types"
 	oraclemodulev1 "github.com/LumeraProtocol/lumera/x/oracle/module"
 	oracletypes "github.com/LumeraProtocol/lumera/x/oracle/types"
+	passportmodulev1 "github.com/LumeraProtocol/lumera/x/passport/module"
+	passporttypes "github.com/LumeraProtocol/lumera/x/passport/types"
 	policiesmodulev1 "github.com/LumeraProtocol/lumera/x/policies/module"
 	policiestypes "github.com/LumeraProtocol/lumera/x/policies/types"
 	registrymodulev1 "github.com/LumeraProtocol/lumera/x/registry/module"
@@ -164,6 +166,7 @@ var (
 		reservetypes.ModuleName,
 		incentivestypes.ModuleName,
 		vaultstypes.ModuleName,
+		passporttypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis
 	}
 
@@ -208,6 +211,7 @@ var (
 		reservetypes.ModuleName,
 		incentivestypes.ModuleName,
 		vaultstypes.ModuleName,
+		passporttypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/beginBlockers
 	}
 
@@ -244,6 +248,7 @@ var (
 		reservetypes.ModuleName,
 		incentivestypes.ModuleName,
 		vaultstypes.ModuleName,
+		passporttypes.ModuleName,
 		// NOTE: feemarket EndBlocker should be last to get the full block gas used
 		feemarkettypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/endBlockers
@@ -283,6 +288,8 @@ var (
 		{Account: registrytypes.ModuleName, Permissions: []string{authtypes.Burner}},
 		// vaults escrows prepaid capacity (and refunds it on expiry) — custody only.
 		{Account: vaultstypes.ModuleName},
+		// passport escrows agent stake and burns it on slash.
+		{Account: passporttypes.ModuleName, Permissions: []string{authtypes.Burner}},
 		// this line is used by starport scaffolding # stargate/app/maccPerms
 	}
 
@@ -471,6 +478,10 @@ var (
 			{
 				Name:   vaultstypes.ModuleName,
 				Config: appconfig.WrapAny(&vaultsmodulev1.Module{}),
+			},
+			{
+				Name:   passporttypes.ModuleName,
+				Config: appconfig.WrapAny(&passportmodulev1.Module{}),
 			},
 			// this line is used by starport scaffolding # stargate/app/moduleConfig
 		},
