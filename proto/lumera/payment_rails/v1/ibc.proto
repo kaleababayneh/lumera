@@ -1,0 +1,145 @@
+syntax = "proto3";
+package lumera.payment_rails.v1;
+
+import "cosmos/base/v1beta1/coin.proto";
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "x/payment_rails/types";
+
+// SettlementPacketType identifies the type of IBC settlement packet.
+enum SettlementPacketType {
+  SETTLEMENT_PACKET_TYPE_UNSPECIFIED = 0;
+  // Finalize a deposit on the counterparty chain.
+  SETTLEMENT_PACKET_TYPE_DEPOSIT_FINALIZE = 1;
+  // Complete a withdrawal on the counterparty chain.
+  SETTLEMENT_PACKET_TYPE_WITHDRAW_COMPLETE = 2;
+  // Release locked credits on failure/timeout.
+  SETTLEMENT_PACKET_TYPE_RELEASE = 3;
+}
+
+// SettlementStatus tracks IBC settlement lifecycle.
+enum SettlementStatus {
+  SETTLEMENT_STATUS_UNSPECIFIED = 0;
+  SETTLEMENT_STATUS_PENDING = 1;
+  SETTLEMENT_STATUS_SUBMITTED = 2;
+  SETTLEMENT_STATUS_ACKNOWLEDGED = 3;
+  SETTLEMENT_STATUS_COMPLETED = 4;
+  SETTLEMENT_STATUS_FAILED = 5;
+  SETTLEMENT_STATUS_TIMEOUT = 6;
+}
+
+// IBCSettlementPacket is sent via IBC to coordinate credit settlement.
+message IBCSettlementPacket {
+  // Unique settlement identifier.
+  string settlement_id = 1;
+
+  // Packet type (deposit finalize, withdraw complete, release).
+  SettlementPacketType packet_type = 2;
+
+  // Source chain identifier.
+  string source_chain = 3;
+
+  // User address on the source chain.
+  string user = 4;
+
+  // Related deposit or withdrawal ID.
+  string reference_id = 5;
+
+  // Amount being settled.
+  cosmos.base.v1beta1.Coin amount = 6 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+
+  // Credit amount (LAC) involved.
+  cosmos.base.v1beta1.Coin credit_amount = 7 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+
+  // Client-provided idempotency key.
+  string request_id = 8;
+
+  // Oracle price at settlement time.
+  string oracle_price = 9;
+
+  // Timeout timestamp (Unix nanos).
+  uint64 timeout_timestamp = 10;
+
+  // Created timestamp.
+  google.protobuf.Timestamp created_at = 11 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+
+  // Additional metadata.
+  map<string, string> metadata = 12;
+}
+
+// IBCSettlementAck is the acknowledgement for a settlement packet.
+message IBCSettlementAck {
+  // Whether the settlement was successful.
+  bool success = 1;
+
+  // Error message if failed.
+  string error = 2;
+
+  // Error code for programmatic handling.
+  string error_code = 3;
+
+  // Settlement ID from the original packet.
+  string settlement_id = 4;
+
+  // Resulting status on counterparty chain.
+  SettlementStatus status = 5;
+
+  // Transaction hash on counterparty (if applicable).
+  string tx_hash = 6;
+
+  // Acknowledgement timestamp.
+  google.protobuf.Timestamp ack_at = 7 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+}
+
+// IBCSettlementRecord tracks pending IBC settlements.
+message IBCSettlementRecord {
+  // Unique settlement identifier.
+  string settlement_id = 1;
+
+  // Packet type.
+  SettlementPacketType packet_type = 2;
+
+  // User address.
+  string user = 3;
+
+  // Related deposit or withdrawal ID.
+  string reference_id = 4;
+
+  // Amount being settled.
+  cosmos.base.v1beta1.Coin amount = 5 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+
+  // Credit amount (LAC) involved.
+  cosmos.base.v1beta1.Coin credit_amount = 6 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+
+  // Current status.
+  SettlementStatus status = 7;
+
+  // IBC channel used.
+  string channel_id = 8;
+
+  // IBC port.
+  string port_id = 9;
+
+  // Packet sequence number.
+  uint64 sequence = 10;
+
+  // Client-provided idempotency key.
+  string request_id = 11;
+
+  // Error message if failed.
+  string error_message = 12;
+
+  // Retry count.
+  uint32 retry_count = 13;
+
+  // Created timestamp.
+  google.protobuf.Timestamp created_at = 14 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+
+  // Updated timestamp.
+  google.protobuf.Timestamp updated_at = 15 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+
+  // Acknowledged timestamp.
+  google.protobuf.Timestamp ack_at = 16 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+}

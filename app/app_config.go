@@ -62,6 +62,8 @@ import (
 	oracletypes "github.com/LumeraProtocol/lumera/x/oracle/types"
 	passportmodulev1 "github.com/LumeraProtocol/lumera/x/passport/module"
 	passporttypes "github.com/LumeraProtocol/lumera/x/passport/types"
+	paymentrailsmodulev1 "github.com/LumeraProtocol/lumera/x/payment_rails/module"
+	paymentrailstypes "github.com/LumeraProtocol/lumera/x/payment_rails/types"
 	policiesmodulev1 "github.com/LumeraProtocol/lumera/x/policies/module"
 	policiestypes "github.com/LumeraProtocol/lumera/x/policies/types"
 	registrymodulev1 "github.com/LumeraProtocol/lumera/x/registry/module"
@@ -173,6 +175,7 @@ var (
 		passporttypes.ModuleName,
 		cactypes.ModuleName,
 		challengestypes.ModuleName,
+		paymentrailstypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis
 	}
 
@@ -220,6 +223,7 @@ var (
 		passporttypes.ModuleName,
 		cactypes.ModuleName,
 		challengestypes.ModuleName,
+		paymentrailstypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/beginBlockers
 	}
 
@@ -259,6 +263,7 @@ var (
 		passporttypes.ModuleName,
 		cactypes.ModuleName,
 		challengestypes.ModuleName,
+		paymentrailstypes.ModuleName,
 		// NOTE: feemarket EndBlocker should be last to get the full block gas used
 		feemarkettypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/endBlockers
@@ -304,6 +309,8 @@ var (
 		{Account: cactypes.ModuleName},
 		// challenges escrows prize pools and entry fees, then pays out winners — custody only.
 		{Account: challengestypes.ModuleName},
+		// payment_rails escrows deposits and releases assets on withdraw — custody only.
+		{Account: paymentrailstypes.ModuleName},
 		// this line is used by starport scaffolding # stargate/app/maccPerms
 	}
 
@@ -504,6 +511,10 @@ var (
 			{
 				Name:   challengestypes.ModuleName,
 				Config: appconfig.WrapAny(&challengesmodulev1.Module{}),
+			},
+			{
+				Name:   paymentrailstypes.ModuleName,
+				Config: appconfig.WrapAny(&paymentrailsmodulev1.Module{}),
 			},
 			// this line is used by starport scaffolding # stargate/app/moduleConfig
 		},

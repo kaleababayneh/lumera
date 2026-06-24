@@ -1,0 +1,222 @@
+syntax = "proto3";
+package lumera.payment_rails.v1;
+
+import "cosmos/base/v1beta1/coin.proto";
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+import "cosmos_proto/cosmos.proto";
+import "cosmos/msg/v1/msg.proto";
+import "lumera/payment_rails/v1/ibc.proto";
+
+option go_package = "x/payment_rails/types";
+
+// Msg defines the payment_rails Msg service for Injective credit top-up.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // CreateDeposit processes an Injective asset deposit and mints LAC credits.
+  rpc CreateDeposit(MsgCreateDeposit) returns (MsgCreateDepositResponse);
+
+  // RequestWithdraw burns LAC and records a withdrawal request.
+  rpc RequestWithdraw(MsgRequestWithdraw) returns (MsgRequestWithdrawResponse);
+
+  // FinalizeWithdraw marks a withdrawal as completed (governance only).
+  rpc FinalizeWithdraw(MsgFinalizeWithdraw)
+      returns (MsgFinalizeWithdrawResponse);
+
+  // RefundDeposit refunds a deposit and burns minted LAC (governance only).
+  rpc RefundDeposit(MsgRefundDeposit) returns (MsgRefundDepositResponse);
+
+  // UpdateParams updates module parameters (governance only).
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+// MsgCreateDeposit creates a deposit from Injective assets to LAC credits.
+message MsgCreateDeposit {
+  option (cosmos.msg.v1.signer) = "user";
+
+  // User address receiving LAC credits.
+  string user = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // Amount of Injective asset being deposited (e.g., INJ, USDC, USDT).
+  cosmos.base.v1beta1.Coin amount = 2 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+
+  // Injective transaction hash for verification.
+  string tx_hash = 3;
+
+  // Client-provided idempotency key.
+  string request_id = 4;
+
+  // Number of confirmations on the source chain.
+  uint64 confirmations = 5;
+
+  // Optional quoted price from a prior quote (for slippage protection).
+  string quoted_price = 6;
+
+  // Optional IBC route for cross-chain settlement finalization.
+  string settlement_channel_id = 7;
+
+  // Optional IBC port for cross-chain settlement finalization.
+  string settlement_port_id = 8;
+}
+
+// MsgCreateDepositResponse returns deposit details.
+message MsgCreateDepositResponse {
+  // Unique deposit identifier.
+  string deposit_id = 1;
+
+  // LAC credits minted to user.
+  cosmos.base.v1beta1.Coin lac_minted = 2 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+
+  // Acquisition fee deducted.
+  cosmos.base.v1beta1.Coin fee_lac = 3 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+
+  // Oracle price used for conversion.
+  string oracle_price = 4;
+
+  // Slippage in basis points (vs quoted price).
+  uint32 slippage_bps = 5;
+
+  // Pending settlement created for the deposit, if any.
+  string settlement_id = 6;
+
+  // Pending settlement status, if any.
+  SettlementStatus settlement_status = 7;
+}
+
+// MsgRequestWithdraw burns LAC and requests asset withdrawal.
+message MsgRequestWithdraw {
+  option (cosmos.msg.v1.signer) = "user";
+
+  // User requesting withdrawal.
+  string user = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // LAC amount to burn.
+  cosmos.base.v1beta1.Coin lac_amount = 2 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+
+  // Target Injective denom to receive.
+  string denom = 3;
+
+  // Client-provided idempotency key.
+  string request_id = 4;
+
+  // Optional quoted price from a prior quote (for slippage protection).
+  string quoted_price = 5;
+
+  // Optional IBC route for cross-chain asset release.
+  string settlement_channel_id = 6;
+
+  // Optional IBC port for cross-chain asset release.
+  string settlement_port_id = 7;
+}
+
+// MsgRequestWithdrawResponse returns withdrawal details.
+message MsgRequestWithdrawResponse {
+  // Unique withdrawal identifier.
+  string withdraw_id = 1;
+
+  // LAC burned from user.
+  cosmos.base.v1beta1.Coin lac_burned = 2 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+
+  // Asset amount to be released.
+  cosmos.base.v1beta1.Coin asset_released = 3 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+
+  // Oracle price used for conversion.
+  string oracle_price = 4;
+
+  // Slippage in basis points (vs quoted price).
+  uint32 slippage_bps = 5;
+
+  // Pending settlement created for the withdrawal, if any.
+  string settlement_id = 6;
+
+  // Pending settlement status, if any.
+  SettlementStatus settlement_status = 7;
+}
+
+// MsgFinalizeWithdraw marks a withdrawal as completed (governance only).
+message MsgFinalizeWithdraw {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // Module authority address.
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // Withdrawal ID to finalize.
+  string withdraw_id = 2;
+}
+
+// MsgFinalizeWithdrawResponse confirms finalization.
+message MsgFinalizeWithdrawResponse {
+  // User who requested the withdrawal.
+  string user = 1;
+
+  // Asset released to user.
+  cosmos.base.v1beta1.Coin asset_released = 2 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+}
+
+// MsgRefundDeposit refunds a deposit (governance only).
+message MsgRefundDeposit {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // Module authority address.
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // Deposit ID to refund.
+  string deposit_id = 2;
+}
+
+// MsgRefundDepositResponse confirms refund.
+message MsgRefundDepositResponse {
+  // User whose deposit was refunded.
+  string user = 1;
+
+  // Original deposit amount.
+  cosmos.base.v1beta1.Coin original_amount = 2 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+
+  // LAC burned during refund.
+  cosmos.base.v1beta1.Coin lac_burned = 3 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+}
+
+// MsgUpdateParams updates module parameters (governance only).
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // Module authority address.
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // Updated accepted denoms list.
+  repeated string accepted_denoms = 2;
+
+  // Updated acquisition fee in basis points.
+  uint32 acq_fee_bps = 3;
+
+  // Updated max slippage in basis points.
+  uint32 max_slippage_bps = 4;
+
+  // Updated max oracle deviation in basis points.
+  uint32 max_oracle_deviation_bps = 5;
+
+  // Updated oracle staleness threshold in seconds.
+  uint64 oracle_staleness_sec = 6;
+
+  // Updated minimum confirmations required.
+  uint64 min_confirmations = 7;
+
+  // Updated max top-ups per hour.
+  uint32 max_topups_per_hour = 8;
+
+  // Updated max LAC per day (as string for large numbers).
+  string max_lac_per_day = 9;
+
+  // Updated max deposit LAC per asset (as string for large numbers).
+  string max_deposit_lac_per_asset = 10;
+
+  // Updated withdrawal delay in seconds.
+  uint64 withdraw_delay_sec = 11;
+
+  // Pause all conversions.
+  bool pause_conversions = 12;
+}
+
+// MsgUpdateParamsResponse confirms parameter update.
+message MsgUpdateParamsResponse {}

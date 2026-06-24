@@ -1,0 +1,239 @@
+syntax = "proto3";
+package lumera.payment_rails.v1;
+
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+import "google/protobuf/timestamp.proto";
+import "lumera/payment_rails/v1/ibc.proto";
+
+option go_package = "x/payment_rails/types";
+
+// DenomOraclePair maps an Injective denom to an oracle asset pair.
+message DenomOraclePair {
+  string denom = 1;
+  string asset_pair = 2;
+}
+
+// Params defines module parameters for payment_rails.
+message Params {
+  // Credit denom (typically ulac).
+  string credit_denom = 1;
+
+  // Accepted Injective denoms for deposit (e.g., inj, usdc, usdt).
+  repeated string accepted_denoms = 2;
+
+  // Oracle pairs mapping denoms to price feeds.
+  repeated DenomOraclePair oracle_pairs = 3;
+
+  // Acquisition fee in basis points (default 30 = 0.3%).
+  uint32 acq_fee_bps = 4;
+
+  // Max slippage allowed in basis points (default 50 = 0.5%).
+  uint32 max_slippage_bps = 5;
+
+  // Max oracle deviation between spot and TWAP in basis points.
+  uint32 max_oracle_deviation_bps = 6;
+
+  // Oracle TWAP window in seconds.
+  uint64 oracle_twap_window_sec = 7;
+
+  // Oracle staleness threshold in seconds.
+  uint64 oracle_staleness_sec = 8;
+
+  // Minimum confirmations required for deposits.
+  uint64 min_confirmations = 9;
+
+  // Max top-ups per hour per user.
+  uint32 max_topups_per_hour = 10;
+
+  // Max LAC per day per user (in smallest units).
+  string max_lac_per_day = 11;
+
+  // Max LAC per single deposit (in smallest units).
+  string max_deposit_lac_per_asset = 12;
+
+  // Volume spike threshold in basis points.
+  uint32 volume_spike_bps = 13;
+
+  // Withdrawal delay in seconds (default 0).
+  uint64 withdraw_delay_sec = 14;
+
+  // Pause all conversions.
+  bool pause_conversions = 15;
+}
+
+// DepositStatus tracks deposit lifecycle.
+enum DepositStatus {
+  DEPOSIT_STATUS_UNSPECIFIED = 0;
+  DEPOSIT_STATUS_PENDING = 1;
+  DEPOSIT_STATUS_PRICED = 2;
+  DEPOSIT_STATUS_MINTED = 3;
+  DEPOSIT_STATUS_FINALIZED = 4;
+  DEPOSIT_STATUS_REFUNDED = 5;
+}
+
+// WithdrawStatus tracks withdrawal lifecycle.
+enum WithdrawStatus {
+  WITHDRAW_STATUS_UNSPECIFIED = 0;
+  WITHDRAW_STATUS_REQUESTED = 1;
+  WITHDRAW_STATUS_COMPLETED = 2;
+  WITHDRAW_STATUS_FAILED = 3;
+}
+
+// DepositRecord tracks an Injective top-up deposit.
+message DepositRecord {
+  string deposit_id = 1;
+  string user = 2;
+  string denom = 3;
+  cosmos.base.v1beta1.Coin amount = 4 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  string tx_hash = 5;
+  DepositStatus status = 6;
+  string request_id = 7;
+  google.protobuf.Timestamp created_at = 8 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  google.protobuf.Timestamp updated_at = 9 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+}
+
+// PricingRecord stores oracle pricing data for a deposit.
+message PricingRecord {
+  string deposit_id = 1;
+  string oracle_price = 2;
+  string twap_price = 3;
+  string quoted_price = 4;
+  uint32 slippage_bps = 5;
+  google.protobuf.Timestamp timestamp = 6 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+}
+
+// MintRecord stores LAC mint results for a deposit.
+message MintRecord {
+  string deposit_id = 1;
+  cosmos.base.v1beta1.Coin lac_minted = 2 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  cosmos.base.v1beta1.Coin fee_lac = 3 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  string mint_tx_hash = 4;
+  google.protobuf.Timestamp timestamp = 5 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+}
+
+// WithdrawRecord stores a withdrawal lifecycle entry.
+message WithdrawRecord {
+  string withdraw_id = 1;
+  string user = 2;
+  string denom = 3;
+  cosmos.base.v1beta1.Coin lac_burned = 4 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  cosmos.base.v1beta1.Coin asset_released = 5 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  WithdrawStatus status = 6;
+  string request_id = 7;
+  google.protobuf.Timestamp requested_at = 8 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  google.protobuf.Timestamp completed_at = 9 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+}
+
+// TopupWindow tracks rate-limit counters for a time window.
+message TopupWindow {
+  uint32 count = 1;
+  string lac_total = 2;
+}
+
+// UserRateLimitEntry stores a keyed rate-limit window for genesis
+// export/import (compound key: user + window_start).
+message UserRateLimitEntry {
+  string user = 1;
+  google.protobuf.Timestamp window_start = 2 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  TopupWindow window = 3;
+}
+
+// GenesisState defines the payment_rails module's genesis state.
+message GenesisState {
+  Params params = 1;
+  repeated DepositRecord deposits = 2;
+  repeated PricingRecord pricings = 3;
+  repeated MintRecord mints = 4;
+  repeated WithdrawRecord withdrawals = 5;
+  repeated IBCSettlementRecord ibc_settlements = 6;
+  repeated UserRateLimitEntry user_hourly = 7;
+  repeated UserRateLimitEntry user_daily = 8;
+}
+
+// Query service for payment_rails module.
+service Query {
+  // Params returns the module parameters.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse);
+
+  // Deposit returns a deposit by ID.
+  rpc Deposit(QueryDepositRequest) returns (QueryDepositResponse);
+
+  // Deposits returns deposits with optional filters.
+  rpc Deposits(QueryDepositsRequest) returns (QueryDepositsResponse);
+
+  // Withdraw returns a withdrawal by ID.
+  rpc Withdraw(QueryWithdrawRequest) returns (QueryWithdrawResponse);
+
+  // Withdrawals returns withdrawals with optional filters.
+  rpc Withdrawals(QueryWithdrawalsRequest) returns (QueryWithdrawalsResponse);
+
+  // Pricing returns pricing record for a deposit.
+  rpc Pricing(QueryPricingRequest) returns (QueryPricingResponse);
+}
+
+// QueryParamsRequest is the request for module params.
+message QueryParamsRequest {}
+
+// QueryParamsResponse returns module params.
+message QueryParamsResponse { Params params = 1; }
+
+// QueryDepositRequest is the request for a single deposit.
+message QueryDepositRequest { string deposit_id = 1; }
+
+// QueryDepositResponse returns a deposit and its related records.
+message QueryDepositResponse {
+  DepositRecord deposit = 1;
+  PricingRecord pricing = 2;
+  MintRecord mint = 3;
+}
+
+// QueryDepositsRequest is the request for deposits with filters.
+message QueryDepositsRequest {
+  // Filter by user address.
+  string user = 1;
+
+  // Filter by status.
+  DepositStatus status = 2;
+
+  // Pagination.
+  cosmos.base.query.v1beta1.PageRequest pagination = 3;
+}
+
+// QueryDepositsResponse returns a list of deposits.
+message QueryDepositsResponse {
+  repeated DepositRecord deposits = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryWithdrawRequest is the request for a single withdrawal.
+message QueryWithdrawRequest { string withdraw_id = 1; }
+
+// QueryWithdrawResponse returns a withdrawal.
+message QueryWithdrawResponse { WithdrawRecord withdraw = 1; }
+
+// QueryWithdrawalsRequest is the request for withdrawals with filters.
+message QueryWithdrawalsRequest {
+  // Filter by user address.
+  string user = 1;
+
+  // Filter by status.
+  WithdrawStatus status = 2;
+
+  // Pagination.
+  cosmos.base.query.v1beta1.PageRequest pagination = 3;
+}
+
+// QueryWithdrawalsResponse returns a list of withdrawals.
+message QueryWithdrawalsResponse {
+  repeated WithdrawRecord withdrawals = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryPricingRequest is the request for pricing record.
+message QueryPricingRequest { string deposit_id = 1; }
+
+// QueryPricingResponse returns a pricing record.
+message QueryPricingResponse { PricingRecord pricing = 1; }

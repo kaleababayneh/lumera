@@ -114,6 +114,7 @@ import (
 	nftmodulekeeper "github.com/LumeraProtocol/lumera/x/nft/keeper"
 	oraclemodulekeeper "github.com/LumeraProtocol/lumera/x/oracle/keeper"
 	passportmodulekeeper "github.com/LumeraProtocol/lumera/x/passport/keeper"
+	paymentrailsmodulekeeper "github.com/LumeraProtocol/lumera/x/payment_rails/keeper"
 	policiesmodulekeeper "github.com/LumeraProtocol/lumera/x/policies/keeper"
 	registrymodulekeeper "github.com/LumeraProtocol/lumera/x/registry/keeper"
 	reservemodulekeeper "github.com/LumeraProtocol/lumera/x/reserve/keeper"
@@ -222,22 +223,23 @@ type App struct {
 	// CosmWasm
 	WasmKeeper *wasmkeeper.Keeper
 
-	LumeraidKeeper   lumeraidmodulekeeper.Keeper
-	ClaimKeeper      claimmodulekeeper.Keeper
-	SupernodeKeeper  sntypes.SupernodeKeeper
-	AuditKeeper      auditmodulekeeper.Keeper
-	ActionKeeper     actionmodulekeeper.Keeper
-	CreditsKeeper    *creditsmodulekeeper.Keeper
-	OracleKeeper     *oraclemodulekeeper.Keeper
-	PoliciesKeeper   *policiesmodulekeeper.Keeper
-	RegistryKeeper   registrymodulekeeper.Keeper
-	NFTKeeper        nftmodulekeeper.Keeper
-	ReserveKeeper    *reservemodulekeeper.Keeper
-	IncentivesKeeper incentivesmodulekeeper.Keeper
-	VaultsKeeper     *vaultsmodulekeeper.Keeper
-	PassportKeeper   passportmodulekeeper.Keeper
-	CacKeeper        cacmodulekeeper.Keeper
-	ChallengesKeeper *challengesmodulekeeper.Keeper
+	LumeraidKeeper     lumeraidmodulekeeper.Keeper
+	ClaimKeeper        claimmodulekeeper.Keeper
+	SupernodeKeeper    sntypes.SupernodeKeeper
+	AuditKeeper        auditmodulekeeper.Keeper
+	ActionKeeper       actionmodulekeeper.Keeper
+	CreditsKeeper      *creditsmodulekeeper.Keeper
+	OracleKeeper       *oraclemodulekeeper.Keeper
+	PoliciesKeeper     *policiesmodulekeeper.Keeper
+	RegistryKeeper     registrymodulekeeper.Keeper
+	NFTKeeper          nftmodulekeeper.Keeper
+	ReserveKeeper      *reservemodulekeeper.Keeper
+	IncentivesKeeper   incentivesmodulekeeper.Keeper
+	VaultsKeeper       *vaultsmodulekeeper.Keeper
+	PassportKeeper     passportmodulekeeper.Keeper
+	CacKeeper          cacmodulekeeper.Keeper
+	ChallengesKeeper   *challengesmodulekeeper.Keeper
+	PaymentRailsKeeper *paymentrailsmodulekeeper.Keeper
 
 	// EVM keepers
 	FeeMarketKeeper    feemarketkeeper.Keeper
@@ -369,6 +371,7 @@ func New(
 		&app.PassportKeeper,
 		&app.CacKeeper,
 		&app.ChallengesKeeper,
+		&app.PaymentRailsKeeper,
 
 		// this line is used by starport scaffolding # stargate/app/keeperDefinition
 	); err != nil {
