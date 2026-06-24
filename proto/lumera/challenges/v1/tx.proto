@@ -1,0 +1,115 @@
+syntax = "proto3";
+package lumera.challenges.v1;
+
+import "cosmos/msg/v1/msg.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos_proto/cosmos.proto";
+import "google/protobuf/timestamp.proto";
+import "lumera/challenges/v1/challenges.proto";
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+
+option go_package = "x/challenges/types";
+
+// Msg defines the challenges module Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // CreateChallenge creates a new grand challenge.
+  rpc CreateChallenge(MsgCreateChallenge) returns (MsgCreateChallengeResponse);
+
+  // JoinChallenge registers a tool as a participant.
+  rpc JoinChallenge(MsgJoinChallenge) returns (MsgJoinChallengeResponse);
+
+  // SubmitResult records a scored submission for a tool in a challenge.
+  rpc SubmitResult(MsgSubmitResult) returns (MsgSubmitResultResponse);
+
+  // ActivateChallenge moves a challenge from DRAFT to ACTIVE.
+  rpc ActivateChallenge(MsgActivateChallenge)
+      returns (MsgActivateChallengeResponse);
+
+  // CancelChallenge cancels a challenge (from DRAFT, ACTIVE, or SCORING).
+  rpc CancelChallenge(MsgCancelChallenge) returns (MsgCancelChallengeResponse);
+
+  // UpdateParams updates the module parameters (governance only).
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+// MsgCreateChallenge creates a new grand challenge with an escrowed prize pool.
+message MsgCreateChallenge {
+  option (cosmos.msg.v1.signer) = "creator";
+
+  string creator = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string title = 2;
+  string description = 3;
+  ChallengeType challenge_type = 4;
+  cosmos.base.v1beta1.Coin prize_pool = 5 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  cosmos.base.v1beta1.Coin entry_fee = 6 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  ScoringWeight scoring_weights = 7;
+  PrizeDistribution prize_distribution = 8;
+  repeated string required_categories = 9;
+  uint32 min_badge_tier = 10;
+  uint32 max_participants = 11;
+  google.protobuf.Timestamp starts_at = 12 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  google.protobuf.Timestamp ends_at = 13 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+}
+
+message MsgCreateChallengeResponse { string challenge_id = 1; }
+
+// MsgJoinChallenge registers a tool as a participant in a challenge.
+message MsgJoinChallenge {
+  option (cosmos.msg.v1.signer) = "publisher";
+
+  string publisher = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string challenge_id = 2;
+  string tool_id = 3;
+}
+
+message MsgJoinChallengeResponse {}
+
+// MsgSubmitResult records a scored submission for a tool.
+message MsgSubmitResult {
+  option (cosmos.msg.v1.signer) = "submitter";
+
+  string submitter = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string challenge_id = 2;
+  string tool_id = 3;
+  uint32 latency_score = 4;
+  uint32 cost_score = 5;
+  uint32 accuracy_score = 6;
+  uint32 reliability_score = 7;
+  uint32 conformance_score = 8;
+  string golden_task_result_hash = 9;
+}
+
+message MsgSubmitResultResponse { uint32 composite_score = 1; }
+
+// MsgActivateChallenge moves a challenge from DRAFT to ACTIVE.
+message MsgActivateChallenge {
+  option (cosmos.msg.v1.signer) = "creator";
+
+  string creator = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string challenge_id = 2;
+}
+
+message MsgActivateChallengeResponse {}
+
+// MsgCancelChallenge cancels a challenge and refunds the escrowed prize pool.
+message MsgCancelChallenge {
+  option (cosmos.msg.v1.signer) = "creator";
+
+  string creator = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string challenge_id = 2;
+}
+
+message MsgCancelChallengeResponse {}
+
+// MsgUpdateParams updates the challenges module parameters.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  Params params = 2;
+}
+
+message MsgUpdateParamsResponse {}

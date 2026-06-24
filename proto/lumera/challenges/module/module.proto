@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package lumera.challenges.module;
+
+import "cosmos/app/v1alpha1/module.proto";
+
+option go_package = "x/challenges/module;challengesmodule";
+
+// Module is the config object of the challenges module.
+message Module {
+  option (cosmos.app.v1alpha1.module) = {
+    go_import: "github.com/LumeraProtocol/lumera/x/challenges"
+  };
+  string authority = 1;
+}

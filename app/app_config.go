@@ -42,6 +42,8 @@ import (
 	auditmoduletypes "github.com/LumeraProtocol/lumera/x/audit/v1/types"
 	cacmodulev1 "github.com/LumeraProtocol/lumera/x/cac/module"
 	cactypes "github.com/LumeraProtocol/lumera/x/cac/types"
+	challengesmodulev1 "github.com/LumeraProtocol/lumera/x/challenges/module"
+	challengestypes "github.com/LumeraProtocol/lumera/x/challenges/types"
 	claimmodulev1 "github.com/LumeraProtocol/lumera/x/claim/module"
 	claimmoduletypes "github.com/LumeraProtocol/lumera/x/claim/types"
 	creditsmodulev1 "github.com/LumeraProtocol/lumera/x/credits/module"
@@ -170,6 +172,7 @@ var (
 		vaultstypes.ModuleName,
 		passporttypes.ModuleName,
 		cactypes.ModuleName,
+		challengestypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis
 	}
 
@@ -216,6 +219,7 @@ var (
 		vaultstypes.ModuleName,
 		passporttypes.ModuleName,
 		cactypes.ModuleName,
+		challengestypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/beginBlockers
 	}
 
@@ -254,6 +258,7 @@ var (
 		vaultstypes.ModuleName,
 		passporttypes.ModuleName,
 		cactypes.ModuleName,
+		challengestypes.ModuleName,
 		// NOTE: feemarket EndBlocker should be last to get the full block gas used
 		feemarkettypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/endBlockers
@@ -297,6 +302,8 @@ var (
 		{Account: passporttypes.ModuleName, Permissions: []string{authtypes.Burner}},
 		// cac escrows cache-hit royalty fees before splitting them to publishers — custody only.
 		{Account: cactypes.ModuleName},
+		// challenges escrows prize pools and entry fees, then pays out winners — custody only.
+		{Account: challengestypes.ModuleName},
 		// this line is used by starport scaffolding # stargate/app/maccPerms
 	}
 
@@ -493,6 +500,10 @@ var (
 			{
 				Name:   cactypes.ModuleName,
 				Config: appconfig.WrapAny(&cacmodulev1.Module{}),
+			},
+			{
+				Name:   challengestypes.ModuleName,
+				Config: appconfig.WrapAny(&challengesmodulev1.Module{}),
 			},
 			// this line is used by starport scaffolding # stargate/app/moduleConfig
 		},

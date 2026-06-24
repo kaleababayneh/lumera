@@ -1,0 +1,242 @@
+syntax = "proto3";
+package lumera.challenges.v1;
+
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "google/protobuf/timestamp.proto";
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+
+option go_package = "x/challenges/types";
+
+// Params defines the module parameters for the challenges module.
+message Params {
+  // min_prize_pool_lac is the minimum prize pool in LAC (micro units)
+  uint64 min_prize_pool_lac = 1;
+  // max_duration_blocks is the maximum challenge duration in blocks
+  uint32 max_duration_blocks = 2;
+  // min_participants is the minimum number of participants required
+  uint32 min_participants = 3;
+  // entry_fee_percentage_bps is the default entry fee as percentage of prize
+  // pool in basis points
+  uint32 entry_fee_percentage_bps = 4;
+  // platform_fee_bps is the platform fee on prize distribution in basis points
+  uint32 platform_fee_bps = 5;
+  // scoring_delay_blocks is the delay after deadline before final scoring
+  uint32 scoring_delay_blocks = 6;
+}
+
+// ChallengeStatus represents the lifecycle status of a challenge.
+enum ChallengeStatus {
+  CHALLENGE_STATUS_UNSPECIFIED = 0;
+  CHALLENGE_STATUS_DRAFT = 1;
+  CHALLENGE_STATUS_ACTIVE = 2;
+  CHALLENGE_STATUS_SCORING = 3;
+  CHALLENGE_STATUS_COMPLETED = 4;
+  CHALLENGE_STATUS_CANCELLED = 5;
+}
+
+// ChallengeType defines the type of competition.
+enum ChallengeType {
+  CHALLENGE_TYPE_UNSPECIFIED = 0;
+  CHALLENGE_TYPE_PERFORMANCE = 1; // Latency, throughput, cost efficiency
+  CHALLENGE_TYPE_QUALITY = 2;     // Accuracy, precision, reliability
+  CHALLENGE_TYPE_CONFORMANCE = 3; // Protocol compliance, golden task pass rate
+  CHALLENGE_TYPE_COMPOSITE = 4;   // Combined scoring across multiple metrics
+  CHALLENGE_TYPE_IDENTITY_ATTESTATION = 5; // LumeraID nonce/signature proof
+  CHALLENGE_TYPE_SLO_PROBE = 6;            // Publisher SLO probe lifecycle
+  CHALLENGE_TYPE_TEE_REPORT = 7;           // TEE attestation report proof
+  CHALLENGE_TYPE_RECEIPT_REPLAY = 8;       // Receipt replay/evidence proof
+}
+
+// ScoringWeight defines weights for different scoring components.
+message ScoringWeight {
+  uint32 latency_weight_bps = 1;
+  uint32 cost_weight_bps = 2;
+  uint32 accuracy_weight_bps = 3;
+  uint32 reliability_weight_bps = 4;
+  uint32 conformance_weight_bps = 5;
+}
+
+// PrizeDistribution defines how prizes are split among winners.
+message PrizeDistribution {
+  // winner_shares_bps defines share percentages for each rank in basis points
+  // e.g., [5000, 3000, 2000] = 50% first, 30% second, 20% third
+  repeated uint32 winner_shares_bps = 1;
+}
+
+// Challenge represents a grand challenge or tournament.
+message Challenge {
+  string challenge_id = 1;
+  string title = 2;
+  string description = 3;
+  string creator = 4;
+  ChallengeType challenge_type = 5;
+  ChallengeStatus status = 6;
+
+  // Timing
+  google.protobuf.Timestamp created_at = 7 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  google.protobuf.Timestamp starts_at = 8 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  google.protobuf.Timestamp ends_at = 9 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  google.protobuf.Timestamp scored_at = 10 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+
+  // Economics
+  cosmos.base.v1beta1.Coin prize_pool = 11 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  cosmos.base.v1beta1.Coin entry_fee = 12 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+
+  // Scoring configuration
+  ScoringWeight scoring_weights = 13;
+  PrizeDistribution prize_distribution = 14;
+
+  // Eligibility
+  repeated string required_categories = 15;
+  uint32 min_badge_tier = 16; // Minimum badge tier required (from x/incentives)
+
+  // Participation
+  uint32 participant_count = 17;
+  uint32 max_participants = 18;
+
+  // Results
+  repeated string winner_tool_ids = 19;
+  bool payouts_complete = 20;
+}
+
+// Participant represents a tool's participation in a challenge.
+message Participant {
+  string challenge_id = 1;
+  string tool_id = 2;
+  string publisher_id = 3;
+  google.protobuf.Timestamp registered_at = 4 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  cosmos.base.v1beta1.Coin entry_fee_paid = 5 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  bool disqualified = 6;
+  string disqualification_reason = 7;
+}
+
+// Submission represents a scored submission in a challenge.
+message Submission {
+  string challenge_id = 1;
+  string tool_id = 2;
+  int64 block_height = 3;
+  google.protobuf.Timestamp submitted_at = 4 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+
+  // Scoring components (all in basis points, 0-10000)
+  uint32 latency_score = 5;
+  uint32 cost_score = 6;
+  uint32 accuracy_score = 7;
+  uint32 reliability_score = 8;
+  uint32 conformance_score = 9;
+
+  // Computed
+  uint32 composite_score = 10;
+  string golden_task_result_hash = 11;
+}
+
+// Ranking represents a tool's final ranking in a challenge.
+message Ranking {
+  string challenge_id = 1;
+  string tool_id = 2;
+  uint32 rank = 3;
+  uint32 final_score = 4;
+  cosmos.base.v1beta1.Coin prize_amount = 5 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  bool prize_claimed = 6;
+  google.protobuf.Timestamp claimed_at = 7 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+}
+
+// ChallengeEvent represents a challenge-related event for audit trail.
+message ChallengeEvent {
+  string challenge_id = 1;
+  string event_type =
+      2; // "created", "started", "ended", "scored", "cancelled", "payout"
+  string actor = 3;
+  google.protobuf.Timestamp timestamp = 4 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  string details = 5;
+}
+
+// GenesisState defines the challenges module's genesis state.
+message GenesisState {
+  Params params = 1;
+  repeated Challenge challenges = 2;
+  repeated Participant participants = 3;
+  repeated Submission submissions = 4;
+  repeated Ranking rankings = 5;
+}
+
+// QueryParamsRequest is the request type for the Query/Params RPC method.
+message QueryParamsRequest {}
+
+// QueryParamsResponse is the response type for the Query/Params RPC method.
+message QueryParamsResponse { Params params = 1; }
+
+// QueryChallengeRequest is the request type for the Query/Challenge RPC method.
+message QueryChallengeRequest { string challenge_id = 1; }
+
+// QueryChallengeResponse is the response type for the Query/Challenge RPC
+// method.
+message QueryChallengeResponse { Challenge challenge = 1; }
+
+// QueryChallengesRequest is the request type for the Query/Challenges RPC
+// method.
+message QueryChallengesRequest {
+  ChallengeStatus status = 1;
+  ChallengeType challenge_type = 2;
+  cosmos.base.query.v1beta1.PageRequest pagination = 3;
+}
+
+// QueryChallengesResponse is the response type for the Query/Challenges RPC
+// method.
+message QueryChallengesResponse {
+  repeated Challenge challenges = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryParticipantsRequest is the request type for the Query/Participants RPC
+// method.
+message QueryParticipantsRequest {
+  string challenge_id = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+
+// QueryParticipantsResponse is the response type for the Query/Participants RPC
+// method.
+message QueryParticipantsResponse {
+  repeated Participant participants = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryLeaderboardRequest is the request type for the Query/Leaderboard RPC
+// method.
+message QueryLeaderboardRequest {
+  string challenge_id = 1;
+  uint32 limit = 2;
+}
+
+// QueryLeaderboardResponse is the response type for the Query/Leaderboard RPC
+// method.
+message QueryLeaderboardResponse { repeated Ranking rankings = 1; }
+
+// QueryToolChallengesRequest is the request type for the Query/ToolChallenges
+// RPC method.
+message QueryToolChallengesRequest {
+  string tool_id = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+
+// QueryToolChallengesResponse is the response type for the Query/ToolChallenges
+// RPC method.
+message QueryToolChallengesResponse {
+  repeated Challenge challenges = 1;
+  repeated Ranking rankings = 2;
+  cosmos.base.query.v1beta1.PageResponse pagination = 3;
+}
+
+// Query defines the gRPC query service for the challenges module.
+service Query {
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse);
+  rpc Challenge(QueryChallengeRequest) returns (QueryChallengeResponse);
+  rpc Challenges(QueryChallengesRequest) returns (QueryChallengesResponse);
+  rpc Participants(QueryParticipantsRequest)
+      returns (QueryParticipantsResponse);
+  rpc Leaderboard(QueryLeaderboardRequest) returns (QueryLeaderboardResponse);
+  rpc ToolChallenges(QueryToolChallengesRequest)
+      returns (QueryToolChallengesResponse);
+}
