@@ -16,6 +16,7 @@ import (
 	legacyruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/spf13/cobra"
 
+	routercli "github.com/LumeraProtocol/lumera/x/router/client/cli"
 	"github.com/LumeraProtocol/lumera/x/router/keeper"
 	"github.com/LumeraProtocol/lumera/x/router/types"
 )
@@ -67,12 +68,13 @@ func (AppModuleBasic) ValidateGenesis(cdc codec.JSONCodec, _ client.TxEncodingCo
 // RegisterGRPCGatewayRoutes is a no-op (router REST is reachable over gRPC).
 func (AppModuleBasic) RegisterGRPCGatewayRoutes(_ client.Context, _ *legacyruntime.ServeMux) {}
 
-// GetTxCmd returns no root tx command (router txs are submitted over gRPC by the
-// off-chain router service, not via a human CLI).
-func (AppModuleBasic) GetTxCmd() *cobra.Command { return nil }
+// GetTxCmd returns the router tx root command. Only the tool-owner-signable
+// activation record is exposed; the authority-gated records are driven by the
+// off-chain router over gRPC.
+func (AppModuleBasic) GetTxCmd() *cobra.Command { return routercli.GetTxCmd() }
 
-// GetQueryCmd returns no root query command (router queries are served over gRPC).
-func (AppModuleBasic) GetQueryCmd() *cobra.Command { return nil }
+// GetQueryCmd returns the router query root command (params, metrics, rankings).
+func (AppModuleBasic) GetQueryCmd() *cobra.Command { return routercli.GetQueryCmd() }
 
 // AppModule implements the router application module.
 type AppModule struct {

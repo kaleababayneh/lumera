@@ -221,6 +221,18 @@ func eventModule(t string, attrs []EventAttr) string {
 	case strings.HasPrefix(t, "receipt_mirror_"), strings.HasPrefix(t, "evidence_bundle_mirror_"),
 		strings.HasPrefix(t, "slo_probe_"), strings.HasPrefix(t, "bond_"):
 		return "registry"
+	case strings.HasPrefix(t, "payment_rails_"):
+		return "payment_rails"
+	case strings.HasPrefix(t, "passport_"):
+		return "passport"
+	// challenge_resolved is registry's receipt-dispute event (handled by the
+	// exact map above, which takes precedence) — these prefixes are the
+	// tournament module's own events.
+	case strings.HasPrefix(t, "challenge_"), strings.HasPrefix(t, "protocol_challenge_"),
+		strings.HasPrefix(t, "dispute_"):
+		return "challenges"
+	case strings.HasPrefix(t, "discovery_subsidy_"):
+		return "router"
 	}
 	if _, ok := cosmosEvents[t]; ok {
 		return "cosmos"
@@ -258,6 +270,14 @@ var eventModuleExact = map[string]string{
 	"finalize_block_settlement_receipt": "registry",
 	// supernode
 	"reward_distribution": "supernode",
+	// passport (the passport_ prefix covers the rest)
+	"stake_slashed": "passport", "stake_topped_up": "passport",
+	// challenges (challenge_ / dispute_ prefixes cover the rest; submission_recorded is standalone)
+	"submission_recorded": "challenges",
+	// router telemetry (canonical EventType* strings; "policy_update" stays with
+	// policies via the policy_ prefix to avoid collision)
+	"tool_activation": "router", "tool_invocation": "router", "metrics_aggregate": "router",
+	"score_update": "router", "cac_hit": "router", "param_update": "router",
 	// evm
 	"ethereum_tx": "vm", "tx_log": "vm", "block_bloom": "vm",
 }

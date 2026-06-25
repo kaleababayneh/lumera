@@ -137,6 +137,64 @@ var moduleCatalog = []catalogEntry{
 		EventTypes: []string{"cache_store", "cache_hit", "cache_miss", "cache_invalidate", "cache_evict", "decay_tick", "tier_promotion", "royalty_distributed"},
 	},
 	{
+		Name: "vaults", Group: "lumera", Title: "Vaults",
+		Blurb: "Prepaid-capacity reserve vaults: escrow a discounted LAC commitment per policy/tool tier.",
+		MsgTypes: []string{
+			"/lumera.vaults.v1.MsgCreateVault",
+		},
+		EventTypes: []string{},
+	},
+	{
+		Name: "passport", Group: "lumera", Title: "Passport",
+		Blurb: "Stake-backed agent identity: bonded stake, lifecycle status, reputation tier; slashable on disputes.",
+		MsgTypes: []string{
+			"/lumera.passport.v1.MsgRegisterPassport", "/lumera.passport.v1.MsgSuspendPassport", "/lumera.passport.v1.MsgRevokePassport",
+			"/lumera.passport.v1.MsgReactivatePassport", "/lumera.passport.v1.MsgSlashStake", "/lumera.passport.v1.MsgTopUpStake",
+			"/lumera.passport.v1.MsgUnregisterPassport", "/lumera.passport.v1.MsgUpdateParams",
+		},
+		EventTypes: []string{
+			"passport_registered", "passport_suspended", "passport_revoked", "passport_reactivated",
+			"passport_unregistered", "passport_reputation_updated", "stake_slashed", "stake_topped_up",
+		},
+	},
+	{
+		Name: "challenges", Group: "lumera", Title: "Challenges",
+		Blurb: "Grand-challenge tournaments: escrowed prize pools, entry fees, scored submissions, ranked payouts.",
+		MsgTypes: []string{
+			"/lumera.challenges.v1.MsgCreateChallenge", "/lumera.challenges.v1.MsgJoinChallenge", "/lumera.challenges.v1.MsgSubmitResult",
+			"/lumera.challenges.v1.MsgActivateChallenge", "/lumera.challenges.v1.MsgCancelChallenge", "/lumera.challenges.v1.MsgUpdateParams",
+		},
+		EventTypes: []string{
+			"challenge_created", "challenge_joined", "challenge_scored", "challenge_status_changed",
+			"challenge_prize_escrowed", "challenge_prize_paid", "challenge_prize_refunded", "challenge_platform_fee",
+			"challenge_payout_skipped", "submission_recorded", "dispute_filed", "dispute_resolved",
+		},
+	},
+	{
+		Name: "payment_rails", Group: "lumera", Title: "Payment Rails",
+		Blurb: "Programmable settlement bridge: deposit a bridged asset → oracle-priced LAC mint; withdraw burns LAC.",
+		MsgTypes: []string{
+			"/lumera.payment_rails.v1.MsgCreateDeposit", "/lumera.payment_rails.v1.MsgRequestWithdraw",
+			"/lumera.payment_rails.v1.MsgFinalizeWithdraw", "/lumera.payment_rails.v1.MsgRefundDeposit", "/lumera.payment_rails.v1.MsgUpdateParams",
+		},
+		EventTypes: []string{
+			"payment_rails_deposit_created", "payment_rails_pricing_applied", "payment_rails_mint_completed",
+			"payment_rails_withdraw_requested", "payment_rails_withdraw_completed", "payment_rails_refund_completed",
+		},
+	},
+	{
+		Name: "router", Group: "lumera", Title: "Router",
+		Blurb: "Routing-telemetry & metrics: records activations/invocations/cache-hits and aggregates per-tool/global metrics.",
+		MsgTypes: []string{
+			"/lumera.router.v1.MsgRecordActivation", "/lumera.router.v1.MsgRecordInvocation", "/lumera.router.v1.MsgRecordPolicyUpdate",
+			"/lumera.router.v1.MsgRecordCACHit", "/lumera.router.v1.MsgAggregateMetrics", "/lumera.router.v1.MsgUpdateParams",
+		},
+		EventTypes: []string{
+			"tool_activation", "tool_invocation", "metrics_aggregate", "score_update", "cac_hit",
+			"param_update", "discovery_subsidy_rebate", "discovery_subsidy_period_reset",
+		},
+	},
+	{
 		Name: "claim", Group: "lumera", Title: "Claim",
 		Blurb:      "Bitcoin→Cosmos token claim distribution.",
 		MsgTypes:   []string{"/lumera.claim.MsgClaim", "/lumera.claim.MsgDelayedClaim", "/lumera.claim.MsgUpdateParams"},
