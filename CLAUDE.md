@@ -229,6 +229,20 @@ localnet, and is verified end-to-end (all committed, no stubs):
   withdraw/refund). Setter-injected bank+credits+oracle. IBC settlement is inert local state (packet
   hooks deferred). Verified full money path: deposit 1,000,000 usdc (USDC/USD oracle price seeded in
   genesis) → 997,000 ulac minted (1,000,000 − 30bps acq fee), 1,000,000 usdc escrowed.
+- **`x/router`** (CAPSTONE) — the on-chain routing-telemetry / metrics-aggregation layer for the MCP
+  fabric (records activations/invocations/policy-updates/CAC-hits; per-tool/category/global metrics;
+  replay protection; session lifecycle). The real credits keeper satisfies the router's CreditsKeeper
+  interface exactly (LockCredits/UnlockCredits/SettleLock); a routerRegistryAdapter bridges registry
+  (SubmitReceipt sig + GetToolMetrics). gRPC-only (no CLI — driven by the off-chain router). Converted
+  the 3 `map<string,Timestamp>` session fields to `map<string,int64>` (gogo can't stdtime map values);
+  dropped the dead storeKey ctor param. Verified: boots with the depinject graph resolved, InitGenesis
+  loads params, BeginBlock/EndBlock run every block (zero panics), Query/Params (abci code 0, 46-byte
+  proto) + Query/GlobalMetrics serve live state.
+
+**Remaining lumera_ai modules (all router-support libraries or blocked):** `priority`/`auction` (JSON
+keeper-libraries, inert until the off-chain router consumes them — no standalone surface); `workflows`
+(protobuf-go messages with no proto source — needs reconstruction); `feemarket`/`ibc`/`wasm` are
+lumera-native already; `ibc_action` is the Phase-2 IBC track.
 
 ## Module 1: `x/credits`
 
