@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package lumera.router.module;
+
+import "cosmos/app/v1alpha1/module.proto";
+
+option go_package = "x/router/module;routermodule";
+
+// Module is the config object of the router module.
+message Module {
+  option (cosmos.app.v1alpha1.module) = {
+    go_import: "github.com/LumeraProtocol/lumera/x/router"
+  };
+  string authority = 1;
+}

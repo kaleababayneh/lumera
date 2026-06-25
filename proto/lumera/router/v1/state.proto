@@ -1,0 +1,323 @@
+syntax = "proto3";
+package lumera.router.v1;
+
+import "google/protobuf/timestamp.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "x/router/types";
+
+// Params defines the router module parameters
+message Params {
+  // Active set limit for tools (default 8)
+  uint32 active_set_limit = 1;
+
+  // Deactivation cooldown in seconds
+  uint32 cooldown_seconds = 2;
+
+  // Session TTL in seconds
+  uint32 session_ttl_seconds = 3;
+
+  // Metrics aggregation interval in blocks
+  uint32 metrics_interval_blocks = 4;
+
+  // CAC royalty share in basis points (e.g., 500 = 5%)
+  uint32 cac_royalty_bps = 5;
+
+  // Maximum tools per category
+  uint32 max_tools_per_category = 6;
+
+  // Minimum reputation score for activation
+  string min_reputation_score = 7;
+
+  // Enable metrics collection
+  bool metrics_enabled = 8;
+
+  // Enable CAC royalty distribution
+  bool cac_enabled = 9;
+
+  // Maximum tools to process per block in EndBlocker (Phase 2.13.2.2 - chain
+  // halt prevention) Default: 100, prevents unbounded Walk() operations
+  uint32 max_tools_processed_per_block = 10;
+
+  // Maximum sessions to process per block in EndBlocker (Phase 2.13.2.2 - chain
+  // halt prevention) Default: 100, prevents unbounded Walk() operations
+  uint32 max_sessions_processed_per_block = 11;
+
+  // Global router request rate limit (requests per second). 0 disables.
+  uint32 max_rps = 12;
+
+  // Global router burst size for rate limiting. 0 defaults to max_rps when
+  // enabled.
+  uint32 burst = 13;
+
+  // Optional per-tool rate limit overrides.
+  repeated ToolRateLimit tool_rate_limits = 14;
+
+  // JWT audience expected by the router. When set, overrides env
+  // ROUTER_AUTH_AUDIENCE.
+  string auth_audience = 15;
+
+  // JWT issuer expected by the router. When set, overrides env
+  // ROUTER_AUTH_ISSUER.
+  string auth_issuer = 16;
+
+  // Optional allowlist of router public endpoints allowed for endpoint-claim
+  // enforcement. When set, routers should ensure their configured
+  // ROUTER_PUBLIC_URL appears in this list.
+  repeated string allowed_endpoints = 17;
+
+  // gRPC query service rate limit (requests per second). 0 disables.
+  // Applies to Credits, Registry, Router, and Insurance gRPC query services.
+  uint32 grpc_max_rps = 18;
+
+  // gRPC query service burst size. 0 defaults to grpc_max_rps when enabled.
+  uint32 grpc_burst = 19;
+
+  // Maximum percent of a session budget that may be spent on exploration picks,
+  // in basis points.
+  uint32 exploration_session_budget_bps = 20;
+
+  // Maximum percent of a tenant budget that may be spent on exploration picks,
+  // in basis points.
+  uint32 exploration_tenant_budget_bps = 21;
+
+  // Portion of an exploratory call that may be rebated from the discovery
+  // subsidy pool, in basis points. 0 disables subsidies.
+  uint32 discovery_subsidy_bps = 22;
+
+  // Maximum LAC amount the discovery subsidy pool may spend during the
+  // governance-defined accounting period, encoded as a decimal string.
+  string discovery_subsidy_pool_cap = 23;
+
+  // Number of blocks in a discovery subsidy accounting period. 0 is valid only
+  // when discovery subsidies are disabled.
+  uint32 discovery_subsidy_period_blocks = 30;
+
+  // Enables weaker trust-tier / router-attested optimistic quote selection.
+  // Defaults false so Tier-1 publisher-signed quoting remains the safe path.
+  bool trust_tiered_quoting_enabled = 24;
+
+  // Maximum allowed drift between optimistic quote and actual metered
+  // settlement amount, in basis points. Must be positive when
+  // trust_tiered_quoting_enabled is true.
+  uint32 trust_tiered_max_drift_bps = 25;
+
+  // Enables multi-publisher quorum execution. Defaults false so the baseline
+  // single-publisher execution path remains the safe path.
+  bool quorum_execution_enabled = 26;
+
+  // Maximum members allowed in a quorum execution request. 0 disables quorum
+  // member admission unless quorum_execution_enabled is later configured with
+  // a valid positive bound.
+  uint32 quorum_max_members = 27;
+
+  // Minimum agreeing members a quorum request must require. Must be at least 2
+  // and no greater than quorum_max_members when quorum member admission is
+  // configured.
+  uint32 quorum_min_required_agreement = 28;
+
+  // Maximum tolerance for numeric quorum comparators, in basis points.
+  uint32 quorum_numeric_tolerance_bps = 29;
+}
+
+// ToolRateLimit defines a per-tool rate limiting override.
+message ToolRateLimit {
+  // Tool ID the override applies to.
+  string tool_id = 1;
+
+  // Maximum requests per second for this tool. Must be > 0 when set.
+  uint32 max_rps = 2;
+
+  // Burst size for this tool. 0 defaults to max_rps when enabled.
+  uint32 burst = 3;
+}
+
+// ActivationMetrics tracks tool activation statistics
+message ActivationMetrics {
+  string tool_id = 1;
+  uint64 activation_count = 2;
+  uint64 deactivation_count = 3;
+  uint64 invocation_count = 4;
+  string total_volume = 5; // Total LAC volume as decimal string
+  string average_latency_ms = 6;
+  string success_rate = 7; // As percentage decimal string
+  google.protobuf.Timestamp last_activated = 8 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  google.protobuf.Timestamp last_invoked = 9 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  repeated string active_sessions = 10;
+  uint32 p95_latency_ms = 11;
+  uint32 p99_latency_ms = 12;
+}
+
+// PolicyUpdate tracks policy version changes
+message PolicyUpdate {
+  string policy_id = 1;
+  string version = 2;
+  string previous_version = 3;
+  google.protobuf.Timestamp updated_at = 4 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  string updater = 5; // Address that initiated update
+  string update_reason = 6;
+  map<string, string> changes = 7; // Key-value changes
+  uint64 block_height = 8;
+}
+
+// CACRoyaltyRecord tracks content-addressed cache royalties
+message CACRoyaltyRecord {
+  string cache_key = 1;
+  string origin_tool_id = 2;
+  string consuming_tool_id = 3;
+  string royalty_amount = 4; // LAC amount as decimal string
+  google.protobuf.Timestamp timestamp = 5 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  uint64 hit_count = 6;
+  string total_royalties_earned = 7; // Cumulative LAC
+  uint64 block_height = 8;
+}
+
+// SessionMetrics aggregates session-level statistics
+message SessionMetrics {
+  string session_id = 1;
+  string user_address = 2;
+  uint64 tools_invoked = 3;
+  string total_spent = 4; // LAC spent as decimal string
+  string total_refunded = 5;
+  repeated string tools_used = 6;
+  google.protobuf.Timestamp started_at = 7 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  google.protobuf.Timestamp ended_at = 8 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  uint32 average_latency_ms = 9;
+  uint32 cache_hit_rate = 10; // As percentage
+}
+
+// CategoryMetrics tracks tool category statistics
+message CategoryMetrics {
+  string category = 1;
+  uint64 total_tools = 2;
+  uint64 active_tools = 3;
+  uint64 total_invocations = 4;
+  string total_volume = 5; // LAC volume as decimal string
+  string average_cost = 6;
+  repeated string top_tools = 7; // Top 5 by volume
+  google.protobuf.Timestamp last_updated = 8 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+}
+
+// GlobalMetrics tracks system-wide statistics
+message GlobalMetrics {
+  uint64 total_tools_registered = 1;
+  uint64 total_active_tools = 2;
+  uint64 total_invocations = 3;
+  string total_volume = 4; // Total LAC processed
+  string total_insurance_contributions = 5;
+  string total_cac_royalties = 6;
+  uint64 unique_users = 7;
+  uint64 active_sessions = 8;
+  google.protobuf.Timestamp metrics_start = 9 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  google.protobuf.Timestamp last_updated = 10 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  uint64 block_height = 11;
+}
+
+// ToolSelectionScore tracks tool ranking metrics
+message ToolSelectionScore {
+  string tool_id = 1;
+  string reputation_score = 2; // 0-100 as decimal
+  string performance_score = 3;
+  string reliability_score = 4;
+  string cost_efficiency_score = 5;
+  string overall_score = 6;
+  uint64 data_points = 7; // Number of invocations used for scoring
+  google.protobuf.Timestamp last_calculated = 8 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+}
+
+// NonceRecord tracks processed invocations for replay protection
+// (Phase 2.11.7.2)
+message NonceRecord {
+  string nonce = 1;                         // The nonce value
+  string tool_id = 2;                       // Tool ID for scoping
+  string session_id = 3;                    // Session ID for scoping
+  google.protobuf.Timestamp timestamp = 4 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];  // Request timestamp
+  google.protobuf.Timestamp first_seen = 5 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ]; // When first recorded (block time)
+  string invocation_hash = 6; // Hash of invocation for duplicate detection
+}
+
+// CacheEntry encapsulates a cached tool invocation result stored via
+// Collections.
+message CacheEntry {
+  string cache_key = 1;
+  string tool_id = 2;
+  string tool_version = 3;
+  string origin_tool_id = 4;
+  string request_hash = 5;
+  string response = 6;
+  string original_cost = 7;
+  google.protobuf.Timestamp created_at = 8 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  google.protobuf.Timestamp expires_at = 9 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  uint64 hit_count = 10;
+  google.protobuf.Timestamp last_hit_at = 11 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+}
+
+// CacheStats tracks cache hit/miss statistics for a tool.
+message CacheStats {
+  uint64 hits = 1;
+  uint64 misses = 2;
+}
+
+// QuoteRecord stores a quote produced by the router prior to invocation.
+message QuoteRecord {
+  string quote_id = 1;
+  string tool_id = 2;
+  string session_id = 3;
+  string est_cost = 4;
+  string max_cost = 5;
+  uint32 p95_latency = 6;
+  google.protobuf.Timestamp valid_until = 7 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  string lock_id = 8;
+  string locked_denom = 9;
+  string locked_amount = 10;
+  bool cache_eligible = 11;
+  google.protobuf.Timestamp created_at = 12 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  string status = 13;
+  string intent_hash = 14;
+}
+
+// SessionState tracks an active routing session.
+message SessionState {
+  string session_id = 1;
+  string user_addr = 2;
+  repeated string active_tools = 3;
+  map<string, int64> activated_at = 4;
+  map<string, int64> deactivated_at = 5;
+  map<string, int64> cooldown_until = 6;
+  google.protobuf.Timestamp created_at = 7 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  google.protobuf.Timestamp last_accessed_at = 8 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  string policy_version = 9;
+}
+
+// ToolActivation tracks a tool activation event for indexed collection storage.
+message ToolActivation {
+  string id = 1;
+  string tool_id = 2;
+  string session_id = 3;
+  bool active = 4;
+  google.protobuf.Timestamp timestamp = 5 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  string reason = 6;
+}
+
+// RouterState maintains the router module's operational state
+message RouterState {
+  Params params = 1 [ (gogoproto.nullable) = false ];
+  GlobalMetrics metrics = 2;
+  map<string, ActivationMetrics> tool_metrics = 3;
+  map<string, SessionMetrics> session_metrics = 4;
+  map<string, CategoryMetrics> category_metrics = 5;
+  repeated PolicyUpdate recent_policy_updates = 6;
+  map<string, ToolSelectionScore> selection_scores = 7;
+  uint64 next_aggregation_block = 8;
+  uint64 discovery_subsidy_next_reset_block = 9;
+}
+
+// GenesisState defines the router module's genesis state
+message GenesisState {
+  Params params = 1 [ (gogoproto.nullable) = false ];
+  RouterState state = 2;
+  repeated ActivationMetrics tool_metrics_list = 3;
+  repeated CACRoyaltyRecord cac_records = 4;
+  repeated SessionMetrics session_list = 5;
+  uint64 quote_sequence = 6;
+}

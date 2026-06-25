@@ -1,0 +1,203 @@
+syntax = "proto3";
+package lumera.router.v1;
+
+import "google/protobuf/timestamp.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "x/router/types";
+
+// Router service implements the lumera.router meta-tool from whitepaper
+// section 2.2
+service Router {
+  // Discover finds and ranks tools for a given intent
+  rpc Discover(DiscoverRequest) returns (DiscoverResponse);
+
+  // Quote gets cost and performance estimates for a tool invocation
+  rpc Quote(QuoteRequest) returns (QuoteResponse);
+
+  // Invoke executes a tool and returns signed receipt
+  rpc Invoke(InvokeRequest) returns (InvokeResponse);
+
+  // Activate adds a tool to the active set
+  rpc Activate(ActivateRequest) returns (ActivateResponse);
+
+  // Deactivate removes a tool from the active set
+  rpc Deactivate(DeactivateRequest) returns (DeactivateResponse);
+
+  // GetActivationPolicy returns current activation constraints
+  rpc GetActivationPolicy(GetActivationPolicyRequest)
+      returns (GetActivationPolicyResponse);
+}
+
+// DiscoverRequest finds tools matching an intent
+message DiscoverRequest {
+  // Intent specification
+  Intent intent = 1;
+
+  // Policy constraints
+  PolicyConstraints constraints = 2;
+
+  // Session ID for tracking
+  string session_id = 3;
+}
+
+// Intent describes what the user wants to accomplish
+message Intent {
+  string goal = 1;                // Natural language description
+  map<string, string> inputs = 2; // Input parameters
+  string budget_max = 3;          // Maximum budget as decimal string
+}
+
+// PolicyConstraints defines execution constraints
+message PolicyConstraints {
+  repeated string privacy = 1;            // ["no_pii", "encrypted", etc]
+  repeated string jurisdiction = 2;       // ["US", "EU", etc]
+  repeated string allowed_categories = 3; // Tool categories to consider
+  repeated string denied_tools = 4;       // Explicit tool exclusions
+  string max_latency_ms = 5;              // Maximum acceptable latency
+}
+
+// DiscoverResponse returns ranked tool candidates
+message DiscoverResponse {
+  repeated ToolCandidate candidates = 1;
+  string trace_id = 2; // For audit trail
+}
+
+// ToolCandidate represents a ranked tool option
+message ToolCandidate {
+  string tool_id = 1;
+  string rationale = 2;    // Why this tool was selected
+  string est_cost = 3;     // Estimated cost as decimal
+  uint32 p95_ms = 4;       // P95 latency estimate
+  double score = 5;        // Ranking score
+  bool verified = 6;       // Has "Lumera Verified" badge
+  string cache_status = 7; // "hit", "miss", "deterministic"
+}
+
+// QuoteRequest gets a quote for tool invocation
+message QuoteRequest {
+  string tool_id = 1;
+  map<string, string> args = 2; // Tool-specific arguments
+  string session_id = 3;
+  string max_cost = 4; // Maximum acceptable cost
+}
+
+// QuoteResponse provides cost and performance estimates
+message QuoteResponse {
+  string quote_id = 1;      // Unique quote identifier
+  string est_cost = 2;      // Estimated cost as decimal
+  uint32 p95_ms = 3;        // P95 latency estimate
+  uint32 validity_s = 4;    // Quote validity in seconds
+  string locked_amount = 5; // Amount locked in credits
+  bool cache_eligible = 6;  // Can use cached result
+  string trace = 7;         // Execution plan trace
+}
+
+// InvokeRequest executes a tool
+message InvokeRequest {
+  string tool_id = 1;
+  map<string, string> args = 2;
+  string max_cost = 3; // Maximum cost willing to pay
+  string quote_id = 4; // Optional quote to honor
+  string session_id = 5;
+  bool accept_cached = 6; // Accept cached results
+
+  // Replay protection (Phase 2.11.7.1)
+  string nonce = 7; // Unique nonce for replay protection (UUID recommended)
+  google.protobuf.Timestamp timestamp =
+      8 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ]; // Request timestamp for temporal bounds
+}
+
+// InvokeResponse returns tool output and receipt
+message InvokeResponse {
+  string output = 1; // Tool output (JSON)
+  SignedReceipt receipt = 2;
+  ExecutionTrace trace = 3;
+  string refund_amount = 4; // Any refunded amount
+}
+
+// SignedReceipt matches whitepaper section 4.2
+message SignedReceipt {
+  Receipt receipt = 1;
+  string publisher_sig = 2; // Ed448 signature
+  string router_sig = 3;    // Router co-signature
+}
+
+// Receipt contains usage details
+message Receipt {
+  string tool_id = 1;
+  string request_id = 2;
+  string request_hash = 3;     // blake3:...
+  string units_used = 4;       // decimal
+  string unit = 5;             // "req" | "page" | "sec" | "token"
+  string price_per_unit = 6;   // decimal
+  int64 ts = 7;                // Unix timestamp
+  string publisher_pubkey = 8; // ed448:...
+
+  // Additional Lumera fields
+  string actual_cost = 9;
+  string quoted_cost = 10;
+  bool cache_hit = 11;
+  string origin_tool_id = 12; // For cache royalties
+}
+
+// ExecutionTrace provides transparency
+message ExecutionTrace {
+  string trace_id = 1;
+  string rationale = 2;             // Why this tool was chosen
+  string price = 3;                 // Actual price paid
+  uint32 latency_ms = 4;            // Actual latency
+  repeated string policy_flags = 5; // Policy checks applied
+  bool cache_hit = 6;
+  string insurance_estimate = 7; // Insurance pool contribution
+}
+
+// ActivateRequest adds tool to active set
+message ActivateRequest {
+  string tool_id = 1;
+  string session_id = 2;
+  string reason = 3; // Optional activation reason
+}
+
+// ActivateResponse confirms activation
+message ActivateResponse {
+  bool success = 1;
+  string message = 2;
+  repeated string active_tools = 3; // Current active set
+  uint32 remaining_slots = 4;       // Slots left (max 8)
+}
+
+// DeactivateRequest removes tool from active set
+message DeactivateRequest {
+  string tool_id = 1;
+  string session_id = 2;
+  string reason = 3;
+}
+
+// DeactivateResponse confirms deactivation
+message DeactivateResponse {
+  bool success = 1;
+  string message = 2;
+  repeated string active_tools = 3;
+  int64 cooldown_until = 4; // Unix timestamp when can reactivate
+}
+
+// GetActivationPolicyRequest queries policy
+message GetActivationPolicyRequest { string session_id = 1; }
+
+// GetActivationPolicyResponse returns current policy
+message GetActivationPolicyResponse {
+  uint32 active_set_limit = 1;         // Maximum tools (default 8)
+  uint32 cooldown_seconds = 2;         // Deactivation cooldown
+  uint32 ttl_seconds = 3;              // Session TTL
+  map<string, string> constraints = 4; // Active constraints
+}
+
+// ToolActivationRecord tracks activation changes
+message ToolActivationRecord {
+  string tool_id = 1;
+  bool active = 2;
+  google.protobuf.Timestamp timestamp = 3 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  string session_id = 4;
+  string reason = 5;
+}

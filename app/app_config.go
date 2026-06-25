@@ -70,6 +70,8 @@ import (
 	registrytypes "github.com/LumeraProtocol/lumera/x/registry/types"
 	reservemodulev1 "github.com/LumeraProtocol/lumera/x/reserve/module"
 	reservetypes "github.com/LumeraProtocol/lumera/x/reserve/types"
+	routermodulev1 "github.com/LumeraProtocol/lumera/x/router/module"
+	routertypes "github.com/LumeraProtocol/lumera/x/router/types"
 	supernodemodulev1 "github.com/LumeraProtocol/lumera/x/supernode/v1/module"
 	supernodemoduletypes "github.com/LumeraProtocol/lumera/x/supernode/v1/types"
 	vaultsmodulev1 "github.com/LumeraProtocol/lumera/x/vaults/module"
@@ -176,6 +178,7 @@ var (
 		cactypes.ModuleName,
 		challengestypes.ModuleName,
 		paymentrailstypes.ModuleName,
+		routertypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis
 	}
 
@@ -224,6 +227,7 @@ var (
 		cactypes.ModuleName,
 		challengestypes.ModuleName,
 		paymentrailstypes.ModuleName,
+		routertypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/beginBlockers
 	}
 
@@ -264,6 +268,7 @@ var (
 		cactypes.ModuleName,
 		challengestypes.ModuleName,
 		paymentrailstypes.ModuleName,
+		routertypes.ModuleName,
 		// NOTE: feemarket EndBlocker should be last to get the full block gas used
 		feemarkettypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/endBlockers
@@ -515,6 +520,10 @@ var (
 			{
 				Name:   paymentrailstypes.ModuleName,
 				Config: appconfig.WrapAny(&paymentrailsmodulev1.Module{}),
+			},
+			{
+				Name:   routertypes.ModuleName,
+				Config: appconfig.WrapAny(&routermodulev1.Module{}),
 			},
 			// this line is used by starport scaffolding # stargate/app/moduleConfig
 		},

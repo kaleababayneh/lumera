@@ -1,0 +1,231 @@
+syntax = "proto3";
+package lumera.router.v1;
+
+import "google/api/annotations.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "gogoproto/gogo.proto";
+import "lumera/router/v1/state.proto";
+
+option go_package = "x/router/types";
+
+// Query defines the gRPC query service for the router module
+service Query {
+  // Params queries the router module parameters
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/lumera/router/v1/params";
+  }
+
+  // GlobalMetrics queries system-wide metrics
+  rpc GlobalMetrics(QueryGlobalMetricsRequest)
+      returns (QueryGlobalMetricsResponse) {
+    option (google.api.http).get = "/lumera/router/v1/metrics/global";
+  }
+
+  // ToolMetrics queries metrics for a specific tool
+  rpc ToolMetrics(QueryToolMetricsRequest) returns (QueryToolMetricsResponse) {
+    option (google.api.http).get = "/lumera/router/v1/metrics/tool/{tool_id}";
+  }
+
+  // CategoryMetrics queries metrics for a tool category
+  rpc CategoryMetrics(QueryCategoryMetricsRequest)
+      returns (QueryCategoryMetricsResponse) {
+    option (google.api.http).get =
+        "/lumera/router/v1/metrics/category/{category}";
+  }
+
+  // SessionMetrics queries metrics for a specific session
+  rpc SessionMetrics(QuerySessionMetricsRequest)
+      returns (QuerySessionMetricsResponse) {
+    option (google.api.http).get =
+        "/lumera/router/v1/metrics/session/{session_id}";
+  }
+
+  // SelectionScores queries tool selection scores
+  rpc SelectionScores(QuerySelectionScoresRequest)
+      returns (QuerySelectionScoresResponse) {
+    option (google.api.http).get = "/lumera/router/v1/scores";
+  }
+
+  // PolicyUpdates queries recent policy updates
+  rpc PolicyUpdates(QueryPolicyUpdatesRequest)
+      returns (QueryPolicyUpdatesResponse) {
+    option (google.api.http).get = "/lumera/router/v1/policy/updates";
+  }
+
+  // CACRoyalties queries CAC royalty records
+  rpc CACRoyalties(QueryCACRoyaltiesRequest)
+      returns (QueryCACRoyaltiesResponse) {
+    option (google.api.http).get = "/lumera/router/v1/cac/royalties";
+  }
+
+  // ActiveTools queries currently active tools
+  rpc ActiveTools(QueryActiveToolsRequest) returns (QueryActiveToolsResponse) {
+    option (google.api.http).get = "/lumera/router/v1/tools/active";
+  }
+
+  // ToolRanking queries tools ranked by various metrics
+  rpc ToolRanking(QueryToolRankingRequest) returns (QueryToolRankingResponse) {
+    option (google.api.http).get = "/lumera/router/v1/tools/ranking";
+  }
+}
+
+// QueryParamsRequest is the request type for the Query/Params RPC method
+message QueryParamsRequest {}
+
+// QueryParamsResponse is the response type for the Query/Params RPC method
+message QueryParamsResponse {
+  Params params = 1 [ (gogoproto.nullable) = false ];
+}
+
+// QueryGlobalMetricsRequest is the request type for the Query/GlobalMetrics RPC
+// method
+message QueryGlobalMetricsRequest {}
+
+// QueryGlobalMetricsResponse is the response type for the Query/GlobalMetrics
+// RPC method
+message QueryGlobalMetricsResponse { GlobalMetrics metrics = 1; }
+
+// QueryToolMetricsRequest is the request type for the Query/ToolMetrics RPC
+// method
+message QueryToolMetricsRequest { string tool_id = 1; }
+
+// QueryToolMetricsResponse is the response type for the Query/ToolMetrics RPC
+// method
+message QueryToolMetricsResponse {
+  ActivationMetrics metrics = 1;
+  ToolSelectionScore score = 2;
+}
+
+// QueryCategoryMetricsRequest is the request type for the Query/CategoryMetrics
+// RPC method
+message QueryCategoryMetricsRequest { string category = 1; }
+
+// QueryCategoryMetricsResponse is the response type for the
+// Query/CategoryMetrics RPC method
+message QueryCategoryMetricsResponse { CategoryMetrics metrics = 1; }
+
+// QuerySessionMetricsRequest is the request type for the Query/SessionMetrics
+// RPC method
+message QuerySessionMetricsRequest { string session_id = 1; }
+
+// QuerySessionMetricsResponse is the response type for the Query/SessionMetrics
+// RPC method
+message QuerySessionMetricsResponse { SessionMetrics metrics = 1; }
+
+// QuerySelectionScoresRequest is the request type for the Query/SelectionScores
+// RPC method
+message QuerySelectionScoresRequest {
+  // Filter by minimum score
+  string min_score = 1;
+
+  // Pagination
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+
+// QuerySelectionScoresResponse is the response type for the
+// Query/SelectionScores RPC method
+message QuerySelectionScoresResponse {
+  repeated ToolSelectionScore scores = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryPolicyUpdatesRequest is the request type for the Query/PolicyUpdates RPC
+// method
+message QueryPolicyUpdatesRequest {
+  // Filter by policy ID
+  string policy_id = 1;
+
+  // Maximum number of updates to return
+  uint32 limit = 2;
+
+  // Pagination
+  cosmos.base.query.v1beta1.PageRequest pagination = 3;
+}
+
+// QueryPolicyUpdatesResponse is the response type for the Query/PolicyUpdates
+// RPC method
+message QueryPolicyUpdatesResponse {
+  repeated PolicyUpdate updates = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryCACRoyaltiesRequest is the request type for the Query/CACRoyalties RPC
+// method
+message QueryCACRoyaltiesRequest {
+  // Filter by origin tool ID
+  string origin_tool_id = 1;
+
+  // Filter by consuming tool ID
+  string consuming_tool_id = 2;
+
+  // Pagination
+  cosmos.base.query.v1beta1.PageRequest pagination = 3;
+}
+
+// QueryCACRoyaltiesResponse is the response type for the Query/CACRoyalties RPC
+// method
+message QueryCACRoyaltiesResponse {
+  repeated CACRoyaltyRecord records = 1;
+  string total_royalties = 2; // Total royalties as decimal string
+  cosmos.base.query.v1beta1.PageResponse pagination = 3;
+}
+
+// QueryActiveToolsRequest is the request type for the Query/ActiveTools RPC
+// method
+message QueryActiveToolsRequest {
+  // Filter by session ID
+  string session_id = 1;
+
+  // Filter by category
+  string category = 2;
+}
+
+// QueryActiveToolsResponse is the response type for the Query/ActiveTools RPC
+// method
+message QueryActiveToolsResponse {
+  repeated string tool_ids = 1;
+  map<string, ActivationMetrics> metrics = 2;
+}
+
+// RankingCriteria specifies how to rank tools
+enum RankingCriteria {
+  RANKING_CRITERIA_UNSPECIFIED = 0;
+  RANKING_CRITERIA_VOLUME = 1;
+  RANKING_CRITERIA_INVOCATIONS = 2;
+  RANKING_CRITERIA_SUCCESS_RATE = 3;
+  RANKING_CRITERIA_LATENCY = 4;
+  RANKING_CRITERIA_COST_EFFICIENCY = 5;
+  RANKING_CRITERIA_OVERALL_SCORE = 6;
+}
+
+// QueryToolRankingRequest is the request type for the Query/ToolRanking RPC
+// method
+message QueryToolRankingRequest {
+  // Ranking criteria
+  RankingCriteria criteria = 1;
+
+  // Filter by category
+  string category = 2;
+
+  // Maximum results
+  uint32 limit = 3;
+
+  // Time window in seconds (0 = all time)
+  uint32 window_seconds = 4;
+}
+
+// RankedTool represents a tool with its ranking information
+message RankedTool {
+  string tool_id = 1;
+  uint32 rank = 2;
+  string score = 3; // Score value as decimal string
+  ActivationMetrics metrics = 4;
+}
+
+// QueryToolRankingResponse is the response type for the Query/ToolRanking RPC
+// method
+message QueryToolRankingResponse {
+  repeated RankedTool tools = 1;
+  RankingCriteria criteria = 2;
+  string timestamp = 3;
+}

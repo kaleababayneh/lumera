@@ -1,0 +1,147 @@
+syntax = "proto3";
+package lumera.router.v1;
+
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+import "google/protobuf/timestamp.proto";
+import "lumera/router/v1/state.proto";
+
+option go_package = "x/router/types";
+
+// Msg defines the router Msg service
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // UpdateParams updates the router module parameters via governance
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+
+  // RecordActivation records a tool activation event
+  rpc RecordActivation(MsgRecordActivation)
+      returns (MsgRecordActivationResponse);
+
+  // RecordInvocation records a tool invocation event
+  rpc RecordInvocation(MsgRecordInvocation)
+      returns (MsgRecordInvocationResponse);
+
+  // RecordPolicyUpdate records a policy update event
+  rpc RecordPolicyUpdate(MsgRecordPolicyUpdate)
+      returns (MsgRecordPolicyUpdateResponse);
+
+  // RecordCACHit records a content-addressed cache hit
+  rpc RecordCACHit(MsgRecordCACHit) returns (MsgRecordCACHitResponse);
+
+  // AggregateMetrics triggers metric aggregation (usually called by end
+  // blocker)
+  rpc AggregateMetrics(MsgAggregateMetrics)
+      returns (MsgAggregateMetricsResponse);
+}
+
+// MsgUpdateParams updates router module parameters
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // authority is the address that controls the module (defaults to x/gov module
+  // account)
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // params defines the router parameters to update
+  Params params = 2 [ (gogoproto.nullable) = false ];
+}
+
+// MsgUpdateParamsResponse defines the response for MsgUpdateParams
+message MsgUpdateParamsResponse {}
+
+// MsgRecordActivation records a tool activation/deactivation
+message MsgRecordActivation {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string tool_id = 2;
+  string session_id = 3;
+  bool activated = 4; // true for activation, false for deactivation
+  string reason = 5;
+  google.protobuf.Timestamp timestamp = 6 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+}
+
+// MsgRecordActivationResponse defines the response for MsgRecordActivation
+message MsgRecordActivationResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// MsgRecordInvocation records a tool invocation
+message MsgRecordInvocation {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string tool_id = 2;
+  string session_id = 3;
+  string user_address = 4;
+  string cost = 5; // LAC amount as decimal string
+  uint32 latency_ms = 6;
+  bool success = 7;
+  bool cache_hit = 8;
+  string origin_tool_id = 9; // For cache royalties
+  google.protobuf.Timestamp timestamp = 10 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+}
+
+// MsgRecordInvocationResponse defines the response for MsgRecordInvocation
+message MsgRecordInvocationResponse {
+  bool recorded = 1;
+  string metrics_updated = 2;
+}
+
+// MsgRecordPolicyUpdate records a policy version change
+message MsgRecordPolicyUpdate {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string policy_id = 2;
+  string new_version = 3;
+  string previous_version = 4;
+  map<string, string> changes = 5;
+  string reason = 6;
+}
+
+// MsgRecordPolicyUpdateResponse defines the response for MsgRecordPolicyUpdate
+message MsgRecordPolicyUpdateResponse {
+  bool success = 1;
+  uint64 update_count = 2;
+}
+
+// MsgRecordCACHit records a content-addressed cache hit for royalty tracking
+message MsgRecordCACHit {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string cache_key = 2;
+  string origin_tool_id = 3;
+  string consuming_tool_id = 4;
+  string royalty_amount = 5; // LAC amount as decimal string
+  google.protobuf.Timestamp timestamp = 6 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+}
+
+// MsgRecordCACHitResponse defines the response for MsgRecordCACHit
+message MsgRecordCACHitResponse {
+  bool recorded = 1;
+  string total_royalties = 2; // Total royalties for origin tool
+  uint64 total_hits = 3;
+}
+
+// MsgAggregateMetrics triggers periodic metric aggregation
+message MsgAggregateMetrics {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  uint64 block_height = 2;
+  bool force = 3; // Force aggregation even if not at interval
+}
+
+// MsgAggregateMetricsResponse defines the response for MsgAggregateMetrics
+message MsgAggregateMetricsResponse {
+  bool aggregated = 1;
+  uint64 tools_processed = 2;
+  uint64 sessions_processed = 3;
+  uint64 next_aggregation_block = 4;
+}

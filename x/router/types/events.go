@@ -1,0 +1,51 @@
+package types
+
+// Event types
+const (
+	EventTypeToolActivation   = "tool_activation"
+	EventTypeToolInvocation   = "tool_invocation"
+	EventTypePolicyUpdate     = "policy_update"
+	EventTypeCACHit           = "cac_hit"
+	EventTypeDiscoverySubsidy = "discovery_subsidy_rebate"
+	EventTypeDiscoveryReset   = "discovery_subsidy_period_reset"
+	EventTypeScoreUpdate      = "score_update"
+	EventTypeMetricsAggregate = "metrics_aggregate"
+	EventTypeParamUpdate      = "param_update"
+)
+
+// Event attribute keys
+const (
+	AttributeKeyToolID            = "tool_id"
+	AttributeKeySessionID         = "session_id"
+	AttributeKeyUserAddress       = "user_address"
+	AttributeKeyActivated         = "activated"
+	AttributeKeyReason            = "reason"
+	AttributeKeyCost              = "cost"
+	AttributeKeyLatency           = "latency_ms"
+	AttributeKeySuccess           = "success"
+	AttributeKeyCacheHit          = "cache_hit"
+	AttributeKeyOriginToolID      = "origin_tool_id"
+	AttributeKeyConsumingToolID   = "consuming_tool_id"
+	AttributeKeyRoyaltyAmount     = "royalty_amount"
+	AttributeKeyTotalRoyalties    = "total_royalties"
+	AttributeKeyRebateAmount      = "rebate_amount"
+	AttributeKeySubsidySpent      = "discovery_subsidy_spent"
+	AttributeKeySubsidyPoolCap    = "discovery_subsidy_pool_cap"
+	AttributeKeySubsidyPeriod     = "discovery_subsidy_period_blocks"
+	AttributeKeyNextResetBlock    = "next_reset_block"
+	AttributeKeyPreviousSpent     = "previous_discovery_subsidy_spent"
+	AttributeKeyExplorationPick   = "exploration_pick"
+	AttributeKeyPolicyID          = "policy_id"
+	AttributeKeyVersion           = "version"
+	AttributeKeyPreviousVersion   = "previous_version"
+	AttributeKeyUpdater           = "updater"
+	AttributeKeyUpdateReason      = "update_reason"
+	AttributeKeyOverallScore      = "overall_score"
+	AttributeKeyDataPoints        = "data_points"
+	AttributeKeyBlockHeight       = "block_height"
+	AttributeKeyToolsProcessed    = "tools_processed"
+	AttributeKeySessionsProcessed = "sessions_processed"
+	AttributeKeyAuthority         = "authority"
+	AttributeKeyOldParams         = "old_params"
+	AttributeKeyNewParams         = "new_params"
+)
