@@ -204,9 +204,31 @@ The full agentic economy runs on a local node: **discover → meter → execute 
   (`poc/mcp-router`) — a Model Context Protocol server so real AI agents discover + call on-chain tools,
   each call metered → executed → **proven (BLAKE3 PoS receipt)** → settled (publisher paid). Verified:
   an agent over MCP called `pubtool`, got the result + on-chain proof, publisher paid 800000ulac.
-- **Deferred (not on the critical path):** `workflows`/`payment_rails`/`auction`/`challenges`/`vaults`
-  (peripheral/blocked/orthogonal); incentives Phase-2 self-feed (metrics from PoS receipts + disputes);
+- **Deferred (not on the critical path):** `priority`/`auction` (router-support libraries, inert until
+  the router is wired), `workflows` (protobuf-go messages with no proto source — needs reconstruction),
+  `router` (capstone); incentives Phase-2 self-feed (metrics from PoS receipts + disputes);
   reject-on-expiry EndBlocker for disputes; SGX `EnclaveQuote` verification; the deferred test suites.
+
+## Module-port wave 2 — 5 more modules integrated + e2e-verified (2026-06-23)
+Continuing the lumera_ai → lumera port with the §4 recipe; each builds green, boots on a single-node
+localnet, and is verified end-to-end (all committed, no stubs):
+- **`x/vaults`** — prepaid-capacity vaults over the reserve keeper (tiered prepaid discounts).
+  Verified: create vault tier bronze, 1,000,000 ulac escrowed, 250 bps discount.
+- **`x/passport`** — agent identity / stake (a thesis trust primitive). maccPerms Burner (slash burns
+  stake). Verified: register passport (100 LUME staked) → query → by-agent → top-up (+50 LUME). Found &
+  fixed a real `proto.Clone` panic (gogo math.Int customtype) in the query server, same class as
+  credits/insurance — now `deepCopyProto` marshal/unmarshal.
+- **`x/cac`** — content-addressable cache (BLAKE3), cache-hit royalty split. Added
+  `registry.IsDeterministicTool` (reads ToolCard CachePolicy.Deterministic). Verified: cache-store →
+  stats/entry/lookup/tool-entries; LegacyDec hit_rate + stdtime timestamps work.
+- **`x/challenges`** — grand-challenge / tournament (escrowed prize pools, entry fees, scored
+  submissions, ranked payouts). Registry adapter for category eligibility; SLO-probe/identity-attestation
+  challenge types deferred (registry SLO state + lumeraid nonce not yet present). Verified: create
+  (5,000,000 ulac prize escrow) → join×2 (entry fees) → activate (min-participants enforced).
+- **`x/payment_rails`** — programmable settlement (deposit a bridged asset → oracle-priced LAC mint;
+  withdraw/refund). Setter-injected bank+credits+oracle. IBC settlement is inert local state (packet
+  hooks deferred). Verified full money path: deposit 1,000,000 usdc (USDC/USD oracle price seeded in
+  genesis) → 997,000 ulac minted (1,000,000 − 30bps acq fee), 1,000,000 usdc escrowed.
 
 ## Module 1: `x/credits`
 
