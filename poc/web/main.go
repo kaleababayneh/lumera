@@ -835,6 +835,8 @@ func main() {
 				}
 			}
 		}
+		// Wave-2 module state: passport, vaults, cac, tournaments, on-ramp, router.
+		enrichWave2State(st, agentName, agentAddr)
 		writeJSON(w, st)
 	})
 
@@ -1239,6 +1241,10 @@ func main() {
 		writeJSON(w, map[string]any{"ok": res.OK, "step": "bond-withdraw", "tx": res,
 			"note": "Withdrew excess bond from " + tool + " (only the amount above the minimum is reclaimable while registered)."})
 	})
+
+	// Wave-2 module APIs: vaults, passport, cac, challenges (tournaments),
+	// payment_rails (on-ramp), router (telemetry) — all real on-chain calls.
+	registerWave2APIs(mux)
 
 	log.Printf("Lumera AI web PoC on http://localhost%s  (node=%s, home=%s)", addr, cfg.Node, cfg.Home)
 	if err := http.ListenAndServe(addr, mux); err != nil {

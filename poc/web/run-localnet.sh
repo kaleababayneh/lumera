@@ -58,9 +58,31 @@ sn=d['app_state']['supernode']['params']
 sn['metrics_update_interval_blocks']="1000000000"
 sn['metrics_grace_period_blocks']="1000000000"
 sn['metrics_freshness_max_blocks']="1000000000"
+# Passport: lower the minimum agent stake so the funded test accounts (50 LUME)
+# can register an identity + top up within the demo. Production default is 100 LUME.
+pp=d['app_state'].get('passport')
+if pp is not None:
+    pp['params']['min_stake']={'denom':'ulume','amount':'10000000'}  # 10 LUME
+# Payment rails on-ramp: seed an oracle USDC/USD aggregated price (timestamp =
+# genesis_time so it is fresh at boot) so create-deposit can mint LAC from a
+# bridged usdc deposit. Without a price the deposit fails "pricing unavailable".
+gt=d['genesis_time']
+orc=d['app_state'].get('oracle')
+if orc is not None:
+    orc.setdefault('aggregated_prices',[])
+    orc['aggregated_prices'].append({'asset_pair':'USDC/USD','median_price':'1.000000000000000000',
+        'mean_price':'1.000000000000000000','standard_deviation':'0.000000000000000000',
+        'num_validators':1,'block_height':'0','timestamp':gt})
+# Widen the payment_rails oracle-staleness window so the single genesis-seeded
+# USDC/USD price (no live validator vote-extension feed on a 1-node localnet)
+# stays "fresh" for the whole demo. Same demo-shortcut as the supernode windows.
+pr=d['app_state'].get('payment_rails')
+if pr is not None:
+    pr['params']['oracle_staleness_sec']="1000000000"
 json.dump(d,open(p,'w'),indent=1)
 PY
-"$LD" genesis add-genesis-account "$VAL" 100000000000000ulume "${KR[@]}" >/dev/null 2>&1
+# val also holds usdc (the bridged on-ramp asset) so it can fund the test accounts.
+"$LD" genesis add-genesis-account "$VAL" 100000000000000ulume,1000000000usdc "${KR[@]}" >/dev/null 2>&1
 "$LD" genesis gentx val 1000000000ulume --chain-id "$CHAIN" "${KR[@]}" >/dev/null 2>&1
 "$LD" genesis collect-gentxs --home "$HM" >/dev/null 2>&1
 nohup "$LD" start --home "$HM" --minimum-gas-prices=0ulume --log_level error > "$HM/node.log" 2>&1 &
@@ -74,10 +96,12 @@ waittx "$("$LD" tx supernode register-supernode "$VALOPER" 127.0.0.1 "$VAL" --fr
 # Fund the publisher (escrows a tool bond) and the challenger (disputes a bad receipt).
 waittx "$("$LD" tx bank send "$VAL" "$PUB" 6000000ulume --from val "${C[@]}" -o json | hash)"
 waittx "$("$LD" tx bank send "$VAL" "$CHL" 3000000ulume --from val "${C[@]}" -o json | hash)"
-# Fund the 5 test accounts with LUME (each swaps to LAC + pays for tool calls).
+# Fund the 5 test accounts with LUME (each swaps to LAC + pays for tool calls)
+# and usdc (the bridged on-ramp asset for the payment_rails deposit panel).
 for a in "${ACCTS[@]}"; do
   ADDR=$("$LD" keys show "$a" -a "${KR[@]}")
   waittx "$("$LD" tx bank send "$VAL" "$ADDR" 50000000ulume --from val "${C[@]}" -o json | hash)"
+  waittx "$("$LD" tx bank send "$VAL" "$ADDR" 50000000usdc --from val "${C[@]}" -o json | hash)"
 done
 
 # Seed a living marketplace: register a fleet of tools (varied owners/bonds), then
@@ -94,6 +118,37 @@ done
 for entry in "${FLEET[@]}"; do set -- $entry
   waittx "$("$LD" tx incentives request-evaluation "$1" --from "$2" "${C[@]}" -o json | hash)"
 done
+
+# Seed the wave-2 module panels so they show live on-chain data on first load
+# (every line below is a real tx — the same calls the web panels make).
+echo "seeding wave-2 modules (passport · vaults · cac · tournaments · on-ramp · router)…"
+# Agent identities (passport): a few accounts register a stake-backed identity.
+for entry in "acct1 12000000" "acct2 15000000" "acct4 18000000"; do set -- $entry
+  waittx "$("$LD" tx passport register "agent-$1" "${2}ulume" --from "$1" "${C[@]}" -o json | hash)"
+done
+# Prepaid capacity (vaults): acct1 swaps + opens a bronze vault.
+waittx "$("$LD" tx credits swap-lume-to-lac --amount 5000000ulume --min-lac-out 1 --from acct1 "${C[@]}" -o json | hash)"
+waittx "$("$LD" tx vaults create --policy-id p1 --tier bronze --amount 1000000ulac --from acct1 "${C[@]}" -o json | hash)"
+# Content cache (cac): the supernode stores a cache entry for pubtool.
+echo '{"answer":"42","model":"demo"}' > /tmp/lumera-cac-seed.json
+waittx "$("$LD" tx cac cache-store /tmp/lumera-cac-seed.json --tool-id pubtool --request-hash seed-req-001 --ttl 3600 --deterministic --royalty-eligible --from val "${C[@]}" -o json | hash)"
+# Tournament (challenges): acct2 swaps + opens a performance tournament, two tools join.
+waittx "$("$LD" tx credits swap-lume-to-lac --amount 8000000ulume --min-lac-out 1 --from acct2 "${C[@]}" -o json | hash)"
+NOW=$(python3 -c "import datetime;print(datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))")
+ENDS=$(python3 -c "import datetime;print((datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(days=1)).strftime('%Y-%m-%dT%H:%M:%SZ'))")
+CC=$("$LD" tx challenges create-challenge --title "Latency Cup" --type performance --prize-pool 2000000ulac --entry-fee 1000ulac --starts-at "$NOW" --ends-at "$ENDS" --from acct2 "${C[@]}" -o json | hash)
+waittx "$CC"
+CID=$("$LD" query challenges challenges --node "$NODE" -o json 2>/dev/null | python3 -c "import sys,json;cs=json.load(sys.stdin).get('challenges',[]);print(cs[0]['challenge_id'] if cs else '')" 2>/dev/null)
+if [ -n "$CID" ]; then
+  waittx "$("$LD" tx challenges join-challenge --challenge-id "$CID" --tool-id atlas-7b --from acct2 "${C[@]}" -o json | hash)"
+  waittx "$("$LD" tx challenges join-challenge --challenge-id "$CID" --tool-id orion-70b --from acct2 "${C[@]}" -o json | hash)"
+fi
+# On-ramp (payment_rails): acct3 deposits bridged usdc → oracle-priced LAC mint.
+waittx "$("$LD" tx payment_rails create-deposit 2000000usdc --tx-hash 0xseedrail001 --request-id rail-seed-001 --confirmations 3 --from acct3 "${C[@]}" -o json | hash)"
+# Routing telemetry (router): tool owners record activations (feeds global metrics).
+waittx "$("$LD" tx router record-activation pubtool true --session-id seed-sess-1 --from pub "${C[@]}" -o json | hash)"
+waittx "$("$LD" tx router record-activation atlas-7b true --session-id seed-sess-1 --from acct1 "${C[@]}" -o json | hash)"
+
 # Build the MCP router so the web "Agent terminal" can drive a real agent over MCP.
 go build -o /tmp/lumera-mcp-router ./poc/mcp-router 2>/dev/null || true
 
