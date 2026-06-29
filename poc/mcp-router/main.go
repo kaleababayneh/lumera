@@ -19,6 +19,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -283,7 +284,59 @@ type callResult struct {
 	CostUlac   string `json:"cost_ulac"`
 	Publisher  string `json:"publisher"`
 	Settled    bool   `json:"settled"`
+	CacheHit   bool   `json:"cache_hit"`
 	Verifiable string `json:"verifiable"`
+}
+
+// blake3Sum returns the BLAKE3-256 digest of s.
+func blake3Sum(s string) []byte { h := blake3.Sum256([]byte(s)); return h[:] }
+
+// cacRequestHash binds (tool, input) to a deterministic content-cache key.
+func cacRequestHash(toolID, input string) string {
+	return "req-" + hex.EncodeToString(blake3Sum(toolID+":"+input))[:40]
+}
+
+// cacheLookup checks the content-addressed cache for a prior identical call.
+// Returns (output, originTool, true) only when a hit's content decodes cleanly.
+// originTool is the tool that stored the entry — used to route a CAC royalty
+// when a DIFFERENT tool serves it (the credits module rejects a self-royalty).
+func cacheLookup(requestHash string) (string, string, bool) {
+	m, err := query("cac", "lookup", requestHash)
+	if err != nil {
+		return "", "", false
+	}
+	entries, ok := m["entries"].([]any)
+	if !ok || len(entries) == 0 {
+		return "", "", false
+	}
+	e, _ := entries[0].(map[string]any)
+	c, _ := e["content"].(string)
+	if c == "" {
+		return "", "", false
+	}
+	raw, err := base64.StdEncoding.DecodeString(c)
+	if err != nil {
+		return "", "", false
+	}
+	origin, _ := e["tool_id"].(string)
+	return strings.TrimRight(string(raw), "\n"), origin, true
+}
+
+// cacheStore populates the cache after a miss so the next identical call is a
+// hit. Best-effort: a failure here never fails the tool call.
+func cacheStore(toolID, requestHash, output string) {
+	f, err := os.CreateTemp("", "mcp-cac-*.json")
+	if err != nil {
+		return
+	}
+	defer func() { _ = os.Remove(f.Name()) }()
+	_, _ = f.WriteString(output)
+	_ = f.Close()
+	code, _, rawlog, err := broadcast(cfg.Supernode, "cac", "cache-store", f.Name(),
+		"--tool-id", toolID, "--request-hash", requestHash, "--deterministic", "--royalty-eligible")
+	if err != nil || code != 0 {
+		logf("cache-store failed (non-fatal): %v %s", err, rawlog)
+	}
 }
 
 // executeTool runs the off-chain work. One tool — oracle-feed — does GENUINE
@@ -371,6 +424,15 @@ func callTool(toolID, input string) (*callResult, error) {
 		return nil, err
 	}
 
+	// Content-addressed cache: a deterministic request hash binds (tool, input).
+	// On a hit we serve the stored output (skipping execution) and flag the lock
+	// as a cache hit so the credits module routes a royalty to the origin
+	// publisher; on a miss we execute and store the result for next time.
+	requestHash := cacRequestHash(toolID, input)
+	cachedOutput, originTool, cacheHit := cacheLookup(requestHash)
+	// A CAC royalty only applies when a DIFFERENT tool serves the cached content.
+	crossToolHit := cacheHit && originTool != "" && originTool != toolID
+
 	// 1. Lock credits for the call.
 	sid := fmt.Sprintf("mcp-%d", time.Now().UnixNano()%1_000_000)
 	code, events, rawlog, err := broadcast(cfg.Agent, "credits", "lock-credits",
@@ -400,8 +462,13 @@ func callTool(toolID, input string) (*callResult, error) {
 		return nil, fmt.Errorf("no lock_id from lock-credits")
 	}
 
-	// 2. Execute the tool off-chain.
-	model, output := executeTool(toolID, input)
+	// 2. Execute the tool off-chain — or serve the stored output on a cache hit.
+	var model, output string
+	if cacheHit {
+		model, output = "cache", cachedOutput
+	} else {
+		model, output = executeTool(toolID, input)
+	}
 
 	// 3. Submit a SuperNode Proof-of-Service receipt (BLAKE3(input,model,output)).
 	code, events, rawlog, err = broadcast(cfg.Supernode, "registry", "submit-receipt", toolID,
@@ -421,10 +488,16 @@ func callTool(toolID, input string) (*callResult, error) {
 		receiptID = "pos1" + hex.EncodeToString(tr[:])
 	}
 
-	// 4. Settle — gated on the verified receipt; pays the publisher.
-	code, _, rawlog, err = broadcast(cfg.Agent, "credits", "settle-credits",
+	// 4. Settle — gated on the verified receipt; pays the publisher. On a cache
+	// hit, flag the settlement so the credits module routes a CAC royalty to the
+	// origin publisher (the tool whose stored output we served).
+	settleArgs := []string{"credits", "settle-credits",
 		"--lock-id", lockID, "--actual-cost", cfg.ActualCost, "--publisher", t.Owner,
-		"--receipt-id", receiptID, "--tool-id", toolID)
+		"--receipt-id", receiptID, "--tool-id", toolID}
+	if crossToolHit {
+		settleArgs = append(settleArgs, "--cache-hit", "--origin-tool-id", originTool)
+	}
+	code, _, rawlog, err = broadcast(cfg.Agent, settleArgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -432,9 +505,14 @@ func callTool(toolID, input string) (*callResult, error) {
 		return nil, fmt.Errorf("settle failed: %s", rawlog)
 	}
 
+	// 5. On a miss, populate the cache so the next identical call is a hit.
+	if !cacheHit {
+		cacheStore(toolID, requestHash, output)
+	}
+
 	return &callResult{
 		Output: output, ReceiptID: receiptID, CostUlac: cfg.ActualCost,
-		Publisher: t.Owner, Settled: true,
+		Publisher: t.Owner, Settled: true, CacheHit: cacheHit,
 		Verifiable: "BLAKE3(input,model,output) anchored on-chain; settlement gated on it",
 	}, nil
 }
@@ -535,8 +613,12 @@ func handle(req rpcReq) {
 			}})
 			return
 		}
-		summary := fmt.Sprintf("%s\n\n— proven on-chain —\nreceipt: %s\npaid publisher %s: %s\n%s",
-			res.Output, res.ReceiptID, short(res.Publisher), res.CostUlac, res.Verifiable)
+		served := "executed"
+		if res.CacheHit {
+			served = "served from content-cache (royalty to origin publisher)"
+		}
+		summary := fmt.Sprintf("%s\n\n— %s, proven on-chain —\nreceipt: %s\npaid publisher %s: %s\n%s",
+			res.Output, served, res.ReceiptID, short(res.Publisher), res.CostUlac, res.Verifiable)
 		structured, _ := json.Marshal(res)
 		send(rpcResp{ID: req.ID, Result: map[string]any{
 			"content":           []map[string]any{{"type": "text", "text": summary}},
