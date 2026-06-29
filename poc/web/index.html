@@ -184,10 +184,16 @@
       <a data-route="marketplace" href="#/marketplace"><span class="ic" data-ic="store"></span> Marketplace <span class="ct" id="navTools">0</span></a>
       <a data-route="agent" href="#/agent"><span class="ic" data-ic="zap"></span> Agent terminal</a>
       <a data-route="wallet" href="#/wallet"><span class="ic" data-ic="wallet"></span> Wallet</a>
+      <a data-route="identity" href="#/identity"><span class="ic" data-ic="shield"></span> Identity</a>
+      <a data-route="capacity" href="#/capacity"><span class="ic" data-ic="wallet"></span> Capacity</a>
+      <a data-route="onramp" href="#/onramp"><span class="ic" data-ic="plus"></span> On-ramp</a>
       <div class="grp up">Publisher</div>
       <a data-route="publish" href="#/publish"><span class="ic" data-ic="upload"></span> Publish a tool</a>
       <a data-route="reputation" href="#/reputation"><span class="ic" data-ic="award"></span> Reputation</a>
+      <a data-route="tournaments" href="#/tournaments"><span class="ic" data-ic="award"></span> Tournaments</a>
       <div class="grp up">Network</div>
+      <a data-route="routing" href="#/routing"><span class="ic" data-ic="activity"></span> Routing</a>
+      <a data-route="cache" href="#/cache"><span class="ic" data-ic="grid"></span> Cache</a>
       <a data-route="graph" href="#/graph"><span class="ic" data-ic="activity"></span> Trust graph</a>
       <a data-route="disputes" href="#/disputes"><span class="ic" data-ic="scale"></span> Disputes</a>
       <a data-route="activity" href="#/activity"><span class="ic" data-ic="activity"></span> Activity</a>
@@ -354,6 +360,15 @@ function updateLive(){
     set('tdBonded',fmt(bonded)+' ulume');set('tdSlashed',sl>0?fmt(sl)+' ulume':'0');setHTML('tdBadge',bt2(S.badgeTier,S.badgeScore));}
   if(el('dashFeed'))setHTML('dashFeed',feedHTML(ACTIVITY.slice(0,5)));
   if(el('actFeed'))setHTML('actFeed',ACTIVITY.length?feedHTML(ACTIVITY):'<div class="empty">No activity yet — call a tool or publish one.</div>');
+  // wave-2 module panels
+  set('ppId',S.passportId||'—');setHTML('ppStatus',S.passportStatus?w2status(S.passportStatus):'<span class="pill idle">unregistered</span>');
+  set('ppStake',S.passportStake?fmt(S.passportStake)+' ulume':'—');set('ppStaked',fmt(S.passportStaked)+' ulume');
+  set('vkRemain',(S.vaultRemaining!=null?fmt(S.vaultRemaining):'0')+' ulac');set('vkEscrow',fmt(S.vaultsEscrow)+' ulac');
+  set('ccEntries',S.cacEntries!=null?S.cacEntries:'—');set('ccHits',S.cacHits!=null?S.cacHits:'—');
+  set('ccRate',S.cacHitRate!=null?(Number(S.cacHitRate)*100).toFixed(1)+'%':'—');
+  set('tnEscrow',fmt(S.challengesEscrow)+' ulac');
+  set('orUsdc',fmt(S.railsUsdc)+' usdc');set('orLac',fmt(S.agentLac)+' ulac');
+  set('rtActive',S.routerActiveTools!=null?S.routerActiveTools:'—');set('rtInv',S.routerInvocations!=null?S.routerInvocations:'0');set('rtCache',S.routerCacheHits!=null?S.routerCacheHits:'0');
 }
 
 // ================= toasts / modal =================
@@ -394,7 +409,9 @@ derived:${esc(d.derived)}</div>`;
 const TITLES={'':['Dashboard','overview'],marketplace:['Marketplace','discover on-chain tools'],tool:['Tool','detail & playground'],
   agent:['Agent terminal','autonomous agent over MCP'],graph:['Trust graph','the network'],
   publish:['Publish a tool','the publisher flow'],disputes:['Disputes','challenge & slash'],reputation:['Reputation','badges & leaderboard'],
-  wallet:['Wallet','credits & balances'],activity:['Activity','on-chain feed'],vision:['Roadmap','the full vision']};
+  wallet:['Wallet','credits & balances'],activity:['Activity','on-chain feed'],vision:['Roadmap','the full vision'],
+  identity:['Identity','stake-backed agent passport'],capacity:['Capacity','prepaid vaults'],cache:['Cache','content-addressed cache'],
+  tournaments:['Tournaments','grand challenges'],onramp:['On-ramp','bridge → LAC credits'],routing:['Routing','router telemetry']};
 
 function kpiCard(tag,id,val,label,seed){return `<div class="kpi"><span class="tag ${tag}">${tag.toUpperCase()}</span><div class="v" id="${id}">${val}</div><div class="l up">${label}</div>${spark(seed)}</div>`;}
 
@@ -612,7 +629,7 @@ function vActivity(){
   <div class="card"><div class="b"><div class="feed" id="actFeed">${ACTIVITY.length?feedHTML(ACTIVITY):'<div class="empty">No activity yet — call a tool or publish one.</div>'}</div></div></div>`,mount:updateLive};
 }
 function feedHTML(items){if(!items||!items.length)return '<div class="empty">No activity yet.</div>';
-  const ico={call:'shield',register:'upload',swap:'wallet',badge:'award',challenge:'scale',resolve:'scale',bond:'plus'};
+  const ico={call:'shield',register:'upload',swap:'wallet',badge:'award',challenge:'scale',resolve:'scale',bond:'plus',vault:'wallet',passport:'shield',tournament:'award',rails:'wallet',router:'activity'};
   return items.map(a=>`<div class="it"><div class="fic">${svg(ico[a.type]||'activity',14)}</div>
     <div><div class="ft">${esc(a.title)}</div><div class="fs">${esc(a.sub||'')}${a.account?' · '+esc(a.account):''}</div></div>
     <div class="fm">${a.height?'h'+a.height+' · ':''}${ago(a.time)}<br>${a.txhash?`<a onclick="navigator.clipboard&&navigator.clipboard.writeText('${a.txhash}');toast('Copied tx hash')">tx ${a.txhash.slice(0,8)}</a>`:''}</div></div>`).join('');}
@@ -679,7 +696,111 @@ function vGraph(){
   <div class="row" style="margin-top:14px;gap:20px;flex-wrap:wrap"><span class="hint">${tp.length} tools · ${ap.length} agents · ${edges.length} live call-edges</span>
     <span class="row" style="gap:8px"><span class="tier PLATINUM">PLATINUM</span><span class="tier GOLD">GOLD</span><span class="tier SILVER">SILVER</span><span class="tier BRONZE">BRONZE</span><span class="hint">= node size</span></span></div>`,mount:paintAll};
 }
-const VIEWS={'':vDashboard,marketplace:vMarketplace,tool:vTool,agent:vAgent,graph:vGraph,publish:vPublish,disputes:vDisputes,reputation:vReputation,wallet:vWallet,activity:vActivity,vision:vVision};
+// ================= wave-2 module panels (all real on-chain) =================
+function w2status(s){const t=(s||'').replace(/^[A-Z]*_?STATUS_/,'').replace(/^CHALLENGE_STATUS_/,'').replace(/^PASSPORT_STATUS_/,'').replace(/^DEPOSIT_STATUS_/,'').toLowerCase();
+  const k=/(active|minted|completed|finalized)/.test(t)?'ok':/(draft|pending|requested|priced|scoring)/.test(t)?'idle':/(revoked|cancelled|failed|refunded)/.test(t)?'no':'warn';
+  return `<span class="pill ${k}">${esc(t||'—')}</span>`;}
+function w2coin(c){if(!c)return '—';if(typeof c==='string')return fmt(c);return fmt(c.amount||'0')+' '+(c.denom||'');}
+async function w2load(url,cb){try{cb(await getJSON(url));}catch(e){cb({});}}
+
+// ---- Identity (passport) ----
+function vIdentity(){return {html:`<div class="sub">Every agent stakes a <b style="color:#fff">passport</b> — a bonded on-chain identity. Stake is slashable on disputes, so identity carries skin in the game.</div>
+  <div class="grid g2">
+    <div class="card"><div class="h"><span class="up">Your identity · <b style="color:#fff">${esc(account)}</b></span><span class="badge-live"><span class="dot"></span>LIVE</span></div><div class="b">
+      <div class="kv"><span class="k">Passport id</span><span class="v mono" id="ppId">—</span></div>
+      <div class="kv"><span class="k">Agent pubkey</span><span class="v mono">agent-${esc(account)}</span></div>
+      <div class="kv"><span class="k">Status</span><span class="v" id="ppStatus">—</span></div>
+      <div class="kv"><span class="k">Staked</span><span class="v" id="ppStake">—</span></div>
+      <div class="row" style="margin-top:16px;gap:10px;flex-wrap:wrap">
+        <button class="btn-primary" onclick="doAction('passport-register','Passport registered','passport','ok')">${svg('shield',15)} Register identity (10 LUME)</button>
+        <button class="btn-sm" onclick="doAction('passport-topup','Stake topped up','passport','ok','&amount=5000000ulume')">Top up +5 LUME</button>
+      </div></div></div>
+    <div class="card"><div class="h"><span class="up">Network identity stake</span></div><div class="b">
+      <div class="kv"><span class="k">Total staked · passport module</span><span class="v" id="ppStaked">—</span></div>
+      <div class="hint" style="margin-top:14px;line-height:1.85">A passport gates participation: only staked agents accrue reputation and can be held accountable. Slashing routes to insurance — the same accountability primitive as publisher bonds, applied to identity.</div>
+    </div></div>
+  </div>`,mount:updateLive};}
+
+// ---- Capacity (vaults) ----
+function vCapacity(){return {html:`<div class="sub">Prepay capacity into a <b style="color:#fff">vault</b> at a discount tier and draw it down per call — predictable cost for high-volume agents, prepaid revenue for the network.</div>
+  <div class="grid g2">
+    <div class="card"><div class="h"><span class="up">Open a prepaid vault</span></div><div class="b">
+      <div class="row" style="gap:12px"><div class="field" style="flex:1"><label>Tier</label><select id="vkTier"><option value="bronze">bronze · 250 bps</option><option value="silver">silver · 500 bps</option><option value="gold">gold · 1000 bps</option></select></div>
+        <div class="field" style="flex:1"><label>Prepay (ulac)</label><input id="vkAmt" value="1000000"></div></div>
+      <button class="btn-primary" style="margin-top:6px" onclick="doVault()">${svg('wallet',15)} Create vault</button>
+      <div class="kv" style="margin-top:14px"><span class="k">Your remaining capacity</span><span class="v" id="vkRemain">—</span></div>
+      <div class="kv"><span class="k">Vaults module escrow</span><span class="v" id="vkEscrow">—</span></div>
+    </div></div>
+    <div class="card"><div class="h"><span class="up">Your vaults <span class="ct" id="vkCount">0</span></span></div><div class="b"><div id="vkList" class="feed"><div class="empty">loading…</div></div></div></div>
+  </div>`,mount:()=>{updateLive();w2load('/api/vaults',d=>{const vs=(d&&d.vaults)||[];set('vkCount',vs.length);
+    setHTML('vkList',vs.length?vs.map(v=>`<div class="it"><div class="fic">${svg('wallet',14)}</div><div><div class="ft">${esc(v.id)} · ${esc(v.tier)}</div><div class="fs">policy ${esc(v.policy_id)} · ${v.discount_bps||0} bps off</div></div><div class="fm">${w2coin(v.remaining_amount)}<br><span class="hint">of ${w2coin(v.prepaid_amount)}</span></div></div>`).join(''):'<div class="empty">No vaults yet — prepay one to lock in discounted capacity.</div>');});}};}
+async function doVault(){const tier=el('vkTier').value,amt=(el('vkAmt').value||'1000000')+'lac';await doAction('vault-create','Prepaid vault created','vault','ok','&tier='+tier+'&amount='+encodeURIComponent((el('vkAmt').value||'1000000')+'ulac'));}
+
+// ---- Cache (cac) ----
+function vCache(){return {html:`<div class="sub">A <b style="color:#fff">content-addressed cache</b> (BLAKE3): deterministic tool outputs are stored once and served on a hit, with a royalty split back to the origin publisher. Compute saved, publishers still paid.</div>
+  <div class="grid g3">
+    <div class="kpi"><span class="tag live">LIVE</span><div class="v" id="ccEntries">—</div><div class="l up">Cached entries</div></div>
+    <div class="kpi"><span class="tag live">LIVE</span><div class="v" id="ccHits">—</div><div class="l up">Cache hits</div></div>
+    <div class="kpi"><span class="tag live">LIVE</span><div class="v" id="ccRate">—</div><div class="l up">Hit rate</div></div>
+  </div>
+  <div class="card" style="margin-top:16px"><div class="h"><span class="up">Lookup by request hash</span></div><div class="b">
+    <div class="row" style="gap:12px"><div class="field" style="flex:1"><label>Request hash</label><input id="ccReq" value="seed-req-001"></div>
+      <button class="btn-sm" style="align-self:flex-end" onclick="doCacLookup()">Lookup</button></div>
+    <div id="ccOut" class="result" style="margin-top:12px"><span class="hint">Enter a request hash to find a content-addressed cache entry. The seeded demo entry is <code>seed-req-001</code>.</span></div>
+  </div></div>`,mount:updateLive};}
+async function doCacLookup(){const o=el('ccOut');o.innerHTML='<div class="result">looking up…</div>';
+  try{const d=await getJSON('/api/cac-lookup?request='+encodeURIComponent(el('ccReq').value||''));const es=(d&&d.entries)||[];
+    o.innerHTML=es.length?es.map(e=>`<span class="ok">✓ cache hit</span>\ncontent_hash: ${esc(e.content_hash)}\ntool_id:      ${esc(e.tool_id)}\ntier:         ${esc(e.tier)}\ndeterministic:${e.is_deterministic}`).join('\n'):'<span class="hint">no cache entry for that request hash</span>';
+  }catch(e){o.innerHTML='<span style="color:var(--danger)">lookup failed</span>';}}
+
+// ---- Tournaments (challenges) ----
+function vTournaments(){return {html:`<div class="sub">Open <b style="color:#fff">grand-challenge tournaments</b> with an escrowed prize pool. Tools join (paying an entry fee), submit scored results, and ranked winners are paid out — competitive reputation with real stakes.</div>
+  <div class="grid g2">
+    <div class="card"><div class="h"><span class="up">Create a tournament</span></div><div class="b">
+      <div class="field"><label>Title</label><input id="tnTitle" value="Latency Cup"></div>
+      <div class="row" style="gap:12px"><div class="field" style="flex:1"><label>Prize pool (ulac)</label><input id="tnPrize" value="2000000"></div>
+        <div class="field" style="flex:1"><label>Entry fee (ulac)</label><input id="tnEntry" value="1000"></div></div>
+      <button class="btn-primary" style="margin-top:4px" onclick="doTournament()">${svg('award',15)} Create tournament</button>
+      <div class="kv" style="margin-top:12px"><span class="k">Prize escrow · challenges module</span><span class="v" id="tnEscrow">—</span></div>
+    </div></div>
+    <div class="card"><div class="h"><span class="up">Live tournaments <span class="ct" id="tnCount">0</span></span></div><div class="b"><div id="tnList" class="feed"><div class="empty">loading…</div></div></div></div>
+  </div>`,mount:()=>{updateLive();w2load('/api/tournaments',d=>{const cs=(d&&d.challenges)||[];set('tnCount',cs.length);
+    setHTML('tnList',cs.length?cs.map(c=>`<div class="it"><div class="fic">${svg('award',14)}</div><div><div class="ft">${esc(c.title)} ${w2status(c.status)}</div><div class="fs">${esc(c.challenge_id)} · ${c.participant_count||0} entrants · prize ${w2coin(c.prize_pool)}</div></div><div class="fm"><button class="btn-sm" onclick="doJoin('${esc(c.challenge_id)}')">join</button></div></div>`).join(''):'<div class="empty">No tournaments yet — open one with a prize pool.</div>');});}};}
+async function doTournament(){await doAction('tournament-create','Tournament created','tournament','ok','&title='+encodeURIComponent(el('tnTitle').value||'Latency Cup')+'&prize='+encodeURIComponent((el('tnPrize').value||'2000000')+'ulac')+'&entry='+encodeURIComponent((el('tnEntry').value||'1000')+'ulac'));}
+async function doJoin(id){await doAction('tournament-join','Joined tournament','tournament','ok','&id='+encodeURIComponent(id));}
+
+// ---- On-ramp (payment_rails) ----
+function vOnramp(){return {html:`<div class="sub">Bridge in a stable asset and mint <b style="color:#fff">LAC credits</b> at the oracle price (minus a small acquisition fee) — a programmable on-ramp so agents fund from USDC, not just by swapping LUME.</div>
+  <div class="grid g2">
+    <div class="card"><div class="h"><span class="up">Deposit → mint LAC</span></div><div class="b">
+      <div class="field"><label>Deposit (usdc)</label><input id="orAmt" value="1000000"></div>
+      <button class="btn-primary" onclick="doDeposit()">${svg('wallet',15)} Bridge deposit → LAC</button>
+      <div class="kv" style="margin-top:14px"><span class="k">Your usdc balance</span><span class="v" id="orUsdc">—</span></div>
+      <div class="kv"><span class="k">Your LAC credits</span><span class="v" id="orLac">—</span></div>
+      <div class="hint" style="margin-top:10px">Priced against the on-chain USDC/USD oracle; mints LAC less a 30 bps acquisition fee.</div>
+    </div></div>
+    <div class="card"><div class="h"><span class="up">Your deposits <span class="ct" id="orCount">0</span></span></div><div class="b"><div id="orList" class="feed"><div class="empty">loading…</div></div></div></div>
+  </div>`,mount:()=>{updateLive();w2load('/api/rails-deposits',d=>{const ds=(d&&d.deposits)||[];set('orCount',ds.length);
+    setHTML('orList',ds.length?ds.map(x=>`<div class="it"><div class="fic">${svg('wallet',14)}</div><div><div class="ft">${w2coin(x.amount)} ${w2status(x.status)}</div><div class="fs">${esc(x.deposit_id)}</div></div><div class="fm">${esc((x.tx_hash||'').slice(0,10))}</div></div>`).join(''):'<div class="empty">No deposits yet — bridge usdc to mint LAC.</div>');});}};}
+async function doDeposit(){await doAction('rails-deposit','On-ramp deposit minted','rails','ok','&amount='+encodeURIComponent((el('orAmt').value||'1000000')+'usdc'));}
+
+// ---- Routing (router telemetry) ----
+function vRouting(){return {html:`<div class="sub">The <b style="color:#fff">router</b> records on-chain routing telemetry — which tools are activated, invoked, and served from cache — and aggregates per-tool &amp; global metrics that drive selection. This is the data layer of the MCP fabric.</div>
+  <div class="grid g3">
+    <div class="kpi"><span class="tag live">LIVE</span><div class="v" id="rtActive">—</div><div class="l up">Active tools</div></div>
+    <div class="kpi"><span class="tag live">LIVE</span><div class="v" id="rtInv">—</div><div class="l up">Invocations</div></div>
+    <div class="kpi"><span class="tag live">LIVE</span><div class="v" id="rtCache">—</div><div class="l up">Cache hits</div></div>
+  </div>
+  <div class="card" style="margin-top:16px"><div class="h"><span class="up">Record routing telemetry</span><span class="hint">signed by the tool owner</span></div><div class="b">
+    <div class="row" style="gap:12px"><div class="field" style="flex:1"><label>Tool</label><input id="rtTool" value="${esc(focusTool)}"></div>
+      <button class="btn-sm" style="align-self:flex-end" onclick="doRouterActivate()">Record activation</button></div>
+    <div id="rtList" class="feed" style="margin-top:12px"><div class="empty">loading active tools…</div></div>
+  </div></div>`,mount:()=>{updateLive();w2load('/api/router-metrics',d=>{const ids=(d&&d.activeTools)||[];
+    setHTML('rtList',ids.length?ids.map(t=>`<div class="it"><div class="fic">${svg('activity',14)}</div><div><div class="ft">${esc(t)}</div><div class="fs">active in routing</div></div><div class="fm"><span class="pill ok">active</span></div></div>`).join(''):'<div class="empty">No active tools — record an activation.</div>');});}};}
+async function doRouterActivate(){await doAction('router-activate','Routing telemetry recorded','router','ok','&tool='+encodeURIComponent(el('rtTool').value||focusTool));}
+
+const VIEWS={'':vDashboard,marketplace:vMarketplace,tool:vTool,agent:vAgent,graph:vGraph,publish:vPublish,disputes:vDisputes,reputation:vReputation,wallet:vWallet,activity:vActivity,vision:vVision,
+  identity:vIdentity,capacity:vCapacity,cache:vCache,tournaments:vTournaments,onramp:vOnramp,routing:vRouting};
 
 // ================= router =================
 function parseHash(){const h=(location.hash||'#/').replace(/^#\/?/,'');const [route,...rest]=h.split('/');return [route,rest.join('/')];}
