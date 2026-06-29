@@ -60,13 +60,33 @@ the now-dead node.
 | `poc/web/` | a browser dashboard that drives the **whole** flywheel over HTTP — swap → register+bond → lock → prove → settle → reputation → **dispute → slash → reputation erosion** — step-by-step or via one "Run the whole flywheel" button. `run-localnet.sh` boots a prepared node (agent/supernode `val`, publisher `pub`, challenger `chl`); `go run ./poc/web` serves it on :8787 |
 | `poc/mcp-router/` | the **MCP server** — the off-chain "router". Any MCP-compatible AI agent (Claude Desktop, an Agent SDK app) discovers + calls on-chain tools through the standard protocol; each call runs lock → execute → Proof-of-Service → settle. See its README for a Claude-Desktop config. |
 
+## Wave-2 module panels (all native, all on-chain)
+
+The dashboard exposes every integrated module natively — each panel is backed by
+real `lumerad` calls (see `poc/web/wave2.go`), no simulation:
+
+| Panel | Module | What it drives |
+|---|---|---|
+| **Identity** | `passport` | register/top-up a stake-backed agent passport (slashable identity) |
+| **Capacity** | `vaults` | open prepaid discount-tier vaults; draw capacity down per call |
+| **On-ramp** | `payment_rails` | bridge `usdc` → oracle-priced LAC mint (−30 bps), deposit list |
+| **Tournaments** | `challenges` | create/join prize-pool tournaments; live tournament list |
+| **Routing** | `router` | global/active-tool telemetry; owner-signed activation records |
+| **Cache** | `cac` | content-cache stats + request-hash lookup |
+
+The **MCP router** also uses `cac` natively in its call loop: a cache hit serves
+the stored output (skipping execution) and, for cross-tool serving, routes a CAC
+royalty to the origin publisher. The **explorer** (`:8090`) catalogs and live-
+counts all of these modules and attributes their events.
+
 ## What's real vs. PoC
 
 **Real + on-chain (verified e2e):** tool registry + discovery, publisher bonds,
 quote/lock/settle, SuperNode Proof-of-Service receipts gating settlement,
 receipt disputes (uphold→slash + restitution, reject-on-expiry), the reputation
-badge engine, and the trust-graph self-feed (receipts raise reputation, upheld
-disputes erode it).
+badge engine, the trust-graph self-feed (receipts raise reputation, upheld
+disputes erode it), plus the wave-2 panels above (passport identity, prepaid
+vaults, usdc on-ramp, prize-pool tournaments, router telemetry, content cache).
 
 **PoC shortcuts:** tool *execution* is a placeholder transform (real tools plug
 into `mcp-router/executeTool`); the daemons drive the chain by shelling
