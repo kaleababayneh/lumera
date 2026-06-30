@@ -80,6 +80,8 @@ import (
 	supernodemoduletypes "github.com/LumeraProtocol/lumera/x/supernode/v1/types"
 	vaultsmodulev1 "github.com/LumeraProtocol/lumera/x/vaults/module"
 	vaultstypes "github.com/LumeraProtocol/lumera/x/vaults/types"
+	workflowsmodulev1 "github.com/LumeraProtocol/lumera/x/workflows/module"
+	workflowstypes "github.com/LumeraProtocol/lumera/x/workflows/types"
 	_ "github.com/cosmos/cosmos-sdk/x/auth/tx/config" // import for side-effects
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	_ "github.com/cosmos/cosmos-sdk/x/auth/vesting" // import for side-effects
@@ -185,6 +187,7 @@ var (
 		routertypes.ModuleName,
 		prioritytypes.ModuleName,
 		auctiontypes.ModuleName,
+		workflowstypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis
 	}
 
@@ -236,6 +239,7 @@ var (
 		routertypes.ModuleName,
 		prioritytypes.ModuleName,
 		auctiontypes.ModuleName,
+		workflowstypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/beginBlockers
 	}
 
@@ -279,6 +283,7 @@ var (
 		routertypes.ModuleName,
 		prioritytypes.ModuleName,
 		auctiontypes.ModuleName,
+		workflowstypes.ModuleName,
 		// NOTE: feemarket EndBlocker should be last to get the full block gas used
 		feemarkettypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/endBlockers
@@ -542,6 +547,10 @@ var (
 			{
 				Name:   auctiontypes.ModuleName,
 				Config: appconfig.WrapAny(&auctionmodulev1.Module{}),
+			},
+			{
+				Name:   workflowstypes.ModuleName,
+				Config: appconfig.WrapAny(&workflowsmodulev1.Module{}),
 			},
 			// this line is used by starport scaffolding # stargate/app/moduleConfig
 		},

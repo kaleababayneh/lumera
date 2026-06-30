@@ -1,0 +1,137 @@
+syntax = "proto3";
+package lumera.workflow.v1;
+
+import "cosmos/base/v1beta1/coin.proto";
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "x/workflows/types";
+
+// SideEffect describes whether a workflow step can be safely undone.
+enum SideEffect {
+  SIDE_EFFECT_UNSPECIFIED = 0;
+  SIDE_EFFECT_REVERSIBLE = 1;
+  SIDE_EFFECT_NON_REVERSIBLE = 2;
+}
+
+// FailureAction describes bundle behavior when a step fails.
+enum FailureAction {
+  FAILURE_ACTION_UNSPECIFIED = 0;
+  FAILURE_ACTION_REVERT_BUNDLE = 1;
+  FAILURE_ACTION_SKIP_DOWNSTREAM = 2;
+  FAILURE_ACTION_FALLBACK_STEP = 3;
+}
+
+// InvariantPhase identifies when a safety invariant is evaluated.
+enum InvariantPhase {
+  INVARIANT_PHASE_UNSPECIFIED = 0;
+  INVARIANT_PHASE_STATIC = 1;
+  INVARIANT_PHASE_LOCK = 2;
+  INVARIANT_PHASE_VERIFY = 3;
+}
+
+// PassportTier is the minimum caller tier required for a workflow.
+enum PassportTier {
+  PASSPORT_TIER_UNSPECIFIED = 0;
+  PASSPORT_TIER_BASIC = 1;
+  PASSPORT_TIER_STANDARD = 2;
+  PASSPORT_TIER_TRUSTED = 3;
+  PASSPORT_TIER_INSTITUTIONAL = 4;
+}
+
+// UpgradePolicy describes how a workflow author may publish new versions.
+enum UpgradePolicy {
+  UPGRADE_POLICY_UNSPECIFIED = 0;
+  UPGRADE_POLICY_IMMUTABLE = 1;
+  UPGRADE_POLICY_SEMVER_COMPATIBLE = 2;
+  UPGRADE_POLICY_GOVERNANCE_APPROVED = 3;
+}
+
+// RetryPolicy defines retry bounds for a single workflow step.
+message RetryPolicy {
+  uint32 max_attempts = 1;
+  uint32 initial_backoff_ms = 2;
+  uint32 max_backoff_ms = 3;
+  double backoff_multiplier = 4;
+  repeated string retryable_error_codes = 5;
+}
+
+// Step is a stable node in the workflow DAG.
+message Step {
+  string step_id = 1;
+  string tool_id = 2;
+  string tool_version_constraint = 3;
+  string input_binding = 4;
+  string condition = 5;
+  cosmos.base.v1beta1.Coin max_sub_cost = 6 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  uint32 sub_slo_p95_ms = 7;
+  RetryPolicy retry_policy = 8;
+  FailureAction failure_action = 9;
+  string fallback_step_id = 10;
+  SideEffect side_effect = 11;
+  repeated string depends_on = 12;
+  map<string, string> metadata = 13;
+}
+
+// WorkflowPricing captures workflow-author economics.
+message WorkflowPricing {
+  string pricing_model = 1;
+  uint32 author_margin_bps = 2;
+  cosmos.base.v1beta1.Coin min_bond = 3 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  cosmos.base.v1beta1.Coin minimum_cost = 4 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  cosmos.base.v1beta1.Coin maximum_cost = 5 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  uint32 insurance_bps = 6;
+}
+
+// PassportRequirements gates workflow invocation by caller reputation.
+message PassportRequirements {
+  PassportTier min_tier = 1;
+  uint32 min_reputation_score = 2;
+  bool require_active_passport = 3;
+  repeated string required_badges = 4;
+}
+
+// Governance captures author control and upgrade rules.
+message Governance {
+  repeated string author_addresses = 1;
+  UpgradePolicy upgrade_policy = 2;
+  uint32 dispute_window_seconds = 3;
+  string policy_uri = 4;
+}
+
+// SafetyInvariant is a declarative constraint evaluated for the bundle.
+message SafetyInvariant {
+  string invariant_id = 1;
+  string expression = 2;
+  InvariantPhase phase = 3;
+  string severity = 4;
+  string error_code = 5;
+  string hint_message = 6;
+}
+
+// WorkflowCard is the author-signed, versioned Agent Contract definition.
+message WorkflowCard {
+  string workflow_id = 1;
+  string version = 2;
+  string display_name = 3;
+  string description = 4;
+  string author_id = 5;
+  string author_pubkey = 6;
+  repeated string categories = 7;
+  repeated string tags = 8;
+  string license_lane = 9;
+  repeated string jurisdictions = 10;
+  repeated Step dag = 11;
+  string input_schema = 12;
+  string output_schema = 13;
+  WorkflowPricing pricing = 14;
+  PassportRequirements passport_requirements = 15;
+  Governance governance = 16;
+  repeated SafetyInvariant safety_invariants = 17;
+  bytes schema_hash = 18;
+  bytes author_sig = 19;
+  map<string, string> metadata = 20;
+  google.protobuf.Timestamp created_at = 21 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  google.protobuf.Timestamp updated_at = 22 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+}

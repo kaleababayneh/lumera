@@ -1,0 +1,99 @@
+syntax = "proto3";
+package lumera.workflow.v1;
+
+import "cosmos/base/v1beta1/coin.proto";
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+import "google/protobuf/timestamp.proto";
+import "lumera/workflow/v1/workflow.proto";
+
+option go_package = "x/workflows/types";
+
+// WorkflowOutputClaimEvidence is deterministic receipt evidence for a bounded
+// scalar output claim. Redacted claims omit canonical_value but keep the same
+// claim_hash commitment so condition verifiers do not need raw tool output.
+message WorkflowOutputClaimEvidence {
+  repeated string path = 1;
+  string scalar_kind = 2;
+  string canonical_value = 3;
+  bytes claim_hash = 4;
+  string hash_algorithm = 5;
+  bool redacted = 6;
+}
+
+// WorkflowStepReceipt is the canonical per-step receipt committed into a
+// WorkflowReceipt Merkle tree.
+message WorkflowStepReceipt {
+  string step_id = 1;
+  string tool_id = 2;
+  string tool_version = 3;
+  string outcome = 4;
+  cosmos.base.v1beta1.Coin cost = 5 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  uint32 duration_ms = 6;
+  uint32 attempt_count = 7;
+  string error_code = 8;
+  string error_message = 9;
+  FailureAction failure_action = 10;
+  bytes receipt_hash = 11;
+  repeated WorkflowOutputClaimEvidence output_claims = 12;
+}
+
+// WorkflowMerkleProof proves inclusion of one WorkflowStepReceipt in the
+// WorkflowReceipt Merkle root.
+message WorkflowMerkleProof {
+  string step_id = 1;
+  bytes leaf_hash = 2;
+  repeated bytes siblings = 3;
+  repeated bool sibling_on_right = 4;
+}
+
+// WorkflowReceiptAnchor records on-chain anchoring metadata for the workflow
+// receipt bundle root.
+message WorkflowReceiptAnchor {
+  string chain_id = 1;
+  bytes tx_hash = 2;
+  int64 anchored_height = 3;
+  google.protobuf.Timestamp anchored_at = 4 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  string status = 5;
+}
+
+// WorkflowNonDeterministicInput captures external inputs that must be replayed
+// from a known chain height.
+message WorkflowNonDeterministicInput {
+  string input_id = 1;
+  string source = 2;
+  int64 anchored_height = 3;
+  bytes input_hash = 4;
+}
+
+// WorkflowFailureAttribution names the step and deterministic state snapshot
+// that explain a reverted or partial-skip workflow outcome.
+message WorkflowFailureAttribution {
+  string step_id = 1;
+  string reason_code = 2;
+  bytes state_snapshot = 3;
+}
+
+// WorkflowReceipt is the signed, merkleized receipt returned by
+// lumera.router.invoke_workflow.
+message WorkflowReceipt {
+  string bundle_id = 1;
+  string workflow_id = 2;
+  string version = 3;
+  string outcome = 4;
+  repeated WorkflowStepReceipt step_receipts = 5;
+  repeated bytes step_receipt_hashes = 6;
+  bytes merkle_root = 7;
+  cosmos.base.v1beta1.Coin total_cost = 8 [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  string lock_id = 9;
+  string failure_code = 10;
+  string failure_reason = 11;
+  string trace_id = 12;
+  google.protobuf.Timestamp completed_at = 13 [ (gogoproto.stdtime) = true, (gogoproto.nullable) = false ];
+  repeated string canonical_step_order = 14;
+  repeated WorkflowNonDeterministicInput non_deterministic_inputs = 15;
+  repeated WorkflowReceiptAnchor anchors = 16;
+  string executor_pubkey = 17;
+  bytes executor_sig = 18;
+  repeated WorkflowFailureAttribution failure_attributions = 19;
+}

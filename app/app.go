@@ -124,6 +124,7 @@ import (
 	supernodekeeper "github.com/LumeraProtocol/lumera/x/supernode/v1/keeper"
 	sntypes "github.com/LumeraProtocol/lumera/x/supernode/v1/types"
 	vaultsmodulekeeper "github.com/LumeraProtocol/lumera/x/vaults/keeper"
+	workflowsmodulekeeper "github.com/LumeraProtocol/lumera/x/workflows/keeper"
 	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
@@ -246,6 +247,7 @@ type App struct {
 	RouterKeeper       *routermodulekeeper.Keeper
 	PriorityKeeper     *prioritymodulekeeper.Keeper
 	AuctionKeeper      *auctionmodulekeeper.Keeper
+	WorkflowsKeeper    *workflowsmodulekeeper.Keeper
 
 	// EVM keepers
 	FeeMarketKeeper    feemarketkeeper.Keeper
@@ -381,6 +383,7 @@ func New(
 		&app.RouterKeeper,
 		&app.PriorityKeeper,
 		&app.AuctionKeeper,
+		&app.WorkflowsKeeper,
 
 		// this line is used by starport scaffolding # stargate/app/keeperDefinition
 	); err != nil {
