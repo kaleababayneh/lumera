@@ -38,6 +38,8 @@ import (
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	actionmodulev1 "github.com/LumeraProtocol/lumera/x/action/v1/module"
 	actionmoduletypes "github.com/LumeraProtocol/lumera/x/action/v1/types"
+	auctionmodulev1 "github.com/LumeraProtocol/lumera/x/auction/module"
+	auctiontypes "github.com/LumeraProtocol/lumera/x/auction/types"
 	auditmodulev1 "github.com/LumeraProtocol/lumera/x/audit/v1/module"
 	auditmoduletypes "github.com/LumeraProtocol/lumera/x/audit/v1/types"
 	cacmodulev1 "github.com/LumeraProtocol/lumera/x/cac/module"
@@ -182,6 +184,7 @@ var (
 		paymentrailstypes.ModuleName,
 		routertypes.ModuleName,
 		prioritytypes.ModuleName,
+		auctiontypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis
 	}
 
@@ -232,6 +235,7 @@ var (
 		paymentrailstypes.ModuleName,
 		routertypes.ModuleName,
 		prioritytypes.ModuleName,
+		auctiontypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/beginBlockers
 	}
 
@@ -274,6 +278,7 @@ var (
 		paymentrailstypes.ModuleName,
 		routertypes.ModuleName,
 		prioritytypes.ModuleName,
+		auctiontypes.ModuleName,
 		// NOTE: feemarket EndBlocker should be last to get the full block gas used
 		feemarkettypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/endBlockers
@@ -533,6 +538,10 @@ var (
 			{
 				Name:   prioritytypes.ModuleName,
 				Config: appconfig.WrapAny(&prioritymodulev1.Module{}),
+			},
+			{
+				Name:   auctiontypes.ModuleName,
+				Config: appconfig.WrapAny(&auctionmodulev1.Module{}),
 			},
 			// this line is used by starport scaffolding # stargate/app/moduleConfig
 		},
