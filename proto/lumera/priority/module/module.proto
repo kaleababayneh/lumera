@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package lumera.priority.module;
+
+import "cosmos/app/v1alpha1/module.proto";
+
+option go_package = "x/priority/module;prioritymodule";
+
+// Module is the config object of the priority module.
+message Module {
+  option (cosmos.app.v1alpha1.module) = {
+    go_import: "github.com/LumeraProtocol/lumera/x/priority"
+  };
+  string authority = 1;
+}
