@@ -239,10 +239,30 @@ localnet, and is verified end-to-end (all committed, no stubs):
   loads params, BeginBlock/EndBlock run every block (zero panics), Query/Params (abci code 0, 46-byte
   proto) + Query/GlobalMetrics serve live state.
 
-**Remaining lumera_ai modules (all router-support libraries or blocked):** `priority`/`auction` (JSON
-keeper-libraries, inert until the off-chain router consumes them — no standalone surface); `workflows`
-(protobuf-go messages with no proto source — needs reconstruction); `feemarket`/`ibc`/`wasm` are
-lumera-native already; `ibc_action` is the Phase-2 IBC track.
+## Module-port wave 3 — priority/auction/workflows + PoC & Explorer (2026-06-24)
+**All non-IBC lumera_ai modules are now integrated.** Three more modules ported, tested, wired, and
+booting (committed):
+- **`x/priority`** — latency/queue tier definitions (standard/priority/express/enterprise), a
+  routing-support keeper. Genesis-only AppModule (JSON params, no msg/query). Full test suite passes;
+  boots + produces blocks.
+- **`x/auction`** — spot-call auction economics, a routing-support keeper. Genesis-only AppModule (JSON
+  GenesisState). 18-file test suite passes; boots + produces blocks.
+- **`x/workflows`** (Composable Intelligence) — multi-step workflow bundles, author bonds, bundle
+  quotes, ed448-signed step receipts, replay protection. The lumera_ai protobuf-go `.pb.go` PANICKED at
+  init under lumera's protobuf-go v1.36.11 runtime, so the state protos were regenerated as gogoproto
+  (from `proto/lumera/workflow/v1/`) and the keeper/types converted off the protobuf-go API (coin
+  accounting on value `sdk.Coin`/math.Int; stdtime; gogo proto marshal/clone; zeebo/blake3 →
+  lukechampine; +cloudflare/circl for ed448). Genesis + begin/end-block lifecycle module (msg/query
+  services not yet defined upstream). Full test suite passes (incl. the cross-language canonical-JSON
+  conformance golden); boots + runs its lifecycle every block.
+
+**PoC + Explorer natively expose all wave-2 modules (2026-06-24):** `poc/web` gained 6 panels
+(Identity/Capacity/On-ramp/Tournaments/Routing/Cache) + 16 real-on-chain endpoints (`poc/web/wave2.go`)
++ genesis seeding (usdc, USDC/USD oracle price, sample passports/vaults/cache/tournaments/deposits/
+activations); `poc/mcp-router` uses `cac` natively in its loop (lookup→serve-on-hit→store-on-miss, with
+cross-tool CAC royalty); the explorer (`x/router` CLI + `explorer/catalog.go`+`decoder.go`) catalogs,
+live-counts, and event-attributes all six. The remaining `feemarket`/`ibc`/`wasm` are lumera-native
+already; `ibc_action` is the Phase-2 IBC track.
 
 ## Module 1: `x/credits`
 
