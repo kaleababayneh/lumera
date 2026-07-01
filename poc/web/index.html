@@ -193,7 +193,10 @@
       <a data-route="tournaments" href="#/tournaments"><span class="ic" data-ic="award"></span> Tournaments</a>
       <div class="grp up">Network</div>
       <a data-route="routing" href="#/routing"><span class="ic" data-ic="activity"></span> Routing</a>
+      <a data-route="orchestration" href="#/orchestration"><span class="ic" data-ic="map"></span> Orchestration</a>
       <a data-route="cache" href="#/cache"><span class="ic" data-ic="grid"></span> Cache</a>
+      <div class="grp up">System</div>
+      <a data-route="stack" href="#/stack"><span class="ic" data-ic="grid"></span> Full stack</a>
       <a data-route="graph" href="#/graph"><span class="ic" data-ic="activity"></span> Trust graph</a>
       <a data-route="disputes" href="#/disputes"><span class="ic" data-ic="scale"></span> Disputes</a>
       <a data-route="activity" href="#/activity"><span class="ic" data-ic="activity"></span> Activity</a>
@@ -411,7 +414,8 @@ const TITLES={'':['Dashboard','overview'],marketplace:['Marketplace','discover o
   publish:['Publish a tool','the publisher flow'],disputes:['Disputes','challenge & slash'],reputation:['Reputation','badges & leaderboard'],
   wallet:['Wallet','credits & balances'],activity:['Activity','on-chain feed'],vision:['Roadmap','the full vision'],
   identity:['Identity','stake-backed agent passport'],capacity:['Capacity','prepaid vaults'],cache:['Cache','content-addressed cache'],
-  tournaments:['Tournaments','grand challenges'],onramp:['On-ramp','bridge → LAC credits'],routing:['Routing','router telemetry']};
+  tournaments:['Tournaments','grand challenges'],onramp:['On-ramp','bridge → LAC credits'],routing:['Routing','router telemetry'],
+  orchestration:['Orchestration','lanes · auctions · workflows'],stack:['Full stack','every module, live']};
 
 function kpiCard(tag,id,val,label,seed){return `<div class="kpi"><span class="tag ${tag}">${tag.toUpperCase()}</span><div class="v" id="${id}">${val}</div><div class="l up">${label}</div>${spark(seed)}</div>`;}
 
@@ -799,8 +803,68 @@ function vRouting(){return {html:`<div class="sub">The <b style="color:#fff">rou
     setHTML('rtList',ids.length?ids.map(t=>`<div class="it"><div class="fic">${svg('activity',14)}</div><div><div class="ft">${esc(t)}</div><div class="fs">active in routing</div></div><div class="fm"><span class="pill ok">active</span></div></div>`).join(''):'<div class="empty">No active tools — record an activation.</div>');});}};}
 async function doRouterActivate(){await doAction('router-activate','Routing telemetry recorded','router','ok','&tool='+encodeURIComponent(el('rtTool').value||focusTool));}
 
+// ================= wave-3 / whole-stack panels =================
+const GROUP_LABEL={lumera:'Lumera AI',cosmos:'Cosmos SDK',evm:'EVM',ibc:'IBC',wasm:'CosmWasm'};
+// ---- Stack: the complete integrated chain, live ----
+function vStack(){return {html:`<div class="sub">Every module compiled into this one chain — the entire agentic economy, live. Counts are real on-chain activity indexed by the explorer. <a href="${'http://localhost:8090'}" target="_blank" style="color:var(--muted)">open the explorer →</a></div>
+  <div class="grid g3" id="stackKpis">
+    <div class="kpi"><span class="tag live">LIVE</span><div class="v" id="skMods">—</div><div class="l up">Modules on-chain</div></div>
+    <div class="kpi"><span class="tag live">LIVE</span><div class="v" id="skTxs">—</div><div class="l up">Total txs indexed</div></div>
+    <div class="kpi"><span class="tag live">LIVE</span><div class="v" id="skEvents">—</div><div class="l up">Total events</div></div>
+  </div>
+  <div id="stackGroups" style="margin-top:18px"><div class="empty">loading the stack…</div></div>`,
+  mount:()=>{w2load('/api/stack',d=>{
+    const ms=(d&&d.modules)||[];
+    if(!ms.length){setHTML('stackGroups','<div class="card"><div class="b"><div class="empty">Explorer unreachable — start it with <code>run-localnet.sh</code> (serves :8090).</div></div></div>');return;}
+    set('skMods',ms.length);
+    set('skTxs',fmtS(ms.reduce((a,m)=>a+(+m.txs||0),0)));
+    set('skEvents',fmtS(ms.reduce((a,m)=>a+(+m.events||0),0)));
+    const groups={};ms.forEach(m=>{(groups[m.group||'other']=groups[m.group||'other']||[]).push(m);});
+    const order=['lumera','cosmos','evm','ibc','wasm','other'];
+    setHTML('stackGroups',order.filter(g=>groups[g]).map(g=>`
+      <div class="spread" style="margin:18px 0 10px"><h2 style="font-size:14px;margin:0">${esc(GROUP_LABEL[g]||g)}</h2><span class="hint">${groups[g].length} modules</span></div>
+      <div class="tools">${groups[g].sort((a,b)=>(+b.txs+ +b.events)-(+a.txs+ +a.events)).map(m=>{
+        const active=(+m.txs||0)+(+m.events||0)>0;
+        return `<div class="card"><div class="b" style="padding:14px 16px">
+          <div class="spread"><b style="color:#fff">${esc(m.title||m.name)}</b>${active?'<span class="badge-live"><span class="dot"></span>ACTIVE</span>':'<span class="pill idle">idle</span>'}</div>
+          <div class="hint" style="margin:6px 0 10px;line-height:1.55;min-height:34px">${esc(m.blurb||'')}</div>
+          <div class="row" style="gap:14px;font-family:var(--mono);font-size:11px;color:var(--dim)"><span>${m.txs||0} txs</span><span>${m.msgs||0} msgs</span><span>${m.events||0} events</span></div>
+        </div></div>`;}).join('')}</div>`).join(''));
+  });}};}
+
+// ---- Orchestration: priority lanes · spot auctions · workflows ----
+function vOrchestration(){return {html:`<div class="sub">The routing &amp; orchestration layer that sits beneath the agent loop — <b style="color:#fff">priority lanes</b>, <b style="color:#fff">spot auctions</b>, and <b style="color:#fff">composable workflows</b>. Configured on-chain; consumed by the router.</div>
+  <div id="orchBody"><div class="empty">loading…</div></div>`,
+  mount:()=>{w2load('/api/orchestration',d=>{
+    const pr=(d&&d.priority)||{},au=(d&&d.auction)||{},wf=((d&&d.workflows)||{}).params||{};
+    const tiers=(pr.tiers)||[];const ap=au.params||{};
+    setHTML('orchBody',`
+    <div class="card"><div class="h"><span class="up">Priority lanes</span><span class="hint">default: ${esc(pr.default_tier||'—')}</span></div><div class="b" style="padding:0">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="color:var(--dim);text-align:left"><th style="padding:10px 16px">Tier</th><th>Max latency</th><th>Price mult</th><th>Spot discount</th><th style="padding-right:16px">Queue weight</th></tr></thead>
+        <tbody>${tiers.map(t=>`<tr style="border-top:1px solid var(--line)"><td style="padding:10px 16px;color:#fff">${esc(t.name)}</td><td>${t.max_latency_ms} ms</td><td>${((t.pricing_multiplier_bps||0)/100).toFixed(0)}%</td><td>${((t.spot_discount_bps||0)/100).toFixed(1)}%</td><td style="padding-right:16px">${t.queue_weight||0}</td></tr>`).join('')}</tbody>
+      </table></div></div>
+    <div class="grid g2" style="margin-top:16px">
+      <div class="card"><div class="h"><span class="up">Spot-call auctions</span></div><div class="b">
+        <div class="kv"><span class="k">Credit denom</span><span class="v">${esc(ap.credit_denom||'—')}</span></div>
+        <div class="kv"><span class="k">Default auction TTL</span><span class="v">${ap.default_auction_ttl_seconds||'—'} s</span></div>
+        <div class="kv"><span class="k">Max active auctions</span><span class="v">${fmt(ap.max_active_auctions||0)}</span></div>
+        <div class="kv"><span class="k">Min bid decrement</span><span class="v">${((ap.min_bid_decrement_bps||0)/100).toFixed(1)}%</span></div>
+        <div class="kv"><span class="k">Active auctions now</span><span class="v">${au.activeAuctionCount||0}</span></div>
+      </div></div>
+      <div class="card"><div class="h"><span class="up">Workflows · Composable Intelligence</span></div><div class="b">
+        <div class="kv"><span class="k">Author bond (min)</span><span class="v">${fmt(wf.min_author_bond_amount||0)} ${esc(wf.bond_denom||'')}</span></div>
+        <div class="kv"><span class="k">Dispute window</span><span class="v">${Math.round((wf.dispute_window_seconds||0)/3600)} h</span></div>
+        <div class="kv"><span class="k">Wasted-work penalty</span><span class="v">${((wf.wasted_work_bps||0)/100).toFixed(0)}%</span></div>
+        <div class="kv"><span class="k">Max versions / workflow</span><span class="v">${wf.max_workflow_versions||'—'}</span></div>
+        <div class="hint" style="margin-top:10px;line-height:1.7">Chain multiple tool calls into a single bonded, replay-protected bundle with signed step receipts — one verifiable transaction for a whole agent workflow.</div>
+      </div></div>
+    </div>`);
+  });}};}
+
 const VIEWS={'':vDashboard,marketplace:vMarketplace,tool:vTool,agent:vAgent,graph:vGraph,publish:vPublish,disputes:vDisputes,reputation:vReputation,wallet:vWallet,activity:vActivity,vision:vVision,
-  identity:vIdentity,capacity:vCapacity,cache:vCache,tournaments:vTournaments,onramp:vOnramp,routing:vRouting};
+  identity:vIdentity,capacity:vCapacity,cache:vCache,tournaments:vTournaments,onramp:vOnramp,routing:vRouting,
+  stack:vStack,orchestration:vOrchestration};
 
 // ================= router =================
 function parseHash(){const h=(location.hash||'#/').replace(/^#\/?/,'');const [route,...rest]=h.split('/');return [route,rest.join('/')];}

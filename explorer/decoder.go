@@ -233,6 +233,8 @@ func eventModule(t string, attrs []EventAttr) string {
 		return "challenges"
 	case strings.HasPrefix(t, "discovery_subsidy_"):
 		return "router"
+	case strings.HasPrefix(t, "workflows_"):
+		return "workflows"
 	}
 	if _, ok := cosmosEvents[t]; ok {
 		return "cosmos"

@@ -1245,6 +1245,8 @@ func main() {
 	// Wave-2 module APIs: vaults, passport, cac, challenges (tournaments),
 	// payment_rails (on-ramp), router (telemetry) — all real on-chain calls.
 	registerWave2APIs(mux)
+	// Wave-3 orchestration layer (priority/auction/workflows) + whole-stack view.
+	registerWave3APIs(mux)
 
 	log.Printf("Lumera AI web PoC on http://localhost%s  (node=%s, home=%s)", addr, cfg.Node, cfg.Home)
 	if err := http.ListenAndServe(addr, mux); err != nil {

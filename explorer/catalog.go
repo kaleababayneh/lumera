@@ -195,6 +195,28 @@ var moduleCatalog = []catalogEntry{
 		},
 	},
 	{
+		Name: "priority", Group: "lumera", Title: "Priority",
+		Blurb: "Latency/queue tier definitions (standard/priority/express/enterprise) for the routing layer.",
+		MsgTypes:   []string{},
+		EventTypes: []string{},
+	},
+	{
+		Name: "auction", Group: "lumera", Title: "Auction",
+		Blurb: "Spot-call auction economics for routing — bid windows, TTLs, and spot discounts.",
+		MsgTypes:   []string{},
+		EventTypes: []string{},
+	},
+	{
+		Name: "workflows", Group: "lumera", Title: "Workflows",
+		Blurb: "Composable Intelligence: multi-step workflow bundles, author bonds, signed step receipts, replay protection.",
+		MsgTypes: []string{},
+		EventTypes: []string{
+			"workflows_published", "workflows_upgraded", "workflows_deactivated", "workflows_bundle_quoted",
+			"workflows_bundle_quote_consumed", "workflows_bundle_invoked", "workflows_author_bond_topped_up",
+			"workflows_author_bond_slashed", "workflows_author_bond_withdrawn", "workflows_lifecycle", "workflows_params_updated",
+		},
+	},
+	{
 		Name: "claim", Group: "lumera", Title: "Claim",
 		Blurb:      "Bitcoin→Cosmos token claim distribution.",
 		MsgTypes:   []string{"/lumera.claim.MsgClaim", "/lumera.claim.MsgDelayedClaim", "/lumera.claim.MsgUpdateParams"},
