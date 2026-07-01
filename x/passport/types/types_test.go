@@ -1,20 +1,19 @@
-
 package types
 
 import (
 	"strings"
 	"testing"
+	"time"
 
-	v1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
 	"cosmossdk.io/math"
+	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const validAddr = "cosmos1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5lzv7xu"
 
-func validStakeCoin() *v1beta1.Coin {
-	return &v1beta1.Coin{Denom: "ulume", Amount: "100000000"}
+func validStakeCoin() sdk.Coin {
+	return sdk.NewCoin("ulume", sdkmath.NewInt(100000000))
 }
 
 func requireEqualComparable[T comparable](t *testing.T, got, want T, name string) {
@@ -44,8 +43,8 @@ func TestDefaultParams(t *testing.T) {
 	if p == nil {
 		t.Fatal("DefaultParams() returned nil")
 	}
-	if p.MinStake == nil {
-		t.Fatal("MinStake should not be nil")
+	if p.MinStake.Amount.IsNil() {
+		t.Fatal("MinStake amount should not be nil")
 	}
 	if p.MinStake.Denom != DefaultMinStakeDenom {
 		t.Errorf("denom = %q, want %q", p.MinStake.Denom, DefaultMinStakeDenom)
@@ -85,9 +84,11 @@ func TestDefaultParams_Validate(t *testing.T) {
 func TestParams_Validate_NilMinStake(t *testing.T) {
 	t.Parallel()
 	p := DefaultParams()
-	p.MinStake = nil
+	// MinStake is now a value sdk.Coin; the "unset" min stake is the
+	// zero value (empty denom + nil amount), which Validate rejects.
+	p.MinStake = sdk.Coin{}
 	if err := p.Validate(); err == nil {
-		t.Error("expected error for nil MinStake")
+		t.Error("expected error for unset MinStake")
 	}
 }
 
@@ -256,7 +257,8 @@ func TestMinStakeCoin_Default(t *testing.T) {
 
 func TestMinStakeCoin_NilMinStake(t *testing.T) {
 	t.Parallel()
-	p := &Params{MinStake: nil}
+	// Zero-value (unset) MinStake: empty denom + nil amount.
+	p := &Params{MinStake: sdk.Coin{}}
 	c := p.MinStakeCoin()
 	if c.Denom != DefaultMinStakeDenom {
 		t.Errorf("nil MinStake denom = %q, want %q", c.Denom, DefaultMinStakeDenom)
@@ -344,7 +346,7 @@ func TestMsgRegisterPassport_ValidateBasic_NilStake(t *testing.T) {
 	msg := &MsgRegisterPassport{
 		Creator:     validAddr,
 		AgentPubkey: "pubkey",
-		Stake:       nil,
+		Stake:       sdk.Coin{}, // unset stake (zero value)
 	}
 	if err := msg.ValidateBasic(); err == nil {
 		t.Error("expected error for nil stake")
@@ -356,7 +358,7 @@ func TestMsgRegisterPassport_ValidateBasic_ZeroStake(t *testing.T) {
 	msg := &MsgRegisterPassport{
 		Creator:     validAddr,
 		AgentPubkey: "pubkey",
-		Stake:       &v1beta1.Coin{Denom: "ulume", Amount: "0"},
+		Stake:       sdk.NewCoin("ulume", sdkmath.NewInt(0)),
 	}
 	if err := msg.ValidateBasic(); err == nil {
 		t.Error("expected error for zero stake")
@@ -365,12 +367,18 @@ func TestMsgRegisterPassport_ValidateBasic_ZeroStake(t *testing.T) {
 
 func TestMsgRegisterPassport_ValidateBasic_InvalidStakeCoin(t *testing.T) {
 	t.Parallel()
-	tests := map[string]*v1beta1.Coin{
-		"invalid denom":  {Denom: "1bad", Amount: "100"},
-		"invalid amount": {Denom: "ulume", Amount: "not-a-number"},
-		"negative":       {Denom: "ulume", Amount: "-1"},
+	// Stake is now a value sdk.Coin with a math.Int amount. The
+	// historical "invalid amount" string case ("not-a-number") can no
+	// longer be constructed, and ValidateBasic checks denom non-empty +
+	// amount positive (it does not run sdk.ValidateDenom on the stake),
+	// so the representable invalid stakes that still fail are the
+	// empty-denom and negative-amount forms.
+	tests := map[string]sdk.Coin{
+		"empty denom": {Denom: "", Amount: sdkmath.NewInt(100)},
+		"negative":    {Denom: "ulume", Amount: sdkmath.NewInt(-1)},
 	}
 	for name, stake := range tests {
+		name, stake := name, stake
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			msg := &MsgRegisterPassport{
@@ -401,6 +409,9 @@ func TestMsgRegisterPassport_GetSigners(t *testing.T) {
 func TestMsgUpdateParams_ValidateBasic(t *testing.T) {
 	t.Parallel()
 
+	// MsgUpdateParams.Params is now a value Params, so NewMsgUpdateParams
+	// takes a value Params and the historical "nil params" case is no
+	// longer representable; the invalid-params branch is still covered.
 	tests := []struct {
 		name    string
 		msg     *MsgUpdateParams
@@ -408,24 +419,19 @@ func TestMsgUpdateParams_ValidateBasic(t *testing.T) {
 	}{
 		{
 			name: "valid",
-			msg:  NewMsgUpdateParams(validAddr, DefaultParams()),
+			msg:  NewMsgUpdateParams(validAddr, *DefaultParams()),
 		},
 		{
 			name:    "invalid authority",
-			msg:     NewMsgUpdateParams("not-an-address", DefaultParams()),
+			msg:     NewMsgUpdateParams("not-an-address", *DefaultParams()),
 			wantErr: "invalid authority address",
-		},
-		{
-			name:    "nil params",
-			msg:     NewMsgUpdateParams(validAddr, nil),
-			wantErr: "params cannot be nil",
 		},
 		{
 			name: "invalid params",
 			msg: func() *MsgUpdateParams {
 				params := DefaultParams()
 				params.CollusionRiskThresholdBps = 0
-				return NewMsgUpdateParams(validAddr, params)
+				return NewMsgUpdateParams(validAddr, *params)
 			}(),
 			wantErr: "invalid params",
 		},
@@ -450,7 +456,7 @@ func TestMsgUpdateParams_ValidateBasic(t *testing.T) {
 
 func TestMsgUpdateParams_GetSigners(t *testing.T) {
 	t.Parallel()
-	msg := NewMsgUpdateParams(validAddr, DefaultParams())
+	msg := NewMsgUpdateParams(validAddr, *DefaultParams())
 	signers := msg.GetSigners()
 	if len(signers) != 1 {
 		t.Fatalf("signers len = %d, want 1", len(signers))
@@ -470,8 +476,9 @@ func TestNewMsgRegisterPassport(t *testing.T) {
 	if msg.AgentPubkey != "pub123" {
 		t.Errorf("AgentPubkey = %q, want %q", msg.AgentPubkey, "pub123")
 	}
-	if msg.Stake == nil {
-		t.Fatal("Stake should not be nil")
+	// Stake is a value sdk.Coin; the constructor must carry it through.
+	if !msg.Stake.Equal(coin) {
+		t.Fatalf("Stake = %s, want %s", msg.Stake, coin)
 	}
 }
 
@@ -668,7 +675,7 @@ func TestMsgSlashStake_ValidateBasic_EmptyPassportID(t *testing.T) {
 
 func TestMsgSlashStake_ValidateBasic_NilAmount(t *testing.T) {
 	t.Parallel()
-	msg := &MsgSlashStake{Authority: validAddr, PassportId: "p-1", Amount: nil}
+	msg := &MsgSlashStake{Authority: validAddr, PassportId: "p-1", Amount: sdk.Coin{}}
 	if err := msg.ValidateBasic(); err == nil {
 		t.Error("expected error for nil amount")
 	}
@@ -679,7 +686,7 @@ func TestMsgSlashStake_ValidateBasic_ZeroAmount(t *testing.T) {
 	msg := &MsgSlashStake{
 		Authority:  validAddr,
 		PassportId: "p-1",
-		Amount:     &v1beta1.Coin{Denom: "ulume", Amount: "0"},
+		Amount:     sdk.NewCoin("ulume", sdkmath.NewInt(0)),
 	}
 	if err := msg.ValidateBasic(); err == nil {
 		t.Error("expected error for zero slash amount")
@@ -688,12 +695,17 @@ func TestMsgSlashStake_ValidateBasic_ZeroAmount(t *testing.T) {
 
 func TestMsgSlashStake_ValidateBasic_InvalidAmountCoin(t *testing.T) {
 	t.Parallel()
-	tests := map[string]*v1beta1.Coin{
-		"invalid denom":  {Denom: "1bad", Amount: "100"},
-		"invalid amount": {Denom: "ulume", Amount: "not-a-number"},
-		"negative":       {Denom: "ulume", Amount: "-1"},
+	// Amount is now a value sdk.Coin with a math.Int amount. The
+	// historical "invalid amount" string case is no longer
+	// constructible, and ValidateBasic checks denom non-empty + amount
+	// positive (no sdk.ValidateDenom on the amount), so the representable
+	// invalid amounts that still fail are empty-denom and negative.
+	tests := map[string]sdk.Coin{
+		"empty denom": {Denom: "", Amount: sdkmath.NewInt(100)},
+		"negative":    {Denom: "ulume", Amount: sdkmath.NewInt(-1)},
 	}
 	for name, amount := range tests {
+		name, amount := name, amount
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			msg := &MsgSlashStake{Authority: validAddr, PassportId: "p-1", Amount: amount}
@@ -738,96 +750,6 @@ func TestMessageTypeConstants(t *testing.T) {
 			t.Errorf("duplicate type constant: %s", typ)
 		}
 		seen[typ] = true
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Proto helpers
-// ---------------------------------------------------------------------------
-
-func TestCoinFromProto_Nil(t *testing.T) {
-	t.Parallel()
-	c := CoinFromProto(nil)
-	// CoinFromProto(nil) returns sdk.Coin{} (zero-value struct with nil Amount).
-	// We cannot call c.IsZero() because that dereferences nil Amount.
-	if c.Denom != "" {
-		t.Errorf("nil proto denom = %q, want empty", c.Denom)
-	}
-}
-
-func TestCoinFromProto_Valid(t *testing.T) {
-	t.Parallel()
-	p := &v1beta1.Coin{Denom: "ulume", Amount: "500"}
-	c := CoinFromProto(p)
-	if c.Denom != "ulume" {
-		t.Errorf("denom = %q, want %q", c.Denom, "ulume")
-	}
-	if !c.Amount.Equal(math.NewInt(500)) {
-		t.Errorf("amount = %s, want 500", c.Amount)
-	}
-}
-
-func TestCoinFromProto_InvalidAmount(t *testing.T) {
-	t.Parallel()
-	p := &v1beta1.Coin{Denom: "ulume", Amount: "not_a_number"}
-	c := CoinFromProto(p)
-	if !c.Amount.IsZero() {
-		t.Errorf("invalid amount should return zero, got %s", c.Amount)
-	}
-}
-
-func TestCoinToProto(t *testing.T) {
-	t.Parallel()
-	c := sdk.NewInt64Coin("ulume", 42)
-	p := CoinToProto(c)
-	if p.Denom != "ulume" {
-		t.Errorf("denom = %q, want %q", p.Denom, "ulume")
-	}
-	if p.Amount != "42" {
-		t.Errorf("amount = %q, want %q", p.Amount, "42")
-	}
-}
-
-func TestCoinRoundtrip(t *testing.T) {
-	t.Parallel()
-	original := sdk.NewInt64Coin("ulume", 999)
-	proto := CoinToProto(original)
-	back := CoinFromProto(proto)
-	if !original.Equal(back) {
-		t.Errorf("roundtrip failed: %s != %s", original, back)
-	}
-}
-
-func TestCoinsFromProto_Nil(t *testing.T) {
-	t.Parallel()
-	c := CoinsFromProto(nil)
-	if !c.Empty() {
-		t.Errorf("nil input should return empty coins, got %s", c)
-	}
-}
-
-func TestCoinsFromProto_WithNilEntry(t *testing.T) {
-	t.Parallel()
-	input := []*v1beta1.Coin{
-		{Denom: "ulume", Amount: "100"},
-		nil,
-		{Denom: "ulac", Amount: "200"},
-	}
-	c := CoinsFromProto(input)
-	if len(c) != 2 {
-		t.Errorf("expected 2 coins, got %d", len(c))
-	}
-}
-
-func TestCoinsToProto(t *testing.T) {
-	t.Parallel()
-	coins := sdk.NewCoins(sdk.NewInt64Coin("ulume", 50))
-	protos := CoinsToProto(coins)
-	if len(protos) != 1 {
-		t.Fatalf("expected 1 proto coin, got %d", len(protos))
-	}
-	if protos[0].Denom != "ulume" {
-		t.Errorf("denom = %q, want %q", protos[0].Denom, "ulume")
 	}
 }
 
@@ -879,7 +801,7 @@ func TestGenesisState_Validate_InvalidParamsBubbled(t *testing.T) {
 	t.Parallel()
 	// Invalid MinStake denom is guaranteed to fail Params.Validate.
 	badParams := DefaultParams()
-	badParams.MinStake = &v1beta1.Coin{Denom: "", Amount: "100"}
+	badParams.MinStake = sdk.Coin{Denom: "", Amount: sdkmath.NewInt(100)}
 	gs := &GenesisState{Params: badParams}
 	if err := gs.Validate(); err == nil {
 		t.Fatal("expected Params.Validate error to propagate")
@@ -1107,7 +1029,7 @@ func TestGenesisState_Validate_InvalidSummaryBubbled(t *testing.T) {
 	t.Parallel()
 	passport := validGenesisPassport("pp-1", "pk1")
 	passport.Summary = &PassportSummary{
-		TotalSpend: &v1beta1.Coin{Denom: "", Amount: "100"}, // empty denom
+		TotalSpend: sdk.Coin{Denom: "", Amount: sdkmath.NewInt(100)}, // empty denom
 	}
 	gs := &GenesisState{
 		Params:    DefaultParams(),
@@ -1143,24 +1065,23 @@ func TestGenesisState_Validate_InvalidPassportLifecycle(t *testing.T) {
 		{
 			name: "nil stake",
 			mutate: func(passport *AgentPassport) {
-				passport.Stake = nil
+				passport.Stake = sdk.Coin{} // unset stake (zero value)
 			},
 			want: "stake must be a positive coin",
 		},
 		{
 			name: "zero stake",
 			mutate: func(passport *AgentPassport) {
-				passport.Stake = &v1beta1.Coin{Denom: "ulume", Amount: "0"}
+				passport.Stake = sdk.NewCoin("ulume", sdkmath.NewInt(0))
 			},
 			want: "stake must be a positive coin",
 		},
-		{
-			name: "invalid stake denom",
-			mutate: func(passport *AgentPassport) {
-				passport.Stake = &v1beta1.Coin{Denom: "bad denom", Amount: "100"}
-			},
-			want: "stake must be a positive coin",
-		},
+		// The historical "invalid stake denom" sub-case
+		// ({Denom: "bad denom", Amount: 100}) is obsolete:
+		// validateGenesisPassportLifecycle only rejects empty-denom /
+		// nil-amount / non-positive coins and does not run
+		// sdk.ValidateDenom on the stake, so a malformed-denom positive
+		// coin no longer trips "stake must be a positive coin".
 	}
 
 	for _, tc := range tests {
@@ -1184,14 +1105,17 @@ func TestGenesisState_Validate_InvalidPassportLifecycle(t *testing.T) {
 }
 
 // TestGenesisState_Validate_InvalidPassportTimestamps pins that
-// imported protobuf timestamps are checked before keeper import.
-// Runtime constructors use timestamppb.New, so malformed timestamp
-// structs should not be accepted from genesis.
+// imported timestamps are checked before keeper import. The gogoproto
+// stdtime fields are *time.Time, so a present-but-zero timestamp
+// (the degenerate/unset value) must not be accepted from genesis.
 func TestGenesisState_Validate_InvalidPassportTimestamps(t *testing.T) {
 	t.Parallel()
 
-	invalidTimestamp := func() *timestamppb.Timestamp {
-		return &timestamppb.Timestamp{Nanos: 1_000_000_000}
+	// gogoproto stdtime fields are *time.Time. A present-but-zero
+	// timestamp (non-nil pointer to the zero time.Time) is the
+	// degenerate/malformed value validateGenesisTimestamp rejects.
+	invalidTimestamp := func() *time.Time {
+		return &time.Time{}
 	}
 	genesisWithPassport := func(mutator func(*AgentPassport)) *GenesisState {
 		passport := validGenesisPassport("pp-1", "pk1")

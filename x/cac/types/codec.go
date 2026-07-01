@@ -1,4 +1,3 @@
-
 // Package types holds shared types and helpers for the CAC (Content-Addressed Cache) module.
 //
 //revive:disable:var-naming // Package name follows Cosmos SDK conventions.

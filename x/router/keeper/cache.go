@@ -31,13 +31,6 @@ const (
 	DefaultCacheTTL = 24 * time.Hour
 )
 
-func prefixKey(prefix []byte, suffix []byte) []byte {
-	key := make([]byte, len(prefix)+len(suffix))
-	copy(key, prefix)
-	copy(key[len(prefix):], suffix)
-	return key
-}
-
 // ComputeCacheKey generates a deterministic cache key for a tool invocation.
 // This is the legacy version without tool version - use ComputeCacheKeyVersioned for version-aware caching.
 func (k Keeper) ComputeCacheKey(toolID string, args map[string]string) string {

@@ -234,7 +234,7 @@ func balance(addr, denom string) int64 {
 		if d, _ := bm["denom"].(string); d == denom {
 			amt, _ := bm["amount"].(string)
 			var n int64
-			fmt.Sscan(amt, &n)
+			_, _ = fmt.Sscan(amt, &n)
 			return n
 		}
 	}
@@ -293,7 +293,7 @@ func blake3Sum(s string) []byte { h := blake3.Sum256([]byte(s)); return h[:] }
 
 // cacRequestHash binds (tool, input) to a deterministic content-cache key.
 func cacRequestHash(toolID, input string) string {
-	return "req-" + hex.EncodeToString(blake3Sum(toolID+":"+input))[:40]
+	return "req-" + hex.EncodeToString(blake3Sum(toolID + ":" + input))[:40]
 }
 
 // cacheLookup checks the content-addressed cache for a prior identical call.
@@ -376,7 +376,7 @@ func fetchSpotPrice(pair string) (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != 200 {
 		return "", false
 	}
@@ -543,9 +543,9 @@ var out = bufio.NewWriter(os.Stdout)
 func send(resp rpcResp) {
 	resp.JSONRPC = "2.0"
 	b, _ := json.Marshal(resp)
-	out.Write(b)
-	out.WriteByte('\n')
-	out.Flush()
+	_, _ = out.Write(b)
+	_ = out.WriteByte('\n')
+	_ = out.Flush()
 }
 
 func mcpTools() []map[string]any {

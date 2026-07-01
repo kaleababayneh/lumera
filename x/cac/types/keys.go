@@ -1,4 +1,3 @@
-
 // Package types holds shared types and helpers for the CAC (Content-Addressed Cache) module.
 //
 //revive:disable:var-naming // The module keeps its protobuf types under a canonical types package.

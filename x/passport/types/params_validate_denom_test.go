@@ -1,10 +1,9 @@
-
 package types
 
 import (
 	"testing"
 
-	v1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
+	sdkmath "cosmossdk.io/math"
 )
 
 // TestParams_Validate_InvalidDenomFormat pins the hardening landed in
@@ -33,59 +32,30 @@ func TestParams_Validate_InvalidDenomFormat(t *testing.T) {
 }
 
 // TestParams_Validate_InvalidAmount pins the companion amount check:
-// unparseable or negative amounts must fail validation cleanly rather
+// nil (unset) or negative amounts must fail validation cleanly rather
 // than reaching MinStakeCoin where the panic would surface through
 // governance-tx recovery instead of as a clean error.
+//
+// MinStake.Amount is now a math.Int value, so the historical
+// unparseable-string cases ("nota_number", "abc", "") can no longer be
+// constructed — a math.Int is either nil (unset) or a valid integer.
+// Those invalid-string sub-cases are therefore obsolete; the
+// representable invalid amounts (nil and negative) are pinned here.
 func TestParams_Validate_InvalidAmount(t *testing.T) {
 	t.Parallel()
-	cases := []string{"", "nota_number", "-1", "abc"}
-	for _, amount := range cases {
-		amount := amount
-		t.Run(amount, func(t *testing.T) {
+	cases := map[string]sdkmath.Int{
+		"nil":      {},                 // unset amount
+		"negative": sdkmath.NewInt(-1), // negative amount
+	}
+	for name, amount := range cases {
+		name, amount := name, amount
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			p := DefaultParams()
 			p.MinStake.Amount = amount
 			if err := p.Validate(); err == nil {
-				t.Errorf("expected Validate error for malformed amount %q", amount)
+				t.Errorf("expected Validate error for invalid amount %q", name)
 			}
-		})
-	}
-}
-
-// TestCoinFromProto_NoPanicOnInvalidInputs documents the
-// defense-in-depth layer: even if a malformed MinStake survives
-// Params.Validate (old storage, forged state, etc.), CoinFromProto
-// must not panic. It returns sdk.Coin{} (zero value) on any
-// structural failure — callers are expected to check coin.IsValid()
-// or Denom != "" before using the result.
-func TestCoinFromProto_NoPanicOnInvalidInputs(t *testing.T) {
-	t.Parallel()
-	cases := []*v1beta1.Coin{
-		nil,
-		{Denom: "", Amount: "1"},
-		{Denom: "UPPER", Amount: "1"},
-		{Denom: "1bad", Amount: "1"},
-		{Denom: "ulume", Amount: "-1"},
-		{Denom: "ulume", Amount: "abc"},
-	}
-	for _, c := range cases {
-		c := c
-		name := "nil"
-		if c != nil {
-			name = c.Denom + "|" + c.Amount
-		}
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			defer func() {
-				if r := recover(); r != nil {
-					t.Fatalf("CoinFromProto panicked on %+v: %v", c, r)
-				}
-			}()
-			// Return value not asserted — the whole point is that the
-			// call completes without panicking. Semantics of each
-			// branch (zero vs. zero-amount coin) live in the docstring
-			// and are already covered by the existing unit suite.
-			_ = CoinFromProto(c)
 		})
 	}
 }

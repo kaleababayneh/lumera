@@ -1,10 +1,8 @@
-
 // Package keeper provides state access for the passport module.
 package keeper
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -22,53 +20,6 @@ import (
 
 // ConsensusVersion defines the module consensus version for migrations.
 const ConsensusVersion = 1
-
-// jsonValueCodec implements collections.ValueCodec for JSON-serializable types
-type jsonValueCodec[T any] struct{}
-
-func (j jsonValueCodec[T]) Encode(value *T) ([]byte, error) {
-	if value == nil {
-		return nil, nil
-	}
-	return json.Marshal(value)
-}
-
-func (j jsonValueCodec[T]) Decode(b []byte) (*T, error) {
-	if b == nil {
-		return nil, nil
-	}
-	var value T
-	if err := json.Unmarshal(b, &value); err != nil {
-		return nil, err
-	}
-	return &value, nil
-}
-
-func (j jsonValueCodec[T]) EncodeJSON(value *T) ([]byte, error) {
-	return j.Encode(value)
-}
-
-func (j jsonValueCodec[T]) DecodeJSON(b []byte) (*T, error) {
-	return j.Decode(b)
-}
-
-func (j jsonValueCodec[T]) Stringify(value *T) string {
-	bz, err := j.Encode(value)
-	if err != nil {
-		return fmt.Sprintf("<error: %v>", err)
-	}
-	return string(bz)
-}
-
-func (j jsonValueCodec[T]) ValueType() string {
-	var zero T
-	return fmt.Sprintf("%T", zero)
-}
-
-// newJSONValueCodec creates a new JSON value codec for type T
-func newJSONValueCodec[T any]() jsonValueCodec[T] {
-	return jsonValueCodec[T]{}
-}
 
 // State encapsulates the module collections state.
 type State struct {

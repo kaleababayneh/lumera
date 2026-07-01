@@ -26,10 +26,10 @@ type Keeper struct {
 	state State
 
 	// Dependencies for router functionality
-	registryKeeper  RegistryKeeper
-	creditsKeeper   CreditsKeeper
-	cacheKeeper     CacheKeeper
-	lumeraIDKeeper  LumeraIDKeeper
+	registryKeeper RegistryKeeper
+	creditsKeeper  CreditsKeeper
+	cacheKeeper    CacheKeeper
+	lumeraIDKeeper LumeraIDKeeper
 }
 
 // RegistryKeeper defines the subset of registry functionality required by the router module.
@@ -115,7 +115,6 @@ func NewKeeper(
 		creditsKeeper:  creditsKeeper,
 	}
 }
-
 
 // Logger returns the logger
 func (k Keeper) Logger(_ sdk.Context) log.Logger {

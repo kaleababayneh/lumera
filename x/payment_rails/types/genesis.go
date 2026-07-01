@@ -2,8 +2,8 @@ package types
 
 import (
 	"fmt"
-	"time"
 	"strings"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )

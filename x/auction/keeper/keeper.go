@@ -62,16 +62,16 @@ func newJSONCodec[T any]() jsonValueCodec[T] { return jsonValueCodec[T]{} }
 
 // State stores module collections.
 type State struct {
-	Schema             collections.Schema
-	Params             collections.Item[types.Params]
-	ActiveAuctions     collections.Item[uint64]
-	Auctions           collections.Map[string, types.SpotAuction]
-	AuctionSeq         collections.Sequence
-	BidSeq             collections.Sequence
-	Bids               collections.Map[string, types.SpotBid]
-	AuctionByRequest   collections.Map[string, string]
-	AuctionBidByBidder collections.Map[collections.Pair[string, string], string]
-	AuctionsByExpiry   collections.KeySet[collections.Pair[time.Time, string]]
+	Schema                collections.Schema
+	Params                collections.Item[types.Params]
+	ActiveAuctions        collections.Item[uint64]
+	Auctions              collections.Map[string, types.SpotAuction]
+	AuctionSeq            collections.Sequence
+	BidSeq                collections.Sequence
+	Bids                  collections.Map[string, types.SpotBid]
+	AuctionByRequest      collections.Map[string, string]
+	AuctionBidByBidder    collections.Map[collections.Pair[string, string], string]
+	AuctionsByExpiry      collections.KeySet[collections.Pair[time.Time, string]]
 	AuctionsBySettledDate collections.KeySet[collections.Pair[time.Time, string]]
 }
 

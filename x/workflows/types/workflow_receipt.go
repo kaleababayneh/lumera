@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"strings"
 	"time"
 
@@ -953,11 +952,4 @@ func (r *WorkflowInvocationReceipt) AnchorLogFields(anchor *WorkflowReceiptAncho
 		}
 	}
 	return fields
-}
-
-func workflowReceiptDebugString(receipt *WorkflowInvocationReceipt) string {
-	if receipt == nil {
-		return "<nil>"
-	}
-	return fmt.Sprintf("%s/%s@%s root=%s", receipt.BundleID, receipt.WorkflowID, receipt.Version, receipt.MerkleRootHex())
 }

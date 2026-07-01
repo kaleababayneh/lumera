@@ -96,8 +96,6 @@ func (am AppModule) RegisterServices(registrar module.Configurator) {
 }
 
 // RegisterInvariants registers module invariants.
-//
-//nolint:staticcheck // Keep until crisis module removal upstream.
 func (AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {}
 
 // InitGenesis initializes module state from genesis data.

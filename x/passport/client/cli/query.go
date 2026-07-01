@@ -1,4 +1,3 @@
-
 // Package cli defines Cobra commands for the passport module.
 package cli
 

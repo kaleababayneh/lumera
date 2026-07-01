@@ -1,4 +1,3 @@
-
 // Package types holds shared types and helpers for the CAC module.
 //
 //revive:disable:var-naming // Shared with other CAC module type helpers.

@@ -156,10 +156,10 @@ func NewCreateChallengeCmd() *cobra.Command {
 			}
 
 			msg := &types.MsgCreateChallenge{
-				Creator:       clientCtx.GetFromAddress().String(),
-				Title:         strings.TrimSpace(title),
-				Description:   strings.TrimSpace(description),
-				ChallengeType: challengeType,
+				Creator:            clientCtx.GetFromAddress().String(),
+				Title:              strings.TrimSpace(title),
+				Description:        strings.TrimSpace(description),
+				ChallengeType:      challengeType,
 				PrizePool:          prizePool,
 				EntryFee:           entryFee,
 				ScoringWeights:     scoringWeights,

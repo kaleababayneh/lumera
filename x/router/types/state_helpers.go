@@ -399,7 +399,7 @@ func hasWhitespaceOrControl(value string) bool {
 }
 
 func urlAuthorityContainsUserinfo(raw string) bool {
-	authorityStart := -1
+	var authorityStart int
 	switch {
 	case strings.HasPrefix(raw, "//"):
 		authorityStart = len("//")

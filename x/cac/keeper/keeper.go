@@ -1089,26 +1089,6 @@ func (k Keeper) recordHitStats(ctx context.Context, costSaved sdk.Coins, latency
 	return k.state.Stats.Set(ctx, stats)
 }
 
-func (k Keeper) recordMiss(ctx context.Context) error {
-	stats, err := k.GetStats(ctx)
-	if err != nil {
-		if !errors.Is(err, collections.ErrNotFound) {
-			return fmt.Errorf("read cache stats: %w", err)
-		}
-		stats = &types.CacheStats{}
-	}
-	if stats == nil {
-		stats = &types.CacheStats{}
-	}
-	stats.MissCount++
-
-	// Update hit rate using integer arithmetic for determinism.
-	stats.HitRate = hitRateDec(stats.HitCount, stats.MissCount)
-
-	stats.LastUpdated = sdk.UnwrapSDKContext(ctx).BlockTime()
-	return k.state.Stats.Set(ctx, stats)
-}
-
 // computeHitRate calculates hit/(hit+miss) as a 4-decimal string using
 // integer arithmetic only, avoiding float64 non-determinism in consensus.
 // It feeds the string ToolCacheStats.HitRate explorer field; hitRateDec wraps

@@ -196,19 +196,19 @@ var moduleCatalog = []catalogEntry{
 	},
 	{
 		Name: "priority", Group: "lumera", Title: "Priority",
-		Blurb: "Latency/queue tier definitions (standard/priority/express/enterprise) for the routing layer.",
+		Blurb:      "Latency/queue tier definitions (standard/priority/express/enterprise) for the routing layer.",
 		MsgTypes:   []string{},
 		EventTypes: []string{},
 	},
 	{
 		Name: "auction", Group: "lumera", Title: "Auction",
-		Blurb: "Spot-call auction economics for routing — bid windows, TTLs, and spot discounts.",
+		Blurb:      "Spot-call auction economics for routing — bid windows, TTLs, and spot discounts.",
 		MsgTypes:   []string{},
 		EventTypes: []string{},
 	},
 	{
 		Name: "workflows", Group: "lumera", Title: "Workflows",
-		Blurb: "Composable Intelligence: multi-step workflow bundles, author bonds, signed step receipts, replay protection.",
+		Blurb:    "Composable Intelligence: multi-step workflow bundles, author bonds, signed step receipts, replay protection.",
 		MsgTypes: []string{},
 		EventTypes: []string{
 			"workflows_published", "workflows_upgraded", "workflows_deactivated", "workflows_bundle_quoted",

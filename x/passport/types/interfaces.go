@@ -1,4 +1,3 @@
-
 package types
 
 // NOTE: MsgServer and QueryServer interfaces are defined in passport_grpc.pb.go

@@ -1,4 +1,3 @@
-
 package types
 
 import (
@@ -10,7 +9,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // ---------- GenesisState ----------
@@ -95,9 +93,9 @@ func TestGenesisState_Validate_EntriesAndToolStats(t *testing.T) {
 			mutate: func(gs *GenesisState) {
 				now := time.Unix(1_700_000_000, 0).UTC()
 				entry := validEntry("blake3:alpha")
-				entry.CreatedAt = timestamppb.New(now)
-				entry.ExpiresAt = timestamppb.New(now.Add(time.Hour))
-				entry.LastAccessAt = timestamppb.New(now.Add(time.Minute))
+				entry.CreatedAt = now
+				entry.ExpiresAt = now.Add(time.Hour)
+				entry.LastAccessAt = now.Add(time.Minute)
 				gs.Entries = []*CacheEntry{entry}
 				gs.EntryHeights = map[string]int64{"blake3:alpha": 12}
 			},
@@ -164,41 +162,23 @@ func TestGenesisState_Validate_EntriesAndToolStats(t *testing.T) {
 			},
 			wantErr: "does not match content length",
 		},
-		{
-			name: "invalid created timestamp",
-			mutate: func(gs *GenesisState) {
-				entry := validEntry("blake3:alpha")
-				entry.CreatedAt = &timestamppb.Timestamp{Seconds: 253402300800}
-				gs.Entries = []*CacheEntry{entry}
-			},
-			wantErr: "entries[0].created_at is invalid",
-		},
-		{
-			name: "invalid expiry timestamp",
-			mutate: func(gs *GenesisState) {
-				entry := validEntry("blake3:alpha")
-				entry.ExpiresAt = &timestamppb.Timestamp{Nanos: 1_000_000_000}
-				gs.Entries = []*CacheEntry{entry}
-			},
-			wantErr: "entries[0].expires_at is invalid",
-		},
-		{
-			name: "invalid last access timestamp",
-			mutate: func(gs *GenesisState) {
-				entry := validEntry("blake3:alpha")
-				entry.LastAccessAt = &timestamppb.Timestamp{Seconds: -62135596801}
-				gs.Entries = []*CacheEntry{entry}
-			},
-			wantErr: "entries[0].last_access_at is invalid",
-		},
+		// The historical "invalid created/expiry/last-access timestamp"
+		// sub-cases asserted that structurally out-of-range
+		// *timestamppb.Timestamp values (Seconds: 253402300800,
+		// Nanos: 1_000_000_000, Seconds: -62135596801) were rejected.
+		// After the gogoproto migration these fields are value time.Time
+		// (validateGenesisTimestamp is now a no-op): such structurally
+		// invalid instants can no longer be constructed, so those
+		// sub-cases are obsolete and removed. The timestamp-ORDERING
+		// invariants below remain fully covered.
 		{
 			name: "expiry equal to created at",
 			mutate: func(gs *GenesisState) {
 				now := time.Unix(1_700_000_000, 0).UTC()
 				entry := validEntry("blake3:alpha")
-				entry.CreatedAt = timestamppb.New(now)
-				entry.ExpiresAt = timestamppb.New(now)
-				entry.LastAccessAt = timestamppb.New(now)
+				entry.CreatedAt = now
+				entry.ExpiresAt = now
+				entry.LastAccessAt = now
 				gs.Entries = []*CacheEntry{entry}
 			},
 			wantErr: "expires_at must be after created_at",
@@ -208,9 +188,9 @@ func TestGenesisState_Validate_EntriesAndToolStats(t *testing.T) {
 			mutate: func(gs *GenesisState) {
 				now := time.Unix(1_700_000_000, 0).UTC()
 				entry := validEntry("blake3:alpha")
-				entry.CreatedAt = timestamppb.New(now)
-				entry.ExpiresAt = timestamppb.New(now.Add(-time.Second))
-				entry.LastAccessAt = timestamppb.New(now)
+				entry.CreatedAt = now
+				entry.ExpiresAt = now.Add(-time.Second)
+				entry.LastAccessAt = now
 				gs.Entries = []*CacheEntry{entry}
 			},
 			wantErr: "expires_at must be after created_at",
@@ -220,9 +200,9 @@ func TestGenesisState_Validate_EntriesAndToolStats(t *testing.T) {
 			mutate: func(gs *GenesisState) {
 				now := time.Unix(1_700_000_000, 0).UTC()
 				entry := validEntry("blake3:alpha")
-				entry.CreatedAt = timestamppb.New(now)
-				entry.ExpiresAt = timestamppb.New(now.Add(time.Hour))
-				entry.LastAccessAt = timestamppb.New(now.Add(-time.Second))
+				entry.CreatedAt = now
+				entry.ExpiresAt = now.Add(time.Hour)
+				entry.LastAccessAt = now.Add(-time.Second)
 				gs.Entries = []*CacheEntry{entry}
 			},
 			wantErr: "last_access_at cannot be before created_at",
@@ -232,9 +212,9 @@ func TestGenesisState_Validate_EntriesAndToolStats(t *testing.T) {
 			mutate: func(gs *GenesisState) {
 				now := time.Unix(1_700_000_000, 0).UTC()
 				entry := validEntry("blake3:alpha")
-				entry.CreatedAt = timestamppb.New(now)
-				entry.ExpiresAt = timestamppb.New(now.Add(time.Hour))
-				entry.LastAccessAt = timestamppb.New(now.Add(2 * time.Hour))
+				entry.CreatedAt = now
+				entry.ExpiresAt = now.Add(time.Hour)
+				entry.LastAccessAt = now.Add(2 * time.Hour)
 				gs.Entries = []*CacheEntry{entry}
 			},
 			wantErr: "last_access_at cannot be after expires_at",
@@ -1015,7 +995,7 @@ func TestMsgUpdateParams_Type(t *testing.T) {
 func TestMsgUpdateParams_ValidateBasic_Valid(t *testing.T) {
 	msg := &MsgUpdateParams{
 		Authority: testAddr(t),
-		Params:    DefaultCacheParams(),
+		Params:    *DefaultCacheParams(),
 	}
 	require.NoError(t, msg.ValidateBasic())
 }
@@ -1023,15 +1003,18 @@ func TestMsgUpdateParams_ValidateBasic_Valid(t *testing.T) {
 func TestMsgUpdateParams_ValidateBasic_EmptyAuthority(t *testing.T) {
 	msg := &MsgUpdateParams{
 		Authority: "",
-		Params:    DefaultCacheParams(),
+		Params:    *DefaultCacheParams(),
 	}
 	require.Error(t, msg.ValidateBasic())
 }
 
 func TestMsgUpdateParams_ValidateBasic_NilParams(t *testing.T) {
+	// Params is now a value CacheParams; the "unset" params is the zero
+	// value, which fails Validate (DefaultTtlSeconds == 0, etc.) exactly
+	// as the historical nil pointer did.
 	msg := &MsgUpdateParams{
 		Authority: testAddr(t),
-		Params:    nil,
+		Params:    CacheParams{},
 	}
 	require.Error(t, msg.ValidateBasic())
 }

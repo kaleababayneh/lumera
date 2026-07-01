@@ -14,10 +14,10 @@ import (
 )
 
 var (
-	selectionWeightPerformance   = decimal.RequireFromString("0.25")
-	selectionWeightReliability   = decimal.RequireFromString("0.35")
+	selectionWeightPerformance    = decimal.RequireFromString("0.25")
+	selectionWeightReliability    = decimal.RequireFromString("0.35")
 	selectionWeightCostEfficiency = decimal.RequireFromString("0.20")
-	selectionWeightReputation    = decimal.RequireFromString("0.20")
+	selectionWeightReputation     = decimal.RequireFromString("0.20")
 )
 
 // RecordPolicyUpdate records a policy version change
@@ -77,7 +77,7 @@ func (k Keeper) GetPolicyUpdates(ctx context.Context, policyID string, limit uin
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
 	var updates []*types.PolicyUpdate
-	
+
 	// Get current sequence to start from newest
 	seq, err := k.state.PolicyUpdateCounter.Peek(sdkCtx)
 	if err != nil {
@@ -90,11 +90,11 @@ func (k Keeper) GetPolicyUpdates(ctx context.Context, policyID string, limit uin
 	}
 
 	count := uint32(0)
-	
+
 	// Iterate backwards from current sequence
 	// We scan until we find 'limit' matching updates or run out of history.
 	// Since we can't easily skip non-matching keys efficiently without a secondary index,
-	// we assume policy updates are sparse or 'limit' is small. 
+	// we assume policy updates are sparse or 'limit' is small.
 	// If policyID is provided, this might still scan many records, but at least it starts from recent.
 	for i := int64(seq); i >= 0; i-- {
 		update, err := k.state.PolicyUpdates.Get(sdkCtx, uint64(i))

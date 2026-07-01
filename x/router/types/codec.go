@@ -51,7 +51,6 @@ var (
 	ModuleCdc = codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
 )
 
-
 func init() {
 	// gogoproto type/file descriptors are registered by the generated .pb.go init().
 	RegisterLegacyAminoCodec(Amino)

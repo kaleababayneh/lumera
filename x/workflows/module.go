@@ -91,8 +91,6 @@ func NewAppModule(k *keeper.Keeper) AppModule {
 }
 
 // RegisterInvariants wires workflows invariants into the application registry.
-//
-//nolint:staticcheck // legacy invariant registry remains until x/crisis removal lands upstream.
 func (am AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {}
 
 // RegisterServices is intentionally empty until tx/query protobuf services land.

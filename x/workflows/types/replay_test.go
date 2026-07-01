@@ -430,14 +430,6 @@ func workflowReplayReceiptDiffReasons(report *WorkflowReplayReport) []string {
 	return reasons
 }
 
-func workflowReplayStepDiffReasons(report *WorkflowReplayReport) []string {
-	reasons := make([]string, 0, len(report.Diff.Steps))
-	for _, diff := range report.Diff.Steps {
-		reasons = append(reasons, diff.Reason)
-	}
-	return reasons
-}
-
 func workflowReplayToolDiffReasons(report *WorkflowReplayReport) []string {
 	reasons := make([]string, 0, len(report.Diff.ToolVersions))
 	for _, diff := range report.Diff.ToolVersions {

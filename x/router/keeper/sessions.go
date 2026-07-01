@@ -19,13 +19,6 @@ const (
 	defaultDeactivationReason = "deactivation"
 )
 
-func sessionStoreKey(sessionID string) []byte {
-	key := make([]byte, len(types.SessionPrefix)+len(sessionID))
-	copy(key, types.SessionPrefix)
-	copy(key[len(types.SessionPrefix):], sessionID)
-	return key
-}
-
 // GetSession retrieves an existing session by ID, returning an error if not found.
 func (k Keeper) GetSession(ctx context.Context, sessionID string) (*types.SessionState, error) {
 	session, err := k.state.Sessions.Get(ctx, sessionID)

@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -265,10 +264,4 @@ func parseCacheTier(s string) (types.CacheTier, error) {
 
 func redactCACCLIDiagnostic(value string) string {
 	return logging.RedactPII(strings.TrimSpace(value))
-}
-
-// isValidHex checks if a string is valid hexadecimal (for content/request hashes).
-func isValidHex(s string) bool {
-	_, err := hex.DecodeString(s)
-	return err == nil
 }

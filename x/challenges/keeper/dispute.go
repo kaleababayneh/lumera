@@ -14,12 +14,6 @@ import (
 	"github.com/LumeraProtocol/lumera/x/challenges/types"
 )
 
-// disputeIndexSeparator is retained for backward-compatible reference
-// in any external code that imported it before the length-prefix fix.
-// New code should not use it; disputeSubmissionKey is the canonical
-// encoder.
-const disputeIndexSeparator = "\x1f"
-
 // FileDispute records a user contestation for a challenge submission or ranking.
 // The challenges module identifies submissions by (challenge_id, tool_id), so
 // callers must provide both fields on the Dispute.

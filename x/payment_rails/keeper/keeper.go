@@ -15,7 +15,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	creditstypes "github.com/LumeraProtocol/lumera/x/credits/types"
 	oracletypes "github.com/LumeraProtocol/lumera/x/oracle/types"
 	"github.com/LumeraProtocol/lumera/x/payment_rails/types"
 )
@@ -1130,15 +1129,4 @@ func computeSlippageBps(spot, quoted sdkmath.LegacyDec) (uint32, error) {
 		bps = 10000
 	}
 	return uint32(bps), nil
-}
-
-func (k *Keeper) deriveCreditDenom(ctx context.Context) string {
-	if k.creditsKeeper == nil {
-		return creditstypes.DefaultCreditDenom
-	}
-	params := k.creditsKeeper.GetParams(ctx)
-	if params == nil || params.CreditDenom == "" {
-		return creditstypes.DefaultCreditDenom
-	}
-	return params.CreditDenom
 }

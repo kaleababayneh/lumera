@@ -90,8 +90,6 @@ func (AppModule) IsAppModule() {}
 func (AppModule) IsOnePerModuleType() {}
 
 // RegisterInvariants is a no-op.
-//
-//nolint:staticcheck // Required to satisfy AppModule interface until crisis removal.
 func (AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {}
 
 // RegisterServices registers the challenges msg + query servers.

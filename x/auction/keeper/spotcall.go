@@ -163,7 +163,7 @@ func (k *Keeper) SubmitSpotBid(ctx context.Context, req types.SubmitBidRequest) 
 		// Valid if:
 		// 1. Significantly cheaper (<= limitPrice AND strictly < currentPrice)
 		// 2. OR At least as cheap (<= currentPrice) AND Faster
-		if !isCheaperByDecrement && !(isAtLeastAsCheap && isFaster) {
+		if !isCheaperByDecrement && (!isAtLeastAsCheap || !isFaster) {
 			return nil, types.ErrInvalidBid.Wrapf("bid does not improve enough on best bid")
 		}
 	}

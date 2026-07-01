@@ -1,4 +1,3 @@
-
 package types
 
 import (
@@ -6,43 +5,35 @@ import (
 	"strings"
 	"testing"
 
-	v1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
+	sdkmath "cosmossdk.io/math"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// TestValidateSummaryCoin_RejectsInvalidAmountMetamorphic pins the
-// amount-parsing contract of validateSummaryCoin. sdkmath.NewIntFromString
-// is strict: decimal points, alphabetic characters, and empty strings
-// all fail to parse. Settlement dashboards read TotalSpend/SettledSpend
-// verbatim; a regression that accepted "1.5" or "abc" as valid would
-// let a corrupted state record through and display garbage.
-func TestValidateSummaryCoin_RejectsInvalidAmountMetamorphic(t *testing.T) {
+// TestValidateSummaryCoin_RejectsNilAmount pins the amount-validity
+// contract of validateSummaryCoin. With the gogoproto migration the
+// coin amount is a math.Int value, so the only representable "invalid
+// amount" is a nil (unset) Int paired with a non-empty denom — a
+// present-but-empty coin (empty denom + nil amount) is intentionally
+// treated as unset. Settlement dashboards read TotalSpend/SettledSpend
+// verbatim; a regression that accepted a denom'd coin with a nil amount
+// would let a corrupted state record through and display garbage.
+//
+// The historical string-parse cases ("1.5", "abc", "1e9", "1,000",
+// leading/trailing space, "--100", …) are obsolete: a math.Int can no
+// longer hold an unparseable string, so those inputs cannot be
+// constructed. The surviving representable failure (nil amount) is
+// pinned here.
+func TestValidateSummaryCoin_RejectsNilAmount(t *testing.T) {
 	t.Parallel()
-	// Known-invalid amount forms. sdkmath.NewIntFromString wraps big.Int
-	// with base 10 parsing and strict semantics, so these all fail. Hex
-	// (0x10) and signed-positive (+100) are intentionally omitted — the
-	// underlying big.Int parser may accept them in some SDK versions.
-	invalid := []string{
-		"",      // empty
-		"abc",   // alpha
-		"1.5",   // decimal point
-		"1e9",   // scientific notation
-		"1,000", // comma separator
-		" 100",  // leading space
-		"100 ",  // trailing space
-		"- 100", // malformed negative
-		"--100", // double negative
+	s := &PassportSummary{
+		TotalSpend: sdk.Coin{Denom: "ulume"}, // denom set, amount nil
 	}
-	for _, amount := range invalid {
-		s := &PassportSummary{
-			TotalSpend: &v1beta1.Coin{Denom: "ulume", Amount: amount},
-		}
-		err := s.Validate()
-		if err == nil {
-			t.Fatalf("amount=%q should be rejected", amount)
-		}
-		if !strings.Contains(err.Error(), "total_spend") {
-			t.Fatalf("amount=%q: error %q does not mention total_spend", amount, err)
-		}
+	err := s.Validate()
+	if err == nil {
+		t.Fatalf("nil amount with denom should be rejected")
+	}
+	if !strings.Contains(err.Error(), "total_spend") {
+		t.Fatalf("error %q does not mention total_spend", err)
 	}
 }
 
@@ -52,25 +43,29 @@ func TestValidateSummaryCoin_RejectsInvalidAmountMetamorphic(t *testing.T) {
 // or a bug in settlement arithmetic elsewhere.
 func TestValidateSummaryCoin_RejectsNegativeAmountMetamorphic(t *testing.T) {
 	t.Parallel()
-	negatives := []string{"-1", "-100", "-999999999999999999"}
+	negatives := []sdkmath.Int{
+		sdkmath.NewInt(-1),
+		sdkmath.NewInt(-100),
+		sdkmath.NewInt(-999999999999999999),
+	}
 	for _, amount := range negatives {
 		s := &PassportSummary{
-			SettledSpend: &v1beta1.Coin{Denom: "ulume", Amount: amount},
+			SettledSpend: sdk.Coin{Denom: "ulume", Amount: amount},
 		}
 		err := s.Validate()
 		if err == nil {
-			t.Fatalf("negative amount %q should be rejected", amount)
+			t.Fatalf("negative amount %s should be rejected", amount)
 		}
 		if !strings.Contains(err.Error(), "settled_spend") {
-			t.Fatalf("negative amount %q: error %q does not mention settled_spend", amount, err)
+			t.Fatalf("negative amount %s: error %q does not mention settled_spend", amount, err)
 		}
 	}
 }
 
 // TestValidateSummaryCoin_RejectsMalformedDenomMetamorphic pins
-// parity with CoinFromProto and Params.Validate: Passport summary
-// spend fields are Cosmos coins, so non-empty but malformed denoms
-// must fail before genesis can import corrupted spend records.
+// parity with Params.Validate: Passport summary spend fields are
+// Cosmos coins, so non-empty but malformed denoms must fail before
+// genesis can import corrupted spend records.
 func TestValidateSummaryCoin_RejectsMalformedDenomMetamorphic(t *testing.T) {
 	t.Parallel()
 	invalidDenoms := []string{
@@ -88,19 +83,19 @@ func TestValidateSummaryCoin_RejectsMalformedDenomMetamorphic(t *testing.T) {
 			{
 				field: "total_spend",
 				summary: PassportSummary{
-					TotalSpend: &v1beta1.Coin{Denom: denom, Amount: "1"},
+					TotalSpend: sdk.Coin{Denom: denom, Amount: sdkmath.NewInt(1)},
 				},
 			},
 			{
 				field: "settled_spend",
 				summary: PassportSummary{
-					SettledSpend: &v1beta1.Coin{Denom: denom, Amount: "1"},
+					SettledSpend: sdk.Coin{Denom: denom, Amount: sdkmath.NewInt(1)},
 				},
 			},
 			{
 				field: "refunded_spend",
 				summary: PassportSummary{
-					RefundedSpend: &v1beta1.Coin{Denom: denom, Amount: "1"},
+					RefundedSpend: sdk.Coin{Denom: denom, Amount: sdkmath.NewInt(1)},
 				},
 			},
 		}
@@ -120,18 +115,24 @@ func TestValidateSummaryCoin_RejectsMalformedDenomMetamorphic(t *testing.T) {
 // TestValidateSummaryCoin_AcceptsZeroAndPositiveMetamorphic asserts the
 // accept path: zero and positive amounts with a non-empty denom pass.
 // Zero is the initial state for a freshly-created passport, so any
-// regression rejecting "0" would break genesis paths.
+// regression rejecting zero would break genesis paths.
 func TestValidateSummaryCoin_AcceptsZeroAndPositiveMetamorphic(t *testing.T) {
 	t.Parallel()
-	amounts := []string{"0", "1", "100", "1000000", "999999999999999999"}
+	amounts := []sdkmath.Int{
+		sdkmath.NewInt(0),
+		sdkmath.NewInt(1),
+		sdkmath.NewInt(100),
+		sdkmath.NewInt(1000000),
+		sdkmath.NewInt(999999999999999999),
+	}
 	for _, amount := range amounts {
 		s := &PassportSummary{
-			TotalSpend:    &v1beta1.Coin{Denom: "ulume", Amount: amount},
-			SettledSpend:  &v1beta1.Coin{Denom: "ulume", Amount: amount},
-			RefundedSpend: &v1beta1.Coin{Denom: "ulume", Amount: amount},
+			TotalSpend:    sdk.Coin{Denom: "ulume", Amount: amount},
+			SettledSpend:  sdk.Coin{Denom: "ulume", Amount: amount},
+			RefundedSpend: sdk.Coin{Denom: "ulume", Amount: amount},
 		}
 		if err := s.Validate(); err != nil {
-			t.Fatalf("amount=%q should be accepted, got: %v", amount, err)
+			t.Fatalf("amount=%s should be accepted, got: %v", amount, err)
 		}
 	}
 }
@@ -184,12 +185,6 @@ func TestValidateSummaryShare_InfinityRejectionMetamorphic(t *testing.T) {
 			{VerifiedSpendShare: v},
 			{CollusionRiskScore: v},
 		}
-		// Index-based loop avoids copying PassportSummary, which embeds
-		// protoimpl.MessageState (contains sync.Mutex). `go vet` flags
-		// `for _, s := range cases` as "range var s copies lock"; using
-		// &cases[i] takes the address of the original element so the
-		// pointer-receiver Validate method operates on the authoritative
-		// value.
 		for i := range cases {
 			if err := cases[i].Validate(); err == nil {
 				t.Fatalf("field[%d] value=%v should be rejected", i, v)
@@ -227,12 +222,6 @@ func TestValidateSummaryShare_FieldAttributionMetamorphic(t *testing.T) {
 			wantWord: "collusion_risk_score",
 		},
 	}
-	// Index-based loop to avoid copying the PassportSummary embedded in
-	// each test case (contains protoimpl.MessageState → sync.Mutex).
-	// `go vet` flags `for _, tc := range tests` as "range var tc copies
-	// lock" even though the test is read-only; &tests[i] preserves the
-	// single authoritative PassportSummary for the pointer-receiver
-	// Validate call.
 	for i := range tests {
 		tc := &tests[i]
 		t.Run(tc.name, func(t *testing.T) {
@@ -248,25 +237,25 @@ func TestValidateSummaryShare_FieldAttributionMetamorphic(t *testing.T) {
 }
 
 // TestValidateSummary_NilCoinAcceptedMetamorphic pins the documented
-// contract that nil coin pointers are accepted (represents "not yet
-// populated"). Freshly-created passports have nil coins until the
-// first settlement; any regression that dereferenced nil here would
-// crash the validator on every new passport.
+// contract that unset coins are accepted (represents "not yet
+// populated"). Freshly-created passports have zero-value coins until
+// the first settlement; any regression that rejected the unset coin
+// here would crash the validator on every new passport.
 func TestValidateSummary_NilCoinAcceptedMetamorphic(t *testing.T) {
 	t.Parallel()
 	s := &PassportSummary{
-		// All coin pointers nil.
-		TotalSpend:    nil,
-		SettledSpend:  nil,
-		RefundedSpend: nil,
+		// All coins unset (zero value: empty denom + nil amount).
+		TotalSpend:    sdk.Coin{},
+		SettledSpend:  sdk.Coin{},
+		RefundedSpend: sdk.Coin{},
 	}
 	if err := s.Validate(); err != nil {
-		t.Fatalf("nil coins should be accepted (fresh passport): %v", err)
+		t.Fatalf("unset coins should be accepted (fresh passport): %v", err)
 	}
-	// Partial nil: some set, some nil — also accepted.
-	s.TotalSpend = &v1beta1.Coin{Denom: "ulume", Amount: "100"}
+	// Partial: some set, some unset — also accepted.
+	s.TotalSpend = sdk.Coin{Denom: "ulume", Amount: sdkmath.NewInt(100)}
 	if err := s.Validate(); err != nil {
-		t.Fatalf("partial nil coins should be accepted: %v", err)
+		t.Fatalf("partial unset coins should be accepted: %v", err)
 	}
 }
 

@@ -1,4 +1,3 @@
-
 package types
 
 // Deterministic math functions for consensus-safe scoring.

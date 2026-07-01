@@ -295,7 +295,7 @@ func FuzzSpotBidJSONUnmarshalRaw(f *testing.F) {
 		[]byte(`{"submitted_at":"not_a_time"}`),                   // bad time
 		[]byte(`{"submitted_at":"0001-01-01T00:00:00Z"}`),         // zero time
 		[]byte(strings.Repeat("a", 10000)),                        // huge garbage
-		[]byte(`{"id":" "}`),                                     // NUL in escaped form
+		[]byte("{\"id\":\" \x01\"}"),                              // U+0001 control char in value
 	}
 	for _, s := range seeds {
 		f.Add(s)

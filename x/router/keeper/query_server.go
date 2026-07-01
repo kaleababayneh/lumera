@@ -12,10 +12,10 @@ import (
 	"cosmossdk.io/collections"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
+	"github.com/cosmos/gogoproto/proto"
 	"github.com/shopspring/decimal"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"github.com/cosmos/gogoproto/proto"
 
 	"github.com/LumeraProtocol/lumera/x/router/types"
 )
@@ -214,7 +214,7 @@ func (q *queryServer) SelectionScores(goCtx context.Context, req *types.QuerySel
 	scores := make([]*types.ToolSelectionScore, 0)
 	err = keeper.state.SelectionScores.Walk(sdkCtx, nil, func(toolID string, score *types.ToolSelectionScore) (bool, error) {
 		cloned := &types.ToolSelectionScore{}
-	ok := deepCopyProto(score, cloned)
+		ok := deepCopyProto(score, cloned)
 		if !ok {
 			return true, fmt.Errorf("failed to clone selection score for %s", toolID)
 		}
@@ -269,7 +269,7 @@ func (q *queryServer) PolicyUpdates(goCtx context.Context, req *types.QueryPolic
 			return false, nil
 		}
 		clonedUpdate := &types.PolicyUpdate{}
-	ok := deepCopyProto(update, clonedUpdate)
+		ok := deepCopyProto(update, clonedUpdate)
 		if !ok {
 			return false, nil
 		}
@@ -329,7 +329,7 @@ func (q *queryServer) CACRoyalties(goCtx context.Context, req *types.QueryCACRoy
 			return nil
 		}
 		cloned := &types.CACRoyaltyRecord{}
-	ok := deepCopyProto(record, cloned)
+		ok := deepCopyProto(record, cloned)
 		if !ok {
 			return nil
 		}
@@ -536,7 +536,7 @@ func (q *queryServer) ToolRanking(goCtx context.Context, req *types.QueryToolRan
 			return true, serr
 		}
 		clonedMetrics := &types.ActivationMetrics{}
-	ok := deepCopyProto(metrics, clonedMetrics)
+		ok := deepCopyProto(metrics, clonedMetrics)
 		if !ok {
 			return false, nil
 		}

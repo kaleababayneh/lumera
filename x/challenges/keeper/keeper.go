@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"cosmossdk.io/collections"
+	corestore "cosmossdk.io/core/store"
 	"cosmossdk.io/log"
 	"github.com/cosmos/cosmos-sdk/codec"
-	corestore "cosmossdk.io/core/store"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/LumeraProtocol/lumera/x/challenges/types"
@@ -40,9 +40,9 @@ var (
 
 // Keeper maintains the challenges module state.
 type Keeper struct {
-	cdc      codec.BinaryCodec
+	cdc          codec.BinaryCodec
 	storeService corestore.KVStoreService
-	logger   log.Logger
+	logger       log.Logger
 
 	authority      string
 	bankKeeper     types.BankKeeper
@@ -82,9 +82,9 @@ func NewKeeper(
 	sb := collections.NewSchemaBuilder(storeService)
 
 	k := &Keeper{
-		cdc:      cdc,
+		cdc:          cdc,
 		storeService: storeService,
-		logger:   logger,
+		logger:       logger,
 		params: collections.NewItem(
 			sb,
 			collections.NewPrefix(types.ParamsPrefix),

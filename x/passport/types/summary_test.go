@@ -1,11 +1,11 @@
-
 package types
 
 import (
 	"math"
 	"testing"
 
-	v1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
+	sdkmath "cosmossdk.io/math"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,7 +16,7 @@ func TestPassportSummaryValidate_AllowsNil(t *testing.T) {
 
 func TestPassportSummaryValidate_InvalidCoin(t *testing.T) {
 	summary := &PassportSummary{
-		TotalSpend: &v1beta1.Coin{Denom: "", Amount: "10"},
+		TotalSpend: sdk.Coin{Denom: "", Amount: sdkmath.NewInt(10)},
 	}
 	err := summary.Validate()
 	require.Error(t, err)
@@ -25,7 +25,7 @@ func TestPassportSummaryValidate_InvalidCoin(t *testing.T) {
 
 func TestPassportSummaryValidate_InvalidShares(t *testing.T) {
 	summary := &PassportSummary{
-		TotalSpend:         &v1beta1.Coin{Denom: "ulume", Amount: "0"},
+		TotalSpend:         sdk.NewCoin("ulume", sdkmath.NewInt(0)),
 		ToolDiversityIndex: 1.2,
 	}
 	require.Error(t, summary.Validate())

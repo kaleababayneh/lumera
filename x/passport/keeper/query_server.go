@@ -1,4 +1,3 @@
-
 package keeper
 
 import (
@@ -7,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/cosmos/cosmos-sdk/types/query"
+	"github.com/cosmos/gogoproto/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"github.com/cosmos/gogoproto/proto"
 
 	"github.com/LumeraProtocol/lumera/x/passport/types"
 )

@@ -106,7 +106,8 @@ func validToolID(s string) bool {
 		return false
 	}
 	for _, c := range s {
-		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-' || c == '_') {
+		isAlphaNum := c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9'
+		if !isAlphaNum && c != '-' && c != '_' {
 			return false
 		}
 	}
@@ -471,7 +472,7 @@ func toolOwnerAddr(toolID string) string {
 // balanceInt is balance() parsed to an integer (0 on any error).
 func balanceInt(addr, denom string) int64 {
 	var n int64
-	fmt.Sscan(balance(addr, denom), &n)
+	_, _ = fmt.Sscan(balance(addr, denom), &n)
 	return n
 }
 
@@ -614,7 +615,7 @@ func fetchSpotPrice(pair string) (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != 200 {
 		return "", false
 	}
