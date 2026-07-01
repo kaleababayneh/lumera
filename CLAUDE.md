@@ -264,6 +264,28 @@ cross-tool CAC royalty); the explorer (`x/router` CLI + `explorer/catalog.go`+`d
 live-counts, and event-attributes all six. The remaining `feemarket`/`ibc`/`wasm` are lumera-native
 already; `ibc_action` is the Phase-2 IBC track.
 
+**`x/workflows` author lifecycle goes live — tx + query services (2026-06-24):** the workflows module
+was genesis-only (no `Msg`/`Query` services upstream); it now has a full **author-facing live surface**.
+Authored `proto/lumera/workflow/v1/{tx,query}.proto` (gogoproto, `cosmos.msg.v1` signer/service options,
+`customname WorkflowID`), regenerated, and wired: a `Msg` service —
+`PublishWorkflow`/`UpgradeWorkflow`/`DeactivateWorkflow`/`TopUpAuthorBond`/`WithdrawBond` — and a `Query`
+service — `Params`/`Workflow`/`AuthorBond`. `keeper/msg_server.go` (implements the generated `MsgServer`,
+ValidateBasic-first) + `keeper/query_server.go`; `codec.go` registers the 5 Msg types +
+`RegisterMsgServiceDesc`; `module.go RegisterServices` wires both servers; CLI in
+`x/workflows/client/cli/{tx,query}.go` wired into `GetTxCmd`/`GetQueryCmd`. Verified e2e on localnet via
+CLI: `publish-workflow` (bond recorded + locked, `workflows_published` event) → `query workflow`/`params`/
+`author-bond` → `top-up-bond` (1M→1.5M) → `upgrade-workflow` (semver-compatible 1.1.0, bond locks both) →
+`deactivate-workflow` (version→inactive, lock released) → `withdraw-bond` (refused while locked = code 3;
+succeeds once all versions deactivated). PoC exposure: a **Workflows panel** (`poc/web/workflows.go` +
+index.html `vWorkflows`) drives publish/upgrade/deactivate live, lists known workflows + the author bond,
+and seeds `wf.lumera.echo` at genesis (`run-localnet.sh`); `/api/state` enriched with
+`workflowsKnown`/`workflowsActive`/`workflowAuthorBond`. All workflows tests pass; build green; lint 0.
+**Two testnet-hardening items** (documented in `docs/HANDOVER.md`): (1) the author bond is module-state
+bookkeeping — the keeper holds no BankKeeper, so wire `SendCoinsFromAccountToModule` (+ workflows module
+account) to actually escrow/refund/slash before mainnet; (2) `QuoteWorkflow`/`InvokeWorkflow` need the
+router's private key + ed448 signed step receipts + credits settlement — they belong to the off-chain
+router-daemon tier, not the author CLI/PoC.
+
 ## Module 1: `x/credits`
 
 - [x] Copy `x/credits` + dependency-cluster type pkgs (`reserve`, `nft`, `registry`, `cac`,

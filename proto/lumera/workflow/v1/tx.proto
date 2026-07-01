@@ -1,0 +1,94 @@
+syntax = "proto3";
+
+package lumera.workflow.v1;
+
+import "cosmos/msg/v1/msg.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos_proto/cosmos.proto";
+import "lumera/workflow/v1/workflow.proto";
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+
+option go_package = "x/workflows/types";
+
+// Msg defines the workflows module's author-facing tx service: publish, upgrade,
+// deactivate a workflow, and manage the author bond. (Bundle quoting/invocation
+// is driven by the routing layer, not by these messages.)
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // PublishWorkflow publishes a new workflow card and escrows the author bond.
+  rpc PublishWorkflow(MsgPublishWorkflow) returns (MsgPublishWorkflowResponse);
+  // UpgradeWorkflow publishes a new version of an existing workflow.
+  rpc UpgradeWorkflow(MsgUpgradeWorkflow) returns (MsgUpgradeWorkflowResponse);
+  // DeactivateWorkflow deactivates a workflow version.
+  rpc DeactivateWorkflow(MsgDeactivateWorkflow) returns (MsgDeactivateWorkflowResponse);
+  // TopUpAuthorBond increases the author's escrowed bond.
+  rpc TopUpAuthorBond(MsgTopUpAuthorBond) returns (MsgTopUpAuthorBondResponse);
+  // WithdrawBond reclaims the excess author bond above the minimum.
+  rpc WithdrawBond(MsgWithdrawBond) returns (MsgWithdrawBondResponse);
+}
+
+// MsgPublishWorkflow publishes a workflow card and escrows the author bond.
+message MsgPublishWorkflow {
+  option (cosmos.msg.v1.signer) = "author";
+
+  string author = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  WorkflowCard workflow_card = 2;
+  cosmos.base.v1beta1.Coin bond = 3
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+}
+
+message MsgPublishWorkflowResponse {
+  string workflow_id = 1 [ (gogoproto.customname) = "WorkflowID" ];
+  string version = 2;
+}
+
+// MsgUpgradeWorkflow publishes a new version of an existing workflow.
+message MsgUpgradeWorkflow {
+  option (cosmos.msg.v1.signer) = "author";
+
+  string author = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string workflow_id = 2 [ (gogoproto.customname) = "WorkflowID" ];
+  string from_version = 3;
+  WorkflowCard workflow_card = 4;
+}
+
+message MsgUpgradeWorkflowResponse {
+  string workflow_id = 1 [ (gogoproto.customname) = "WorkflowID" ];
+  string version = 2;
+}
+
+// MsgDeactivateWorkflow deactivates a workflow version.
+message MsgDeactivateWorkflow {
+  option (cosmos.msg.v1.signer) = "author";
+
+  string author = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  string workflow_id = 2 [ (gogoproto.customname) = "WorkflowID" ];
+  string version = 3;
+  string reason = 4;
+}
+
+message MsgDeactivateWorkflowResponse {}
+
+// MsgTopUpAuthorBond increases the author's escrowed bond.
+message MsgTopUpAuthorBond {
+  option (cosmos.msg.v1.signer) = "author";
+
+  string author = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  cosmos.base.v1beta1.Coin amount = 2
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+}
+
+message MsgTopUpAuthorBondResponse {}
+
+// MsgWithdrawBond reclaims the excess author bond above the minimum.
+message MsgWithdrawBond {
+  option (cosmos.msg.v1.signer) = "author";
+
+  string author = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  cosmos.base.v1beta1.Coin amount = 2
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+}
+
+message MsgWithdrawBondResponse {}

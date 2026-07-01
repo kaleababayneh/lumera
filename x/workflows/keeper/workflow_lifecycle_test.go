@@ -37,7 +37,7 @@ func TestWorkflows_Publish_ValidSemver(t *testing.T) {
 }
 
 func TestMsgServer_RejectsNilKeeper(t *testing.T) {
-	ctx, k := setupKeeper(t)
+	ctx, _ := setupKeeper(t)
 	author := workflowTestAuthorAddress()
 
 	cases := []struct {
@@ -47,56 +47,52 @@ func TestMsgServer_RejectsNilKeeper(t *testing.T) {
 		{
 			name: "publish workflow",
 			call: func(server *msgServer) error {
-				return server.PublishWorkflow(ctx, publishMsg(author, "wf-msgserver-publish", "1.0.0", "1000000"))
+				_, err := server.PublishWorkflow(ctx, publishMsg(author, "wf-msgserver-publish", "1.0.0", "1000000"))
+				return err
 			},
 		},
 		{
 			name: "upgrade workflow",
 			call: func(server *msgServer) error {
-				return server.UpgradeWorkflow(ctx, &types.MsgUpgradeWorkflow{
+				_, err := server.UpgradeWorkflow(ctx, &types.MsgUpgradeWorkflow{
 					Author:       author,
 					WorkflowID:   "wf-msgserver-upgrade",
 					FromVersion:  "1.0.0",
 					WorkflowCard: workflowCard("wf-msgserver-upgrade", "1.1.0"),
 				})
+				return err
 			},
 		},
 		{
 			name: "deactivate workflow",
 			call: func(server *msgServer) error {
-				return server.DeactivateWorkflow(ctx, &types.MsgDeactivateWorkflow{
+				_, err := server.DeactivateWorkflow(ctx, &types.MsgDeactivateWorkflow{
 					Author:     author,
 					WorkflowID: "wf-msgserver-deactivate",
 					Version:    "1.0.0",
 					Reason:     "test",
 				})
+				return err
 			},
 		},
 		{
 			name: "withdraw bond",
 			call: func(server *msgServer) error {
-				return server.WithdrawBond(ctx, &types.MsgWithdrawBond{
+				_, err := server.WithdrawBond(ctx, &types.MsgWithdrawBond{
 					Author: author,
 					Amount: coin("ulac", "1"),
 				})
+				return err
 			},
 		},
 		{
 			name: "top up author bond",
 			call: func(server *msgServer) error {
-				return server.TopUpAuthorBond(ctx, &types.MsgTopUpAuthorBond{
+				_, err := server.TopUpAuthorBond(ctx, &types.MsgTopUpAuthorBond{
 					Author: author,
 					Amount: coin("ulac", "1"),
 				})
-			},
-		},
-		{
-			name: "update params",
-			call: func(server *msgServer) error {
-				return server.UpdateParams(ctx, &types.MsgUpdateParams{
-					Authority: k.Authority(),
-					Params:    types.DefaultParams(),
-				})
+				return err
 			},
 		},
 	}
@@ -129,63 +125,58 @@ func TestMsgServer_RejectsInvalidRequestsBeforeNilKeeper(t *testing.T) {
 		{
 			name: "publish workflow",
 			call: func() error {
-				return server.PublishWorkflow(context.Background(), publishMsg(" "+author, "wf-invalid-publish", "1.0.0", "1000000"))
+				_, err := server.PublishWorkflow(context.Background(), publishMsg(" "+author, "wf-invalid-publish", "1.0.0", "1000000"))
+				return err
 			},
 			want: "author",
 		},
 		{
 			name: "upgrade workflow",
 			call: func() error {
-				return server.UpgradeWorkflow(context.Background(), &types.MsgUpgradeWorkflow{
+				_, err := server.UpgradeWorkflow(context.Background(), &types.MsgUpgradeWorkflow{
 					Author:       author,
 					WorkflowID:   " wf-invalid-upgrade",
 					FromVersion:  "1.0.0",
 					WorkflowCard: workflowCard("wf-invalid-upgrade", "1.1.0"),
 				})
+				return err
 			},
 			want: "workflow_id",
 		},
 		{
 			name: "deactivate workflow",
 			call: func() error {
-				return server.DeactivateWorkflow(context.Background(), &types.MsgDeactivateWorkflow{
+				_, err := server.DeactivateWorkflow(context.Background(), &types.MsgDeactivateWorkflow{
 					Author:     author,
 					WorkflowID: "wf-invalid-deactivate",
 					Version:    " 1.0.0",
 					Reason:     "test",
 				})
+				return err
 			},
 			want: "version",
 		},
 		{
 			name: "withdraw bond",
 			call: func() error {
-				return server.WithdrawBond(context.Background(), &types.MsgWithdrawBond{
+				_, err := server.WithdrawBond(context.Background(), &types.MsgWithdrawBond{
 					Author: author,
 					Amount: coin("ulac", "not-an-int"),
 				})
+				return err
 			},
 			want: "amount",
 		},
 		{
 			name: "top up author bond",
 			call: func() error {
-				return server.TopUpAuthorBond(context.Background(), &types.MsgTopUpAuthorBond{
+				_, err := server.TopUpAuthorBond(context.Background(), &types.MsgTopUpAuthorBond{
 					Author: author,
 					Amount: coin("ulac", "not-an-int"),
 				})
+				return err
 			},
 			want: "amount",
-		},
-		{
-			name: "update params",
-			call: func() error {
-				return server.UpdateParams(context.Background(), &types.MsgUpdateParams{
-					Authority: "not-a-bech32-address",
-					Params:    types.DefaultParams(),
-				})
-			},
-			want: "authority",
 		},
 	}
 

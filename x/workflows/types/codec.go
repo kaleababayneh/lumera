@@ -3,6 +3,8 @@ package types
 import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/msgservice"
 )
 
 // RegisterLegacyAminoCodec registers scaffold message types on the provided codec.
@@ -15,10 +17,20 @@ func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(&MsgUpdateParams{}, "lumera/workflows/MsgUpdateParams", nil)
 }
 
-// RegisterInterfaces is intentionally empty until tx/query protobuf services
-// land with the storage bead. The scaffold still registers Amino types so
-// genesis and keeper tests have stable type names.
-func RegisterInterfaces(_ codectypes.InterfaceRegistry) {}
+// RegisterInterfaces registers the author-facing workflow messages and the Msg
+// service. The gogoproto type/file descriptors are registered by the generated
+// .pb.go init(). (MsgUpdateParams stays a dormant hand-written type — params are
+// genesis-configured, with no live tx service.)
+func RegisterInterfaces(registry codectypes.InterfaceRegistry) {
+	registry.RegisterImplementations((*sdk.Msg)(nil),
+		&MsgPublishWorkflow{},
+		&MsgUpgradeWorkflow{},
+		&MsgDeactivateWorkflow{},
+		&MsgTopUpAuthorBond{},
+		&MsgWithdrawBond{},
+	)
+	msgservice.RegisterMsgServiceDesc(registry, &_Msg_serviceDesc)
+}
 
 var (
 	// Amino is the module-wide Amino codec.

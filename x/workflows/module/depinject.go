@@ -39,5 +39,10 @@ func ProvideModule(in ModuleInputs) ModuleOutputs {
 		authority = authtypes.NewModuleAddressOrBech32Address(in.Config.Authority).String()
 	}
 	k := workflowskeeper.NewKeeper(in.Cdc, in.StoreService, authority, in.Logger)
+	// Publish-time tool-card resolution (k.SetWorkflowToolCardReader with the
+	// registry keeper) is a testnet-hardening item: it requires tools to be
+	// registered with exact versions matching the workflow step constraints.
+	// Left unset here so workflow publication does not depend on versioned tool
+	// registration; the resolver is skipped when the reader is nil.
 	return ModuleOutputs{WorkflowsKeeper: k, Module: workflows.NewAppModule(k)}
 }

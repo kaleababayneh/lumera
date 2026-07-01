@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package lumera.workflow.v1;
+
+import "cosmos/base/v1beta1/coin.proto";
+import "lumera/workflow/v1/workflow.proto";
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+
+option go_package = "x/workflows/types";
+
+// Query defines the workflows module's read service. Responses are assembled by
+// the query server from the module's state records.
+service Query {
+  // Params returns the module parameters.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse);
+  // Workflow returns a published workflow by id + version.
+  rpc Workflow(QueryWorkflowRequest) returns (QueryWorkflowResponse);
+  // AuthorBond returns an author's escrowed/slashed bond.
+  rpc AuthorBond(QueryAuthorBondRequest) returns (QueryAuthorBondResponse);
+}
+
+message QueryParamsRequest {}
+
+message QueryParamsResponse {
+  string min_author_bond_amount = 1;
+  string bond_denom = 2;
+  uint32 wasted_work_bps = 3;
+  uint32 max_workflow_versions = 4;
+  uint32 dispute_window_seconds = 5;
+}
+
+message QueryWorkflowRequest {
+  string workflow_id = 1;
+  string version = 2;
+}
+
+message QueryWorkflowResponse {
+  string workflow_id = 1;
+  string version = 2;
+  string status = 3;
+  string author_address = 4;
+  WorkflowCard card = 5;
+  int64 created_height = 6;
+  int64 updated_height = 7;
+}
+
+message QueryAuthorBondRequest {
+  string author = 1;
+}
+
+message QueryAuthorBondResponse {
+  string author_address = 1;
+  cosmos.base.v1beta1.Coin bond = 2
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  cosmos.base.v1beta1.Coin slashed = 3
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  repeated string locked_for = 4;
+  int64 updated_height = 5;
+}

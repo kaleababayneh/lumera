@@ -22,41 +22,6 @@ const (
 	TypeMsgUpdateParams = "update_params"
 )
 
-// MsgPublishWorkflow scaffolds workflow publication.
-type MsgPublishWorkflow struct {
-	Author       string        `json:"author"`
-	WorkflowCard *WorkflowCard `json:"workflow_card"`
-	Bond         sdk.Coin      `json:"bond,omitempty"`
-}
-
-// MsgUpgradeWorkflow scaffolds workflow version upgrades.
-type MsgUpgradeWorkflow struct {
-	Author       string        `json:"author"`
-	WorkflowID   string        `json:"workflow_id"`
-	FromVersion  string        `json:"from_version"`
-	WorkflowCard *WorkflowCard `json:"workflow_card"`
-}
-
-// MsgDeactivateWorkflow scaffolds workflow deactivation.
-type MsgDeactivateWorkflow struct {
-	Author     string `json:"author"`
-	WorkflowID string `json:"workflow_id"`
-	Version    string `json:"version"`
-	Reason     string `json:"reason,omitempty"`
-}
-
-// MsgTopUpAuthorBond adds unlocked bond balance for a workflow author.
-type MsgTopUpAuthorBond struct {
-	Author string   `json:"author"`
-	Amount sdk.Coin `json:"amount"`
-}
-
-// MsgWithdrawBond scaffolds workflow-author bond withdrawals.
-type MsgWithdrawBond struct {
-	Author string   `json:"author"`
-	Amount sdk.Coin `json:"amount,omitempty"`
-}
-
 // MsgUpdateParams scaffolds governance parameter updates.
 type MsgUpdateParams struct {
 	Authority string  `json:"authority"`
@@ -81,20 +46,6 @@ func (m *MsgPublishWorkflow) ValidateBasic() error {
 		return err
 	}
 	return validateCoin("bond", m.Bond, false)
-}
-
-func (m *MsgPublishWorkflow) GetAuthor() string {
-	if m == nil {
-		return ""
-	}
-	return m.Author
-}
-
-func (m *MsgPublishWorkflow) GetWorkflowCard() *WorkflowCard {
-	if m == nil {
-		return nil
-	}
-	return m.WorkflowCard
 }
 
 func (m *MsgUpgradeWorkflow) Route() string { return RouterKey }
@@ -123,34 +74,6 @@ func (m *MsgUpgradeWorkflow) ValidateBasic() error {
 	return nil
 }
 
-func (m *MsgUpgradeWorkflow) GetAuthor() string {
-	if m == nil {
-		return ""
-	}
-	return m.Author
-}
-
-func (m *MsgUpgradeWorkflow) GetWorkflowID() string {
-	if m == nil {
-		return ""
-	}
-	return m.WorkflowID
-}
-
-func (m *MsgUpgradeWorkflow) GetFromVersion() string {
-	if m == nil {
-		return ""
-	}
-	return m.FromVersion
-}
-
-func (m *MsgUpgradeWorkflow) GetWorkflowCard() *WorkflowCard {
-	if m == nil {
-		return nil
-	}
-	return m.WorkflowCard
-}
-
 func (m *MsgDeactivateWorkflow) Route() string { return RouterKey }
 func (m *MsgDeactivateWorkflow) Type() string  { return TypeMsgDeactivateWorkflow }
 
@@ -160,27 +83,6 @@ func (m *MsgDeactivateWorkflow) ValidateBasic() error {
 	}
 	_, err := WorkflowKey(m.GetWorkflowID(), m.GetVersion())
 	return err
-}
-
-func (m *MsgDeactivateWorkflow) GetAuthor() string {
-	if m == nil {
-		return ""
-	}
-	return m.Author
-}
-
-func (m *MsgDeactivateWorkflow) GetWorkflowID() string {
-	if m == nil {
-		return ""
-	}
-	return m.WorkflowID
-}
-
-func (m *MsgDeactivateWorkflow) GetVersion() string {
-	if m == nil {
-		return ""
-	}
-	return m.Version
 }
 
 func (m *MsgWithdrawBond) Route() string { return RouterKey }
@@ -196,32 +98,11 @@ func (m *MsgTopUpAuthorBond) ValidateBasic() error {
 	return validateCoin("amount", m.Amount, true)
 }
 
-func (m *MsgTopUpAuthorBond) GetAuthor() string {
-	if m == nil {
-		return ""
-	}
-	return m.Author
-}
-
-func (m *MsgTopUpAuthorBond) GetAmount() sdk.Coin {
-	if m == nil {
-		return sdk.Coin{}
-	}
-	return m.Amount
-}
-
 func (m *MsgWithdrawBond) ValidateBasic() error {
 	if err := validateWorkflowMsgIdentifier("author", m.GetAuthor()); err != nil {
 		return err
 	}
 	return validateCoin("amount", m.Amount, true)
-}
-
-func (m *MsgWithdrawBond) GetAuthor() string {
-	if m == nil {
-		return ""
-	}
-	return m.Author
 }
 
 func (m *MsgUpdateParams) Route() string { return RouterKey }

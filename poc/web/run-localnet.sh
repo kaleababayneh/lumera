@@ -121,7 +121,7 @@ done
 
 # Seed the wave-2 module panels so they show live on-chain data on first load
 # (every line below is a real tx — the same calls the web panels make).
-echo "seeding wave-2 modules (passport · vaults · cac · tournaments · on-ramp · router)…"
+echo "seeding modules (passport · vaults · cac · tournaments · on-ramp · router · workflows)…"
 # Agent identities (passport): a few accounts register a stake-backed identity.
 for entry in "acct1 12000000" "acct2 15000000" "acct4 18000000"; do set -- $entry
   waittx "$("$LD" tx passport register "agent-$1" "${2}ulume" --from "$1" "${C[@]}" -o json | hash)"
@@ -148,6 +148,31 @@ waittx "$("$LD" tx payment_rails create-deposit 2000000usdc --tx-hash 0xseedrail
 # Routing telemetry (router): tool owners record activations (feeds global metrics).
 waittx "$("$LD" tx router record-activation pubtool true --session-id seed-sess-1 --from pub "${C[@]}" -o json | hash)"
 waittx "$("$LD" tx router record-activation atlas-7b true --session-id seed-sess-1 --from acct1 "${C[@]}" -o json | hash)"
+# Composable intelligence (workflows): acct1 publishes a demo workflow card +
+# author bond. The PoC's Workflows panel seeds this id (wf.lumera.echo) so it
+# shows live state on first load (publish/upgrade/deactivate are drivable there).
+ACCT1=$("$LD" keys show acct1 -a "${KR[@]}")
+WPUB="ed448:$(python3 -c "print('a'*114)")"
+python3 - "$ACCT1" "$WPUB" > /tmp/lumera-workflow-seed.json <<'PY'
+import json,sys
+addr,pub=sys.argv[1],sys.argv[2]
+print(json.dumps({
+ "workflow_id":"wf.lumera.echo","version":"1.0.0","display_name":"Lumera Echo Workflow",
+ "description":"Single-step demo workflow seeded for the PoC.","author_id":"author-"+addr,
+ "author_pubkey":pub,"categories":["agent-contracts"],"license_lane":"byo_key",
+ "dag":[{"step_id":"step-a","tool_id":"tool.alpha","tool_version_constraint":"1.0.0",
+   "input_binding":"$.inputs","max_sub_cost":{"denom":"ulac","amount":"1"},"sub_slo_p95_ms":1000,
+   "retry_policy":{"max_attempts":1},"failure_action":"FAILURE_ACTION_REVERT_BUNDLE",
+   "side_effect":"SIDE_EFFECT_REVERSIBLE"}],
+ "input_schema":"{\"type\":\"object\"}","output_schema":"{\"type\":\"object\"}",
+ "pricing":{"pricing_model":"sum_steps_plus_margin","min_bond":{"denom":"ulac","amount":"1000000"}},
+ "passport_requirements":{"min_tier":"PASSPORT_TIER_BASIC"},
+ "governance":{"author_addresses":[addr],"upgrade_policy":"UPGRADE_POLICY_SEMVER_COMPATIBLE"},
+ "safety_invariants":[{"invariant_id":"total_cost_bound","expression":"total_cost <= max_cost",
+   "phase":"INVARIANT_PHASE_LOCK","severity":"error","error_code":"workflow_cost_exceeded",
+   "hint_message":"Keep the locked workflow cost within the signed quote budget."}]}))
+PY
+waittx "$("$LD" tx workflows publish-workflow /tmp/lumera-workflow-seed.json --bond 1000000ulac --from acct1 "${C[@]}" -o json | hash)"
 
 # Build the MCP router so the web "Agent terminal" can drive a real agent over MCP.
 go build -o /tmp/lumera-mcp-router ./poc/mcp-router 2>/dev/null || true

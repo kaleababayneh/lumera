@@ -7,24 +7,17 @@ import (
 	"github.com/LumeraProtocol/lumera/x/workflows/types"
 )
 
-// MsgServer is a scaffold-local interface until tx protobuf services land.
-type MsgServer interface {
-	PublishWorkflow(context.Context, *types.MsgPublishWorkflow) error
-	UpgradeWorkflow(context.Context, *types.MsgUpgradeWorkflow) error
-	DeactivateWorkflow(context.Context, *types.MsgDeactivateWorkflow) error
-	TopUpAuthorBond(context.Context, *types.MsgTopUpAuthorBond) error
-	WithdrawBond(context.Context, *types.MsgWithdrawBond) error
-	UpdateParams(context.Context, *types.MsgUpdateParams) error
-}
-
+// msgServer implements the generated workflows MsgServer.
 type msgServer struct {
 	keeper *Keeper
 }
 
-// NewMsgServerImpl returns a scaffold message server.
-func NewMsgServerImpl(k *Keeper) MsgServer {
+// NewMsgServerImpl returns an implementation of the workflows MsgServer.
+func NewMsgServerImpl(k *Keeper) types.MsgServer {
 	return &msgServer{keeper: k}
 }
+
+var _ types.MsgServer = (*msgServer)(nil)
 
 func (s *msgServer) requireKeeper() (*Keeper, error) {
 	if s == nil || s.keeper == nil {
@@ -39,95 +32,94 @@ func recoverWorkflows(action string, err *error) {
 	}
 }
 
-func (s *msgServer) PublishWorkflow(ctx context.Context, msg *types.MsgPublishWorkflow) (err error) {
+func (s *msgServer) PublishWorkflow(ctx context.Context, msg *types.MsgPublishWorkflow) (resp *types.MsgPublishWorkflowResponse, err error) {
 	defer recoverWorkflows("workflows/PublishWorkflow", &err)
 	if msg == nil {
-		return fmt.Errorf("empty request")
+		return nil, fmt.Errorf("empty request")
 	}
 	if err := msg.ValidateBasic(); err != nil {
-		return err
+		return nil, err
 	}
 	keeper, err := s.requireKeeper()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return keeper.PublishWorkflow(ctx, msg)
+	if err := keeper.PublishWorkflow(ctx, msg); err != nil {
+		return nil, err
+	}
+	card := msg.GetWorkflowCard()
+	return &types.MsgPublishWorkflowResponse{WorkflowID: card.GetWorkflowId(), Version: card.GetVersion()}, nil
 }
 
-func (s *msgServer) UpgradeWorkflow(ctx context.Context, msg *types.MsgUpgradeWorkflow) (err error) {
+func (s *msgServer) UpgradeWorkflow(ctx context.Context, msg *types.MsgUpgradeWorkflow) (resp *types.MsgUpgradeWorkflowResponse, err error) {
 	defer recoverWorkflows("workflows/UpgradeWorkflow", &err)
 	if msg == nil {
-		return fmt.Errorf("empty request")
+		return nil, fmt.Errorf("empty request")
 	}
 	if err := msg.ValidateBasic(); err != nil {
-		return err
+		return nil, err
 	}
 	keeper, err := s.requireKeeper()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return keeper.UpgradeWorkflow(ctx, msg)
+	if err := keeper.UpgradeWorkflow(ctx, msg); err != nil {
+		return nil, err
+	}
+	card := msg.GetWorkflowCard()
+	return &types.MsgUpgradeWorkflowResponse{WorkflowID: card.GetWorkflowId(), Version: card.GetVersion()}, nil
 }
 
-func (s *msgServer) DeactivateWorkflow(ctx context.Context, msg *types.MsgDeactivateWorkflow) (err error) {
+func (s *msgServer) DeactivateWorkflow(ctx context.Context, msg *types.MsgDeactivateWorkflow) (resp *types.MsgDeactivateWorkflowResponse, err error) {
 	defer recoverWorkflows("workflows/DeactivateWorkflow", &err)
 	if msg == nil {
-		return fmt.Errorf("empty request")
+		return nil, fmt.Errorf("empty request")
 	}
 	if err := msg.ValidateBasic(); err != nil {
-		return err
+		return nil, err
 	}
 	keeper, err := s.requireKeeper()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return keeper.DeactivateWorkflow(ctx, msg)
+	if err := keeper.DeactivateWorkflow(ctx, msg); err != nil {
+		return nil, err
+	}
+	return &types.MsgDeactivateWorkflowResponse{}, nil
 }
 
-func (s *msgServer) TopUpAuthorBond(ctx context.Context, msg *types.MsgTopUpAuthorBond) (err error) {
+func (s *msgServer) TopUpAuthorBond(ctx context.Context, msg *types.MsgTopUpAuthorBond) (resp *types.MsgTopUpAuthorBondResponse, err error) {
 	defer recoverWorkflows("workflows/TopUpAuthorBond", &err)
 	if msg == nil {
-		return fmt.Errorf("empty request")
+		return nil, fmt.Errorf("empty request")
 	}
 	if err := msg.ValidateBasic(); err != nil {
-		return err
+		return nil, err
 	}
 	keeper, err := s.requireKeeper()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return keeper.TopUpAuthorBond(ctx, msg)
+	if err := keeper.TopUpAuthorBond(ctx, msg); err != nil {
+		return nil, err
+	}
+	return &types.MsgTopUpAuthorBondResponse{}, nil
 }
 
-func (s *msgServer) WithdrawBond(ctx context.Context, msg *types.MsgWithdrawBond) (err error) {
+func (s *msgServer) WithdrawBond(ctx context.Context, msg *types.MsgWithdrawBond) (resp *types.MsgWithdrawBondResponse, err error) {
 	defer recoverWorkflows("workflows/WithdrawBond", &err)
 	if msg == nil {
-		return fmt.Errorf("empty request")
+		return nil, fmt.Errorf("empty request")
 	}
 	if err := msg.ValidateBasic(); err != nil {
-		return err
+		return nil, err
 	}
 	keeper, err := s.requireKeeper()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return keeper.WithdrawBond(ctx, msg)
-}
-
-func (s *msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams) (err error) {
-	defer recoverWorkflows("workflows/UpdateParams", &err)
-	if msg == nil {
-		return fmt.Errorf("empty request")
+	if err := keeper.WithdrawBond(ctx, msg); err != nil {
+		return nil, err
 	}
-	if err := msg.ValidateBasic(); err != nil {
-		return err
-	}
-	keeper, err := s.requireKeeper()
-	if err != nil {
-		return err
-	}
-	if msg.Authority != keeper.Authority() {
-		return fmt.Errorf("invalid authority: got %s want %s", msg.Authority, keeper.Authority())
-	}
-	return keeper.SetParams(ctx, msg.Params)
+	return &types.MsgWithdrawBondResponse{}, nil
 }

@@ -16,6 +16,7 @@ import (
 	legacyruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/spf13/cobra"
 
+	workflowscli "github.com/LumeraProtocol/lumera/x/workflows/client/cli"
 	"github.com/LumeraProtocol/lumera/x/workflows/keeper"
 	"github.com/LumeraProtocol/lumera/x/workflows/types"
 )
@@ -68,10 +69,10 @@ func (AppModuleBasic) ValidateGenesis(_ codec.JSONCodec, _ client.TxEncodingConf
 func (AppModuleBasic) RegisterGRPCGatewayRoutes(client.Context, *legacyruntime.ServeMux) {}
 
 // GetTxCmd returns no root tx command until tx services land.
-func (AppModuleBasic) GetTxCmd() *cobra.Command { return nil }
+func (AppModuleBasic) GetTxCmd() *cobra.Command { return workflowscli.GetTxCmd() }
 
 // GetQueryCmd returns no root query command until query services land.
-func (AppModuleBasic) GetQueryCmd() *cobra.Command { return nil }
+func (AppModuleBasic) GetQueryCmd() *cobra.Command { return workflowscli.GetQueryCmd() }
 
 // AppModule implements an application module for x/workflows.
 type AppModule struct {
@@ -93,8 +94,12 @@ func NewAppModule(k *keeper.Keeper) AppModule {
 // RegisterInvariants wires workflows invariants into the application registry.
 func (am AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {}
 
-// RegisterServices is intentionally empty until tx/query protobuf services land.
-func (am AppModule) RegisterServices(module.Configurator) {}
+// RegisterServices registers the workflows msg + query servers (author-facing
+// publish/upgrade/deactivate + bond management, and the read service).
+func (am AppModule) RegisterServices(cfg module.Configurator) {
+	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
+	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQueryServerImpl(am.keeper))
+}
 
 // InitGenesis performs genesis initialization for the workflows module.
 func (am AppModule) InitGenesis(ctx sdk.Context, _ codec.JSONCodec, data json.RawMessage) {

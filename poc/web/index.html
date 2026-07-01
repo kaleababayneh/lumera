@@ -194,6 +194,7 @@
       <div class="grp up">Network</div>
       <a data-route="routing" href="#/routing"><span class="ic" data-ic="activity"></span> Routing</a>
       <a data-route="orchestration" href="#/orchestration"><span class="ic" data-ic="map"></span> Orchestration</a>
+      <a data-route="workflows" href="#/workflows"><span class="ic" data-ic="link"></span> Workflows</a>
       <a data-route="cache" href="#/cache"><span class="ic" data-ic="grid"></span> Cache</a>
       <div class="grp up">System</div>
       <a data-route="stack" href="#/stack"><span class="ic" data-ic="grid"></span> Full stack</a>
@@ -415,7 +416,7 @@ const TITLES={'':['Dashboard','overview'],marketplace:['Marketplace','discover o
   wallet:['Wallet','credits & balances'],activity:['Activity','on-chain feed'],vision:['Roadmap','the full vision'],
   identity:['Identity','stake-backed agent passport'],capacity:['Capacity','prepaid vaults'],cache:['Cache','content-addressed cache'],
   tournaments:['Tournaments','grand challenges'],onramp:['On-ramp','bridge → LAC credits'],routing:['Routing','router telemetry'],
-  orchestration:['Orchestration','lanes · auctions · workflows'],stack:['Full stack','every module, live']};
+  orchestration:['Orchestration','lanes · auctions · workflows'],workflows:['Workflows','composable intelligence'],stack:['Full stack','every module, live']};
 
 function kpiCard(tag,id,val,label,seed){return `<div class="kpi"><span class="tag ${tag}">${tag.toUpperCase()}</span><div class="v" id="${id}">${val}</div><div class="l up">${label}</div>${spark(seed)}</div>`;}
 
@@ -633,7 +634,7 @@ function vActivity(){
   <div class="card"><div class="b"><div class="feed" id="actFeed">${ACTIVITY.length?feedHTML(ACTIVITY):'<div class="empty">No activity yet — call a tool or publish one.</div>'}</div></div></div>`,mount:updateLive};
 }
 function feedHTML(items){if(!items||!items.length)return '<div class="empty">No activity yet.</div>';
-  const ico={call:'shield',register:'upload',swap:'wallet',badge:'award',challenge:'scale',resolve:'scale',bond:'plus',vault:'wallet',passport:'shield',tournament:'award',rails:'wallet',router:'activity'};
+  const ico={call:'shield',register:'upload',swap:'wallet',badge:'award',challenge:'scale',resolve:'scale',bond:'plus',vault:'wallet',passport:'shield',tournament:'award',rails:'wallet',router:'activity',workflow:'link'};
   return items.map(a=>`<div class="it"><div class="fic">${svg(ico[a.type]||'activity',14)}</div>
     <div><div class="ft">${esc(a.title)}</div><div class="fs">${esc(a.sub||'')}${a.account?' · '+esc(a.account):''}</div></div>
     <div class="fm">${a.height?'h'+a.height+' · ':''}${ago(a.time)}<br>${a.txhash?`<a onclick="navigator.clipboard&&navigator.clipboard.writeText('${a.txhash}');toast('Copied tx hash')">tx ${a.txhash.slice(0,8)}</a>`:''}</div></div>`).join('');}
@@ -862,9 +863,47 @@ function vOrchestration(){return {html:`<div class="sub">The routing &amp; orche
     </div>`);
   });}};}
 
+// ---- Workflows: Composable Intelligence (live publish/upgrade/deactivate) ----
+function wfStatusPill(s){const t=(s||'').toLowerCase();if(t==='active')return '<span class="pill ok">active</span>';if(t==='inactive')return '<span class="pill warn">inactive</span>';return '<span class="pill idle">'+esc(t||'—')+'</span>';}
+function vWorkflows(){return {html:`<div class="sub">Chain multiple tool calls into a single <b style="color:#fff">bonded, replay-protected workflow</b> with signed step receipts — one verifiable transaction for a whole agent pipeline. Authors escrow a bond (slashable on wasted work) and version their cards under a semver upgrade policy.</div>
+  <div class="grid g2">
+    <div class="card"><div class="h"><span class="up">Publish a workflow</span><span class="hint">as ${esc(account)}</span></div><div class="b">
+      <div class="row" style="gap:12px"><div class="field" style="flex:2"><label>Workflow id</label><input id="wfId" placeholder="(auto: wf.${esc(account)}.…)"></div>
+        <div class="field" style="flex:1"><label>Bond (ulac)</label><input id="wfBond" value="1000000"></div></div>
+      <button class="btn-primary" style="margin-top:6px" onclick="doWfPublish()">${svg('upload',15)} Publish workflow</button>
+      <div class="kv" style="margin-top:14px"><span class="k">Your author bond</span><span class="v" id="wfBondState">—</span></div>
+      <div class="kv"><span class="k">Bond locked for</span><span class="v" id="wfBondLocked">—</span></div>
+      <div class="hint" style="margin-top:8px;line-height:1.7">Single-step demo card (tool.alpha). The author bond is tracked in module state; actual bank escrow is a testnet-hardening item.</div>
+    </div></div>
+    <div class="card"><div class="h"><span class="up">Module parameters</span></div><div class="b" id="wfParams"><div class="empty">loading…</div></div></div>
+  </div>
+  <div class="card" style="margin-top:16px"><div class="h"><span class="up">Published workflows <span class="ct" id="wfCount">0</span></span></div><div class="b" style="padding:0"><div id="wfList"><div class="empty" style="padding:16px">loading…</div></div></div></div>`,
+  mount:()=>{updateLive();w2load('/api/workflows',d=>{
+    const ws=(d&&d.workflows)||[];const p=(d&&d.params)||{};const ab=(d&&d.authorBond)||null;
+    set('wfCount',ws.length);
+    setHTML('wfParams',`<div class="kv"><span class="k">Min author bond</span><span class="v">${fmt(p.min_author_bond_amount||0)} ${esc(p.bond_denom||'')}</span></div>
+      <div class="kv"><span class="k">Dispute window</span><span class="v">${Math.round((p.dispute_window_seconds||0)/3600)} h</span></div>
+      <div class="kv"><span class="k">Wasted-work penalty</span><span class="v">${((p.wasted_work_bps||0)/100).toFixed(0)}%</span></div>
+      <div class="kv"><span class="k">Max versions / workflow</span><span class="v">${p.max_workflow_versions||'—'}</span></div>`);
+    setHTML('wfBondState',ab&&ab.bond?w2coin(ab.bond):'<span class="hint">none yet</span>');
+    setHTML('wfBondLocked',ab&&ab.locked_for&&ab.locked_for.length?esc(ab.locked_for.join(', ')):'—');
+    setHTML('wfList',ws.length?`<table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="color:var(--dim);text-align:left"><th style="padding:10px 16px">Workflow</th><th>Version</th><th>Steps</th><th>Author</th><th>Status</th><th style="padding-right:16px">Actions</th></tr></thead>
+      <tbody>${ws.map(w=>`<tr style="border-top:1px solid var(--line)"><td style="padding:10px 16px;color:#fff">${esc(w.displayName||w.id)}<div class="hint">${esc(w.id)}</div></td><td>${esc(w.version)}</td><td>${w.steps||0}</td><td class="mono" style="color:var(--muted)">${esc((w.author||'').slice(0,12))}…</td><td>${wfStatusPill(w.status)}</td>
+        <td style="padding-right:16px"><div class="row" style="gap:6px">
+          <button class="btn-sm" onclick="doWfUpgrade('${esc(w.id)}','${esc(w.version)}')" ${w.status!=='active'?'disabled':''}>${svg('plus',13)} Upgrade</button>
+          <button class="btn-sm" onclick="doWfDeactivate('${esc(w.id)}','${esc(w.version)}')" ${w.status!=='active'?'disabled':''}>Deactivate</button></div></td></tr>`).join('')}</tbody></table>`
+      :'<div class="empty" style="padding:16px">No workflows yet — publish one to escrow a bond and register a composable pipeline.</div>');
+  });}};}
+async function doWfPublish(){const id=(el('wfId').value||'').trim();const bond=((el('wfBond').value||'1000000').replace(/[^0-9]/g,''))+'ulac';
+  await doAction('workflow-publish','Workflow published','link','ok','&bond='+encodeURIComponent(bond)+(id?('&id='+encodeURIComponent(id)):''));}
+async function doWfUpgrade(id,from){const to=nextSemver(from);await doAction('workflow-upgrade','Workflow upgraded','plus','ok','&id='+encodeURIComponent(id)+'&from='+encodeURIComponent(from)+'&to='+encodeURIComponent(to));}
+async function doWfDeactivate(id,version){await doAction('workflow-deactivate','Workflow deactivated','minus','warn','&id='+encodeURIComponent(id)+'&version='+encodeURIComponent(version));}
+function nextSemver(v){const p=String(v||'1.0.0').split('.').map(n=>parseInt(n,10)||0);p[1]=(p[1]||0)+1;p[2]=0;return p.join('.');}
+
 const VIEWS={'':vDashboard,marketplace:vMarketplace,tool:vTool,agent:vAgent,graph:vGraph,publish:vPublish,disputes:vDisputes,reputation:vReputation,wallet:vWallet,activity:vActivity,vision:vVision,
   identity:vIdentity,capacity:vCapacity,cache:vCache,tournaments:vTournaments,onramp:vOnramp,routing:vRouting,
-  stack:vStack,orchestration:vOrchestration};
+  stack:vStack,orchestration:vOrchestration,workflows:vWorkflows};
 
 // ================= router =================
 function parseHash(){const h=(location.hash||'#/').replace(/^#\/?/,'');const [route,...rest]=h.split('/');return [route,rest.join('/')];}
